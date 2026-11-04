@@ -51,7 +51,7 @@
           <button class="mbtn" id="map-home" aria-label="Back to the harbour">⌂</button>
           <button class="mbtn wide" id="map-tod" aria-label="Time of day">DAY</button>
         </div>
-        <div class="map-hint" id="map-hint">Drag to look around · tap a villager</div>
+        <div class="map-hint" id="map-hint">Drag to look around · tap a villager or a building</div>
         <div class="closed-banner" id="closed-banner" hidden>
           <p class="pix">The Instagram village opens soon</p>
           <p>Day 1 is on its way. Follow along and be one of the first to move in.</p>
@@ -161,6 +161,18 @@
     <button class="btn ghost" id="v-save">Save image</button>
   </div>
   <p class="toast" id="toast" aria-live="polite"></p>
+</dialog>
+
+<dialog id="place" aria-labelledby="p-title">
+  <form method="dialog" class="v-close-row"><button class="mbtn" aria-label="Close">×</button></form>
+  <p class="v-job" id="p-kicker"></p>
+  <h3 id="p-title"></h3>
+  <p class="v-trait" id="p-text"></p>
+  <p class="muted small" id="p-meta" hidden></p>
+  <div class="v-actions">
+    <button class="btn" id="p-person" hidden></button>
+    <button class="btn ghost" id="p-find" hidden>Find your villager</button>
+  </div>
 </dialog>
 
 <script src="engine/core.js"></script>

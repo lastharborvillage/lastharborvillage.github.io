@@ -80,6 +80,7 @@
       if (p >= 1) M.fly = null;
     }
     const z = Math.max(1, Math.round(zoom() * r));
+    M.cam = { x: M.x, y: M.y, z, w, h };
     const cat = D.cat ? [D.cat[0] * T, D.cat[1] * T] : undefined;
     const res = LH.draw.renderWorld(ctx, { world: D.world, cam: { x: M.x, y: M.y, z }, t, tod: M.tod, cat });
     M.actors = res.actors;
@@ -157,8 +158,102 @@
       const d = Math.abs(x - a.sx) + Math.abs(y - (a.sy + a.sHead) / 2);
       if (d < bestD) { bestD = d; best = a; }
     }
-    if (best) openVillager(best.id);
+    if (best) return openVillager(best.id);
+    const place = placeAt(e);
+    if (place) openPlace(place);
   }
+
+  // ---------- places: buildings, homes, the ship and props can be tapped ----------
+  // Texts per building id, then per type. A building or prop in world.json may carry its own
+  // "name" and "description" (the daily writer adds them for new places), which win over these.
+  // No spoilers: describe what is there now, never what is coming.
+  const PLACE_TEXT = {
+    lighthouse: { title: 'The Lighthouse', kicker: 'Landmark', text: 'Old Morten keeps the light burning every night and writes down everything he sees in the fog. Its beam is the first thing a new villager sees from the sea.', person: 'morten' },
+    'bram-workshop': { title: "Bram's Workshop", kicker: 'Shipyard', text: 'Where Bram the shipwright cuts every plank for the ship. He has talked to the ship more than to people.', person: 'bram' },
+    dock: { title: 'The Pier', kicker: 'Harbour', text: 'The fishing boats tie up here. From the end of the pier you can see the buoys, and behind them the fog.' },
+    rowboat: { title: 'Rowboat', kicker: 'Harbour', text: 'A small fishing boat. Nobody takes it past the last buoy.' },
+    buoy: { title: 'Buoy', kicker: 'Sea', text: 'The buoys mark the edge of the safe water. Past them there is only fog.' },
+    lamppost: { title: 'Harbour Lamp', kicker: 'Harbour', text: 'Lit every evening, so nobody walks off the quay in the dark.' },
+    barrel: { title: 'Barrels', kicker: 'Supplies', text: 'Salted fish and fresh water, put away for the voyage.' },
+    crate: { title: 'Crates', kicker: 'Supplies', text: 'Nails, rope and tar for the shipyard.' },
+    netrack: { title: 'Net Rack', kicker: 'Harbour', text: 'The fishing nets, drying in the salt wind.' },
+    board: { title: 'The Village Board', kicker: 'Harbour', text: "Every villager's name is pinned here. Pause the video, or search below, and find yours.", find: true },
+    bench: { title: 'Harbour Bench', kicker: 'Harbour', text: 'The best seat in the village for watching the fog.' },
+    plankpile: { title: 'Plank Pile', kicker: 'Shipyard', text: 'Planks waiting for the ship. Every one of them stands for a villager.' },
+    sawhorse: { title: 'Sawhorse', kicker: 'Shipyard', text: 'Where Bram cuts each plank to size.' },
+  };
+
+  // Every tappable place with its box in world pixels [x0, y0, x1, y1].
+  function places() {
+    const w = D.world, out = [];
+    const push = (p, box) => out.push({ ...p, box });
+    for (const b of w.buildings || []) {
+      const bx = b.tileX * T, by = b.tileY * T;
+      const base = PLACE_TEXT[b.id] || PLACE_TEXT[b.type] || { title: 'A building', kicker: 'Last Harbor', text: 'Part of the village.' };
+      const p = { ...base, title: b.name || base.title, text: b.description || base.text, id: b.id };
+      if (b.type === 'lighthouse') push(p, [bx + T - 12, by + 2 * T - 75, bx + T + 12, by + 2 * T + 2]);
+      else push(p, [bx + 16 - 20, by + 30 - 44, bx + 16 + 20, by + 30 + 3]);
+    }
+    for (const v of w.villagers || []) {
+      if (!v.home || v.home.tileX == null) continue;
+      const lay = LH.map.homeLayout(v.home);
+      const cx = v.home.tileX * T + 16 + lay.dx, base = v.home.tileY * T + 30 + lay.dy;
+      push({ id: 'home-' + v.id, title: (v.displayName || 'A villager') + "'s home", kicker: v.job || 'Villager', text: v.trait || '', meta: 'In ' + districtName(v.home.district) + ' · moved in on day ' + v.dayJoined, person: v.id }, [cx - 20, base - 44, cx + 20, base + 3]);
+    }
+    const s = w.ship;
+    if (s && s.x != null) {
+      const st = LH.map.shipStage(s.planks);
+      const goal = s.goal || LH.map.SHIP_GOAL;
+      push({ id: 'ship', title: 'The Ship', kicker: st.index ? 'Stage: ' + STAGE_NAMES[st.id] : 'Waiting for planks', text: 'Every villager adds one plank. ' + s.planks + ' of ' + goal + ' so far. When the last plank is in, the village sails into the fog.', person: 'bram' }, [s.x - 6, s.y - 40, s.x + 110, s.y + 5]);
+    }
+    const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7] };
+    for (const p of w.props || []) {
+      const base = PLACE_TEXT[p.type];
+      if (!base && !p.name) continue;
+      const info = { ...(base || { kicker: 'Last Harbor' }), title: p.name || (base && base.title), text: p.description || (base && base.text) || '', id: p.type };
+      const x = p.x * T, y = p.y * T;
+      if (p.type === 'dock') push(info, [x, y - (p.len || 4) * T, x + 24, y]);
+      else { const [hw, hh] = SIZE[p.type] || [8, 14]; push(info, [x - hw, y - hh, x + hw, y + 2]); }
+    }
+    return out;
+  }
+
+  // the place under a pointer event, the smallest box first (a lamp in front of a house wins)
+  function placeAt(e) {
+    if (!M.cam || !D) return null;
+    const rect = canvas.getBoundingClientRect();
+    const r = dpr();
+    const sx = (e.clientX - rect.left) * r, sy = (e.clientY - rect.top) * r;
+    const wx = M.cam.x + (sx - M.cam.w / 2) / M.cam.z, wy = M.cam.y + (sy - M.cam.h / 2) / M.cam.z;
+    const pad = 3;
+    const hits = places().filter(({ box: b }) => wx >= b[0] - pad && wx <= b[2] + pad && wy >= b[1] - pad && wy <= b[3] + pad);
+    hits.sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]));
+    return hits[0] || null;
+  }
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || drag || !D) return;
+    canvas.style.cursor = placeAt(e) ? 'pointer' : '';
+  });
+
+  const pdlg = $('place');
+  let placePerson = null;
+  function openPlace(p) {
+    $('p-kicker').textContent = (p.kicker || '').toUpperCase();
+    $('p-title').textContent = p.title || '';
+    $('p-text').textContent = p.text || '';
+    $('p-meta').textContent = p.meta || '';
+    $('p-meta').hidden = !p.meta;
+    placePerson = p.person && findPerson(p.person) ? p.person : null;
+    const who = placePerson && findPerson(placePerson);
+    $('p-person').hidden = !who;
+    if (who) $('p-person').textContent = 'Meet ' + (who.displayName || 'the cat');
+    $('p-find').hidden = !p.find;
+    if (!pdlg.open) pdlg.showModal();
+  }
+  pdlg.addEventListener('click', (e) => { if (e.target === pdlg) pdlg.close(); });
+  $('p-person').addEventListener('click', () => { const id = placePerson; pdlg.close(); if (id) openVillager(id); });
+  $('p-find').addEventListener('click', () => { pdlg.close(); $('find').scrollIntoView({ behavior: 'smooth' }); setTimeout(() => $('search').focus(), 500); });
 
   function setZoom(zi) { M.zi = Math.max(0, Math.min(ZOOMS.length - 1, zi)); }
   $('zoom-in').addEventListener('click', () => setZoom(M.zi + 1));

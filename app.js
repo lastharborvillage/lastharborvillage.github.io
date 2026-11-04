@@ -14,7 +14,7 @@
 
   // ---------- helpers ----------
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const districtName = (id) => (D.world.districts[id] && D.world.districts[id].name) || id;
+  const districtName = (id) => (D.world.districts[id] && D.world.districts[id].name) || '???';
   const people = () => D.world.villagers;
   const findPerson = (id) => people().find((v) => v.id === id) || D.world.founders.find((f) => f.id === id);
   const fmtDate = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Brussels' });
@@ -295,7 +295,8 @@
     $('ship-bar').style.width = Math.min(100, (s.planks / goal) * 100) + '%';
     const cur = LH.map.shipStage(s.planks).index;
     $('stages').replaceChildren(...LH.map.SHIP_STAGES.slice(1).map((st, i) => {
-      const li = el('li', i + 1 < cur ? 'done' : i + 1 === cur ? 'now' : '', STAGE_NAMES[st.id] + ' ' + st.at);
+      // no spoilers: a stage's name shows once the ship reaches it
+      const li = el('li', i + 1 < cur ? 'done' : i + 1 === cur ? 'now' : '', (i + 1 <= cur ? STAGE_NAMES[st.id] : '???') + ' ' + st.at);
       return li;
     }));
   }
@@ -358,7 +359,8 @@
     $('districts').replaceChildren(...ds.map(([id, d]) => {
       const open = n >= d.unlockAt;
       const li = el('li', open ? 'open' : 'locked');
-      li.appendChild(el('span', 'nm', d.name));
+      // no spoilers: a district's name shows once it opens
+      li.appendChild(el('span', 'nm', open && d.name ? d.name : '???'));
       li.appendChild(el('span', 'st', open ? (counts[id] || 0) + ' LIVING HERE' : 'OPENS AT ' + d.unlockAt + ' VILLAGERS · ' + (d.unlockAt - n) + ' TO GO'));
       return li;
     }));

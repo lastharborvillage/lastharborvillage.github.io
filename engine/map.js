@@ -12,12 +12,12 @@
   const DISTRICTS = {
     harbour: { name: 'The Harbour', center: [0, 6], unlockAt: 0, style: 'hut' },
     shipyard: { name: 'The Shipyard', center: [15, 6], unlockAt: 0, style: 'workshop' },
-    market: { name: 'Market Street', center: [0, 17], unlockAt: 25, style: 'timber' },
-    farms: { name: 'The Farms', center: [-17, 15], unlockAt: 75, style: 'farmhouse' },
-    lighthouse: { name: 'Lighthouse Hill', center: [29, 5], unlockAt: 150, style: 'stone' },
-    cliffs: { name: 'Cliff Houses', center: [-21, 3], unlockAt: 300, style: 'cottage' },
-    forest: { name: 'Forest Edge', center: [17, 20], unlockAt: 600, style: 'cabin' },
-    fogbeach: { name: 'Fog Beach', center: [-38, 0], unlockAt: 600, style: 'stilt' },
+    market: { name: null, center: [0, 17], unlockAt: 25, style: 'timber' },
+    farms: { name: null, center: [-17, 15], unlockAt: 75, style: 'farmhouse' },
+    lighthouse: { name: null, center: [29, 5], unlockAt: 150, style: 'stone' },
+    cliffs: { name: null, center: [-21, 3], unlockAt: 300, style: 'cottage' },
+    forest: { name: null, center: [17, 20], unlockAt: 600, style: 'cabin' },
+    fogbeach: { name: null, center: [-38, 0], unlockAt: 600, style: 'stilt' },
   };
 
   // Areas where no house may ever be built [x0, y0, x1, y1] inclusive.
@@ -34,7 +34,7 @@
     const w = Math.max(smooth(-8, -14, x), smooth(23, 26, x));
     let c = w * wig;
     c -= 8 * Math.exp(-Math.pow((x - 28) / 4, 2)); // lighthouse headland
-    c -= 5 * Math.exp(-Math.pow((x + 39) / 5, 2)); // fog beach spit
+    c -= 5 * Math.exp(-Math.pow((x + 39) / 5, 2));
     return Math.round(c);
   }
   const isLand = (x, y) => y >= coastY(x);

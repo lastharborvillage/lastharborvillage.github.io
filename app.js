@@ -200,13 +200,26 @@
       if (!v.home || v.home.tileX == null) continue;
       const lay = LH.map.homeLayout(v.home);
       const cx = v.home.tileX * T + 16 + lay.dx, base = v.home.tileY * T + 30 + lay.dy;
-      push({ id: 'home-' + v.id, title: (v.displayName || 'A villager') + "'s home", kicker: v.job || 'Villager', text: v.trait || '', meta: 'In ' + districtName(v.home.district) + ' · moved in on day ' + v.dayJoined, person: v.id }, [cx - 20, base - 44, cx + 20, base + 3]);
+      push({ id: 'home-' + v.id, title: (v.displayName || 'A villager') + "'s home", kicker: v.job || 'Villager', text: v.trait || '', meta: 'In ' + districtName(v.home.district) + ' · moved in on day ' + v.dayJoined, person: v.id, day: v.dayJoined }, [cx - 20, base - 44, cx + 20, base + 3]);
     }
     const s = w.ship;
     if (s && s.x != null) {
       const st = LH.map.shipStage(s.planks);
       const goal = s.goal || LH.map.SHIP_GOAL;
       push({ id: 'ship', title: 'The Ship', kicker: st.index ? 'Stage: ' + STAGE_NAMES[st.id] : 'Waiting for planks', text: 'Every villager adds one plank. ' + s.planks + ' of ' + goal + ' so far. When the last plank is in, the village sails into the fog.', person: 'bram' }, [s.x - 6, s.y - 40, s.x + 110, s.y + 5]);
+    }
+    // landmarks: the big changes the story made (a cave, a clearing, ruins...), each with its story
+    const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue' };
+    for (const l of w.landmarks || []) {
+      const s = LH.map.LANDMARKS[l.type];
+      if (!s) continue;
+      const by = l.by && (w.villagers || []).find((v) => v.id === l.by);
+      const later = (l.history || []).filter((h) => h.day !== l.dayAdded).map((h) => 'Day ' + h.day + ': ' + h.text);
+      const info = { id: l.id, title: l.name, kicker: (KIND[l.type] || 'Landmark') + ' · discovered on day ' + l.dayAdded, text: l.description, meta: [by ? 'Found by ' + (by.displayName || 'a villager') : '', ...later].filter(Boolean).join(' · '), person: by ? by.id : null, day: l.dayAdded };
+      const x0 = l.tileX * T, y0 = l.tileY * T;
+      if (l.type === 'clearing') push(info, [x0 - 20, y0 - 12, x0 + 36, y0 + 20]);
+      else if (l.type === 'tower') push(info, [x0, y0 + 30 - 56, x0 + s.w * T, y0 + s.h * T]);
+      else push(info, [x0, y0 - 14, x0 + s.w * T, y0 + s.h * T + 2]);
     }
     const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7], sign: [11, 26] };
     for (const p of w.props || []) {
@@ -219,6 +232,7 @@
         const who = (w.villagers || []).find((v) => v.id === p.by);
         if (who) { info.person = who.id; info.kicker = 'Village'; info.meta = 'Asked for by ' + (who.displayName || 'a villager') + (p.dayAdded ? ' · day ' + p.dayAdded : ''); }
       }
+      if (p.dayAdded) info.day = p.dayAdded;
       if (p.type === 'flag') { push(info, [p.x * T - 2, p.y * T - 32, p.x * T + 17, p.y * T + 2]); continue; }  // the cloth hangs to the right
       const x = p.x * T, y = p.y * T;
       if (p.type === 'dock') push(info, [x, y - (p.len || 4) * T, x + 24, y]);
@@ -258,6 +272,7 @@
     $('p-person').hidden = !who;
     if (who) $('p-person').textContent = 'Meet ' + (who.displayName || 'the cat');
     $('p-find').hidden = !p.find;
+    watchButton($('p-watch'), p.day);
     if (!pdlg.open) pdlg.showModal();
   }
   pdlg.addEventListener('click', (e) => { if (e.target === pdlg) pdlg.close(); });
@@ -283,6 +298,12 @@
   // ---------- villager dialog ----------
   const dlg = $('villager');
   let current = null;
+  // "Watch day N": a link to that day's Reel/Short, so people go back and watch older days
+  function watchButton(a, day) {
+    const e = day && (D.episodes || []).find((q) => q.day === day);
+    a.hidden = !e;
+    if (e) { a.href = e.url; a.textContent = 'Watch day ' + day; }
+  }
   function openVillager(id) {
     const p = findPerson(id);
     if (!p) return;
@@ -298,6 +319,7 @@
     $('v-trait').textContent = p.trait || '';
     $('v-crew').hidden = !p.crew;
     $('v-meta').textContent = founder ? 'Founder of Last Harbor' : 'Lives in ' + districtName(p.home && p.home.district) + ' · moved in on day ' + p.dayJoined;
+    watchButton($('v-watch'), founder ? null : p.dayJoined);
     $('v-show').hidden = !spotOf(p);
     $('v-save').hidden = !spotOf(p);
     $('toast').textContent = '';

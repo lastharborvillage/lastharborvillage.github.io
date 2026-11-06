@@ -144,6 +144,7 @@
     const used = new Set();
     for (const v of world.villagers) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY).forEach((k) => used.add(k));
     for (const b of world.buildings || []) footprint(b.tileX, b.tileY, b.w || 2, b.h || 2).forEach((k) => used.add(k));
+    for (const l of world.landmarks || []) landmarkTiles(l).forEach((k) => used.add(k)); // a cave is never built over
     const placed = [];
     world.villagers.forEach((v, i) => {
       if (v.home && v.home.tileX != null) return;
@@ -210,6 +211,50 @@
     return null;
   }
 
+  // Landmarks: the big changes the story makes to the map ("Slaxx found a cave", "the woodcutters
+  // started clearing the forest"). Each has a footprint in tiles (w x h, top-left at tileX/tileY) that
+  // no home may ever take; a clearing has none: it only removes trees in a circle that grows with its
+  // stage. stage 0 = just found; higher stages mean explored / in use / bigger (drawn differently).
+  const LANDMARKS = {
+    cave: { w: 3, h: 2 }, clearing: { w: 0, h: 0 }, ruins: { w: 3, h: 3 }, stones: { w: 3, h: 3 },
+    mine: { w: 2, h: 2 }, tower: { w: 2, h: 2 }, shrine: { w: 2, h: 2 }, pond: { w: 3, h: 2 },
+    garden: { w: 3, h: 2 }, campfire: { w: 2, h: 2 }, pit: { w: 2, h: 2 }, statue: { w: 1, h: 1 },
+  };
+  const LANDMARK_TYPES = Object.keys(LANDMARKS);
+  // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.
+  const LANDMARK_PLACES = { ...PLACES, forest: [17, 21], cliffs: [-21, 5], farms: [-17, 15], fogbeach: [-36, 3], hill: [29, 6], north: [4, 26] };
+  const clearingRadius = (l) => Math.min(8, 2 + (l.stage || 0) * 1.5);
+  const landmarkTiles = (l) => {
+    const s = LANDMARKS[l.type];
+    return s && s.w ? footprint(l.tileX, l.tileY, s.w, s.h) : [];
+  };
+  // A free top-left tile for a new landmark of this type near (ax, ay): on dry land away from the
+  // waterline (the camp lives there), off roads, reserved areas and commons, and with a tile of space
+  // around homes (their whole plot), buildings, objects and other landmarks. May take empty house
+  // plots: future homes go to the next free one. Spirals out up to 14 tiles; null if nothing fits.
+  function landmarkSpot(world, type, ax, ay) {
+    const s = LANDMARKS[type];
+    if (!s) return null;
+    const w = Math.max(1, s.w), h = Math.max(1, s.h);
+    const taken = new Set();
+    const take = (x0, y0, ww, hh, m) => { for (let x = x0 - m; x < x0 + ww + m; x++) for (let y = y0 - m; y < y0 + hh + m; y++) taken.add(x + ',' + y); };
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) take(v.home.tileX - 1, v.home.tileY - 1, 5, 5, 0);
+    for (const b of world.buildings || []) take(b.tileX, b.tileY, b.w || 2, b.h || 2, 1);
+    for (const p of world.props || []) take(Math.floor(p.x), Math.floor(p.y), 1, 1, 1);
+    for (const l of world.landmarks || []) { const q = LANDMARKS[l.type]; if (q && q.w) take(l.tileX, l.tileY, q.w, q.h, 1); }
+    const isCommonTile = (x, y) => { for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isCommon(ox, oy)) return true; return false; };
+    const ok = (x, y) => isLand(x, y) && y >= coastY(x) + 3 && y > FOG_Y + 3 && !isRoad(x, y) && !reserved(x, y) && !taken.has(x + ',' + y) && !isCommonTile(x, y);
+    const cand = [];
+    for (let dx = -14; dx <= 14; dx++) for (let dy = -14; dy <= 14; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
+    cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+    for (const [x, y] of cand) {
+      let fits = true;
+      for (let i = 0; i < w && fits; i++) for (let j = 0; j < h && fits; j++) if (!ok(x + i, y + j)) fits = false;
+      if (fits) return [x, y];
+    }
+    return null;
+  }
+
   // The followers' camp: every follower (YouTube: subscriber) lives in a tent on the beach, on the two
   // sand rows at the waterline where no house can ever be built. It starts next to the harbour and
   // fills the beach westward. Returns up to n spots [x, y, k] in world tiles (k: a stable tent index);
@@ -268,5 +313,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius };
 })();

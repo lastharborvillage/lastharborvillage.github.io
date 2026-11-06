@@ -179,6 +179,37 @@
   }
   const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0);
 
+  // Objects viewers can ask for (each has a drawer in engine/draw.js PROPS). New kinds are added here
+  // and in PROPS together.
+  const PROP_TYPES = ['sign', 'flag', 'bench', 'lamppost', 'barrel', 'crate', 'netrack', 'plankpile', 'sawhorse', 'rowboat', 'buoy'];
+  // Is tile (x, y) inside any house plot (house, front path and yard: 2x3 from a plot origin)?
+  const inPlot = (x, y) => {
+    for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isPlot(ox, oy)) return true;
+    return false;
+  };
+  // Named spots an object can be asked for, in tiles.
+  const PLACES = { harbour: [0, 6], quay: [0, 6], board: [1, 6], shipyard: [15, 6], beach: [-10, 1], lighthouse: [27, -1], market: [0, 11], village: [3, 9] };
+
+  // A free tile for a new object near (ax, ay): on land (not the waterline), not on a road, a house
+  // plot (a future home must never land on it) or a reserved area, and at least 2 tiles from homes,
+  // buildings and other objects. Spirals outward up to 8 tiles; null if nothing is free.
+  function freeSpot(world, ax, ay) {
+    const taken = [];
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) taken.push([v.home.tileX + 0.5, v.home.tileY + 0.5]);
+    for (const b of world.buildings || []) taken.push([b.tileX + 0.5, b.tileY + 0.5]);
+    for (const p of world.props || []) taken.push([p.x, p.y]);
+    const near = (x, y) => taken.some(([tx, ty]) => Math.abs(tx - x) < 2 && Math.abs(ty - y) < 2);
+    const cand = [];
+    for (let dx = -8; dx <= 8; dx++) for (let dy = -8; dy <= 8; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
+    cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+    for (const [x, y] of cand) {
+      if (!isLand(x, y) || y < coastY(x) + 2 || isRoad(x, y) || reserved(x, y) || inPlot(x, y)) continue;
+      if (y <= FOG_Y + 2 || near(x + 0.5, y + 0.85)) continue;
+      return [x, y];
+    }
+    return null;
+  }
+
   // World validation. Returns a list of problems (empty = OK).
   function check(world) {
     const p = [];
@@ -214,5 +245,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot };
 })();

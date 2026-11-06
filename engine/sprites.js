@@ -443,6 +443,10 @@
       { ax: 0, ay: 2, rows: ['..gg', '.d..', 'd...'] },
       { ax: 0, ay: 1, rows: ['.d..', 'd.gg'] },
     ] },
+    falchion: { rate: 1, bob: true, frames: [
+      { ax: 1, ay: 5, rows: ['.G.', '.Gg', '.Gg', '.Gg', 'UUU', '.d.'] },
+      { ax: 1, ay: 4, rows: ['.G.', '.Gg', '.Gg', '.Gg', 'UUU', '.d.'] },
+    ] },
   };
 
   // Pets stand next to their villager. Bottom-centre anchored, two frames.

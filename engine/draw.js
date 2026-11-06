@@ -344,6 +344,34 @@
         rect(c, i % 3 ? 'cream' : 'white', x - 12 + (i % 7) * 3.6, y - 24 + Math.floor(i / 7) * 6 + Math.floor(r() * 2), 3, 4);
       }
     },
+    // A wooden sign a viewer asked for. o.text is shown on the website; here it is suggested by
+    // short pen strokes (pixel text this small would not be readable). o.color tints the board.
+    sign(c, x, y, o) {
+      rect(c, 'ink', x - 1, y - 16, 3, 16); rect(c, 'wood2', x, y - 16, 1, 16);
+      const [b1, b2] = o.color ? LH.fam(o.color, 'tan') : ['wood3', 'wood'];
+      rect(c, 'ink', x - 10, y - 25, 21, 12); rect(c, b1, x - 9, y - 24, 19, 10); rect(c, b2, x - 9, y - 16, 19, 2);
+      const r = C.rng(C.hashStr(o.text || o.name || 'sign'));
+      for (let row = 0; row < 2; row++) {
+        let xx = x - 7;
+        while (xx < x + 7) { const len = 2 + Math.floor(r() * 4); rect(c, 'wood4', xx, y - 22 + row * 3, Math.min(len, x + 7 - xx), 1); xx += len + 1; }
+      }
+    },
+    // A flag a viewer asked for: o.color (and o.color2) from the colour families, o.pattern plain,
+    // stripes, half, cross or dot. The cloth waves.
+    flag(c, x, y, o, t) {
+      rect(c, 'ink', x - 1, y - 30, 3, 30); rect(c, 'stone3', x, y - 30, 1, 30); px(c, 'gold', x, y - 31);
+      const c1 = LH.fam(o.color || 'red')[0], c2 = LH.fam(o.color2 || 'white')[0];
+      const pat = o.pattern || 'plain';
+      for (let i = 0; i < 14; i++) {
+        const wave = Math.round(Math.sin(t * 4 + i * 0.6 + x) * (i / 14) * 1.5);
+        const top = y - 29 + wave;
+        rect(c, 'ink', x + 2 + i, top - 1, 1, 11);
+        for (let r = 0; r < 9; r++) {
+          const second = pat === 'stripes' ? r >= 3 && r < 6 : pat === 'half' ? i >= 7 : pat === 'cross' ? r === 4 || i === 5 : pat === 'dot' ? (i - 6) ** 2 + (r - 4) ** 2 < 6 : false;
+          px(c, second ? c2 : c1, x + 2 + i, top + r);
+        }
+      }
+    },
     dock(c, x, y, o) {
       // x,y = top-left of the pier (world px), o.len in tiles, going north from the quay
       const len = (o.len || 4) * T;
@@ -571,6 +599,8 @@
       homes.push(v);
     }
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
+    // no tree grows on an object a viewer placed
+    for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
     const commons = [];
     for (let ty = ty0 - 3; ty <= ty1 + 2; ty++) for (let tx = tx0 - 3; tx <= tx1 + 1; tx++) {
       if (!map.isCommon(tx, ty)) continue;

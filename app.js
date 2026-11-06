@@ -181,6 +181,8 @@
     bench: { title: 'Harbour Bench', kicker: 'Harbour', text: 'The best seat in the village for watching the fog.' },
     plankpile: { title: 'Plank Pile', kicker: 'Shipyard', text: 'Planks waiting for the ship. Every one of them stands for a villager.' },
     sawhorse: { title: 'Sawhorse', kicker: 'Shipyard', text: 'Where Bram cuts each plank to size.' },
+    sign: { title: 'A Sign', kicker: 'Village', text: 'A villager put this sign up.' },
+    flag: { title: 'A Flag', kicker: 'Village', text: 'A villager raised this flag.' },
   };
 
   // Every tappable place with its box in world pixels [x0, y0, x1, y1].
@@ -206,11 +208,18 @@
       const goal = s.goal || LH.map.SHIP_GOAL;
       push({ id: 'ship', title: 'The Ship', kicker: st.index ? 'Stage: ' + STAGE_NAMES[st.id] : 'Waiting for planks', text: 'Every villager adds one plank. ' + s.planks + ' of ' + goal + ' so far. When the last plank is in, the village sails into the fog.', person: 'bram' }, [s.x - 6, s.y - 40, s.x + 110, s.y + 5]);
     }
-    const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7] };
+    const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7], sign: [11, 26] };
     for (const p of w.props || []) {
       const base = PLACE_TEXT[p.type];
       if (!base && !p.name) continue;
       const info = { ...(base || { kicker: 'Last Harbor' }), title: p.name || (base && base.title), text: p.description || (base && base.text) || '', id: p.type };
+      // objects a viewer asked for: what the sign says, who asked, and a Meet button for them
+      if (p.text) info.text = (info.text ? info.text + ' ' : '') + 'It says: "' + p.text + '"';
+      if (p.by) {
+        const who = (w.villagers || []).find((v) => v.id === p.by);
+        if (who) { info.person = who.id; info.kicker = 'Village'; info.meta = 'Asked for by ' + (who.displayName || 'a villager') + (p.dayAdded ? ' · day ' + p.dayAdded : ''); }
+      }
+      if (p.type === 'flag') { push(info, [p.x * T - 2, p.y * T - 32, p.x * T + 17, p.y * T + 2]); continue; }  // the cloth hangs to the right
       const x = p.x * T, y = p.y * T;
       if (p.type === 'dock') push(info, [x, y - (p.len || 4) * T, x + 24, y]);
       else { const [hw, hh] = SIZE[p.type] || [8, 14]; push(info, [x - hw, y - hh, x + hw, y + 2]); }

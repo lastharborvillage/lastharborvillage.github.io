@@ -52,6 +52,7 @@
   const ctx = canvas.getContext('2d');
   const ZOOMS = [1, 1.5, 2, 3, 4, 5, 6, 8];
   const HOME = { x: 7 * T, y: 3 * T };
+  const OVERVIEW = { x: -2 * T, y: 7 * T }; // the start (and the home button): fully zoomed out
   const M = { x: HOME.x, y: HOME.y, zi: 3, tod: null, sel: null, actors: [], visible: true, last: 0, fly: null, hinted: false };
   // how far the map can be dragged: the old village area, widened to every home, landmark and tent
   const BOUNDS = { x0: -44 * T, x1: 38 * T, y0: -14 * T, y1: 27 * T };
@@ -298,7 +299,7 @@
   function setZoom(zi) { M.zi = Math.max(0, Math.min(ZOOMS.length - 1, zi)); }
   $('zoom-in').addEventListener('click', () => setZoom(M.zi + 1));
   $('zoom-out').addEventListener('click', () => setZoom(M.zi - 1));
-  $('map-home').addEventListener('click', () => { M.sel = null; flyTo(HOME.x, HOME.y); setZoom(3); });
+  $('map-home').addEventListener('click', () => { M.sel = null; flyTo(OVERVIEW.x, OVERVIEW.y); setZoom(0); });
 
   function flyTo(x, y) { M.fly = { start: performance.now(), from: { x: M.x, y: M.y }, to: { x, y } }; }
   function showOnMap(id) {
@@ -565,8 +566,9 @@
     fitBounds(D.world);
     M.sel = null;
     const narrow = window.innerWidth < 600;
-    M.x = HOME.x; M.y = HOME.y + (narrow ? 2 * T : 0);
-    M.zi = narrow ? 2 : 3;
+    // start fully zoomed out on the whole village (sea, harbour, camp and fields); tap + to go closer
+    M.x = OVERVIEW.x; M.y = OVERVIEW.y + (narrow ? 2 * T : 0);
+    M.zi = 0;
     renderStats(); renderShip(); renderVote(); renderDays(); renderAshore(); renderDistricts(); renderRegister(true); renderJoin(); renderSearch();
     if (focus && findPerson(focus)) { showOnMap(focus); openVillager(focus); }
     else history.replaceState(null, '', '#' + v);

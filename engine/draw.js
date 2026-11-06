@@ -208,8 +208,28 @@
       for (let y = 3; y < T; y += 4) rect(g, 'wood', 0, y, T, 1);
       for (let y = 0; y < 4; y++) { const x = (y * 7 + variant * 3) % 14; rect(g, 'wood', x, y * 4, 1, 3); px(g, 'wood2', x + 1, y * 4 + 1); }
     } else if (type === 'field') {
-      rect(g, 'wood', 0, 0, T, T);
-      for (let x = 1; x < T; x += 3) { rect(g, 'moss2', x, 0, 2, T); for (let y = (x + variant) % 3; y < T; y += 3) px(g, variant % 2 ? 'gold' : 'grass', x, y); }
+      // variant "crop-dir" (map.fieldKind). Rows every 4 px so they run on across tiles.
+      const [crop, dir] = String(variant).split('-');
+      const row = (i, col, w = 2) => dir === 'v' ? rect(g, col, i, 0, w, T) : rect(g, col, 0, i, T, w);
+      const dot = (i, j, col) => dir === 'v' ? px(g, col, i, j) : px(g, col, j, i);
+      if (crop === 'wheat' || crop === 'barley') {
+        rect(g, crop === 'wheat' ? 'gold' : 'sand', 0, 0, T, T);
+        for (let i = 3; i < T; i += 4) row(i, crop === 'wheat' ? 'gold2' : 'sand2', 1);
+        for (let k = 0; k < 10; k++) dot(Math.floor(r() * 4) * 4 + 1, Math.floor(r() * T), crop === 'wheat' ? 'lanternhi' : 'cream');
+      } else if (crop === 'green') {
+        rect(g, 'wood', 0, 0, T, T);
+        for (let i = 1; i < T; i += 4) { row(i, 'moss2'); for (let j = (i * 3) % 3; j < T; j += 3) dot(i, j, 'grass'); }
+      } else if (crop === 'cabbage') {
+        rect(g, 'wood', 0, 0, T, T);
+        for (let i = 1; i < T; i += 4) for (let j = 1; j < T; j += 4) { dot(i, j, 'moss'); dot(i + 1, j, 'moss'); dot(i, j + 1, 'moss2'); dot(i + 1, j + 1, 'grass'); }
+      } else if (crop === 'lavender') {
+        rect(g, 'wood', 0, 0, T, T);
+        for (let i = 1; i < T; i += 4) { row(i, 'moss2'); for (let j = 0; j < T; j += 2) dot(i, j, 'plum'); }
+      } else { // plowed
+        rect(g, 'wood', 0, 0, T, T);
+        for (let i = 2; i < T; i += 4) row(i, 'wood2', 1);
+        for (let k = 0; k < 4; k++) px(g, 'wood3', Math.floor(r() * T), Math.floor(r() * T));
+      }
     } else {
       rect(g, 'ink', 0, 0, T, T);
     }
@@ -798,15 +818,17 @@
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const g = groundAt(tx, ty);
       if (g === 'sea' || g === 'shallow') { drawWater(c, tx, ty, t); continue; }
-      c.drawImage(tileCanvas(g, Math.floor(C.h2(tx, ty, 1) * 4)), tx * T, ty * T);
-      if (g !== 'path') continue;
-      // soft grass edges where the path meets grass
+      c.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T, ty * T);
+      if (g !== 'path' && g !== 'field') continue;
+      // soft grass edges where the path (or a field) meets grass; a field's edge is deeper and more
+      // ragged, so fields read as patches of land, not tiles
+      const deep = g === 'field' ? [0.9, 0.65, 0.4, 0.18, 0.06] : [0.75, 0.4, 0.12];
       for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
         const n = groundAt(tx + sx, ty + sy);
-        if (!GRASSY.includes(n)) continue;
+        if (!GRASSY.includes(n) || (g === 'field' && n === 'field')) continue;
         const fill = n === 'darkgrass' ? 'moss' : 'grass';
-        for (let i = 0; i < T; i++) for (let d = 0; d < 3; d++) {
-          if (C.h2(tx * T + i, ty * T + d * 7 + sx * 3 + sy * 5, 41) > [0.75, 0.4, 0.12][d]) continue;
+        for (let i = 0; i < T; i++) for (let d = 0; d < deep.length; d++) {
+          if (C.h2(tx * T + i, ty * T + d * 7 + sx * 3 + sy * 5, 41) > deep[d]) continue;
           const xx = sx === 0 ? i : sx < 0 ? d : T - 1 - d;
           const yy = sy === 0 ? i : sy < 0 ? d : T - 1 - d;
           px(c, fill, tx * T + xx, ty * T + yy);

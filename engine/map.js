@@ -52,6 +52,34 @@
     return best;
   }
 
+  // Farmland: irregular fields instead of a grid. The land is cut into patches around jittered points
+  // (each patch is the area nearest to its point, a little wider than tall), with a ragged grass lane
+  // where two patches meet. Each patch is a meadow (about one in five) or a field with its own crop
+  // and row direction. Returns null (grass) or { crop, dir }.
+  const FIELD_CELL = 6;
+  const FIELD_CROPS = ['wheat', 'green', 'plowed', 'cabbage', 'lavender', 'wheat', 'green', 'barley'];
+  function fieldAt(x, y) {
+    const gx = Math.floor(x / FIELD_CELL), gy = Math.floor(y / FIELD_CELL);
+    let b1 = Infinity, b2 = Infinity, s = null;
+    for (let i = gx - 1; i <= gx + 1; i++) for (let j = gy - 1; j <= gy + 1; j++) {
+      const sx = (i + 0.5 + (h2(i, j, 201) - 0.5) * 0.9) * FIELD_CELL, sy = (j + 0.5 + (h2(i, j, 202) - 0.5) * 0.9) * FIELD_CELL;
+      const d = (x + 0.5 - sx) ** 2 + ((y + 0.5 - sy) * 1.25) ** 2;
+      if (d < b1) { b2 = b1; b1 = d; s = [i, j]; } else if (d < b2) b2 = d;
+    }
+    if (Math.sqrt(b2) - Math.sqrt(b1) < 0.8 + h2(x, y, 203) * 0.6) return null; // the lane between fields
+    if (h2(s[0], s[1], 204) < 0.2) return null; // a meadow
+    return { crop: FIELD_CROPS[Math.floor(h2(s[0], s[1], 205) * FIELD_CROPS.length)], dir: h2(s[0], s[1], 206) < 0.55 ? 'h' : 'v' };
+  }
+  // a field tile needs at least two neighbours of the same field (no lonely one-tile scraps)
+  function isField(x, y) {
+    const f = fieldAt(x, y);
+    if (!f) return false;
+    let n = 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const g = fieldAt(x + dx, y + dy); if (g && g.crop === f.crop && g.dir === f.dir) n++; }
+    return n >= 2;
+  }
+  const fieldKind = (x, y) => { const f = fieldAt(x, y); return f ? f.crop + '-' + f.dir : 'plowed-h'; };
+
   // Ground type of a land/sea tile.
   function ground(x, y, districts = DISTRICTS) {
     const c = coastY(x);
@@ -66,7 +94,7 @@
     if (inRect(x, y, [-3, 12, 4, 15])) return 'cobble';
     if (y === 5 && x >= -42 && x <= 34) return 'path'; // coast road
     if (x === 2 && y >= 4 && y <= 40) return 'path'; // high street
-    if (dist === 'farms' && (y % 3 !== 2) && (((x % 3) + 3) % 3 !== 2)) return 'field';
+    if (dist === 'farms' && isField(x, y)) return 'field';
     if (dist === 'forest') return 'darkgrass';
     if (dist === 'lighthouse' || dist === 'cliffs') return h2(x, y, 7) < 0.25 ? 'rockgrass' : 'grass';
     return 'grass';
@@ -335,5 +363,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6 };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind };
 })();

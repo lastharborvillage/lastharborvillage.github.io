@@ -405,6 +405,28 @@
   }
 
   // The ship on its slipway, side view, bow to the east. x,y = stern end of the keel, bottom.
+  // One follower's tent (base centre x, y). k picks the cloth colour and details; every 9th tent has a
+  // small campfire in front that glows at night.
+  const TENT_CLOTH = [['cream', 'sand2'], ['ember', 'ember2'], ['sea2', 'sea'], ['moss', 'moss2'], ['gold', 'gold2'], ['teal', 'teal2'], ['plum', 'plum2'], ['wood3', 'wood'], ['rose', 'rose2'], ['white', 'stone3']];
+  function drawTent(c, x, y, k, t, lights) {
+    const [a, b] = TENT_CLOTH[C.hashStr('tent' + k) % TENT_CLOTH.length];
+    x = Math.round(x); y = Math.round(y);
+    for (let r = 0; r < 8; r++) {
+      const half = Math.floor(r * 0.75) + 1;
+      rect(c, 'ink', x - half - 1, y - 8 + r, half * 2 + 3, 1);
+      rect(c, a, x - half, y - 8 + r, half, 1);
+      rect(c, b, x + 1, y - 8 + r, half, 1);
+    }
+    rect(c, 'ink', x - 1, y - 4, 3, 4); // open flap
+    px(c, 'wood2', x, y - 9);
+    if (k % 9 === 4) {
+      const f = Math.floor(t * 8 + k) % 2;
+      rect(c, 'wood2', x + 6, y - 1, 4, 1);
+      px(c, f ? 'lantern' : 'gold', x + 7, y - 2); px(c, f ? 'gold' : 'lantern', x + 8, y - 3 + f);
+      if (lights) lights.push({ x: x + 8, y: y - 2, r: 10, kind: 'lamp' });
+    }
+  }
+
   function drawShip(c, planks, x, y, t) {
     const st = map.shipStage(planks);
     const L = 104;
@@ -663,6 +685,13 @@
       const x = p.x * T, y = p.y * T;
       if (x < bx0 - 120 || x > bx0 + bw + 120 || y < by0 - 120 || y > by0 + bh + 140) continue;
       add(p.type === 'dock' ? y - (p.len || 4) * T : y, () => fn(c, x, y, p, t, lights, world));
+    }
+    // the followers' camp on the beach: one tent per follower (see map.camp)
+    const followers = o.followers != null ? o.followers : (world.story && world.story.followers) || 0;
+    for (const [cx, cy, k] of map.camp(followers)) {
+      const x = cx * T, y = cy * T;
+      if (x < bx0 - 40 || x > bx0 + bw + 40 || y < by0 - 40 || y > by0 + bh + 40) continue;
+      add(y, () => drawTent(c, x, y, k, t, lights));
     }
     for (let ty = ty0; ty <= ty1 + 2; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       if (busy.has(tx + ',' + ty)) continue;

@@ -210,6 +210,29 @@
     return null;
   }
 
+  // The followers' camp: every follower (YouTube: subscriber) lives in a tent on the beach, on the two
+  // sand rows at the waterline where no house can ever be built. It starts next to the harbour and
+  // fills the beach westward. Returns up to n spots [x, y, k] in world tiles (k: a stable tent index);
+  // fixed order, so a tent never moves when more arrive. CAMP_MAX tents fit; beyond that the camp is full.
+  const CAMP_MAX = 150;
+  let campSpots = null;
+  function camp(n) {
+    if (!campSpots) {
+      campSpots = [];
+      // first one tent per sand tile (both rows), then a second pass fills the gaps (a crowded camp)
+      for (const [ox0, ox1] of [[0.5, 0.15], [0.0, 0.65]]) {
+        for (let x = -8; x >= -42 && campSpots.length < CAMP_MAX; x--) {
+          for (const [r, ox] of [[1, ox0], [0, ox1]]) {
+            const y = coastY(x) + r;
+            if (!isLand(x, y) || reserved(x, y) || campSpots.length >= CAMP_MAX) continue;
+            campSpots.push([x + ox + 0.25, y + 0.75 + (h2(x, r, 61) - 0.5) * 0.15, campSpots.length]);
+          }
+        }
+      }
+    }
+    return campSpots.slice(0, Math.max(0, Math.min(n || 0, CAMP_MAX)));
+  }
+
   // World validation. Returns a list of problems (empty = OK).
   function check(world) {
     const p = [];
@@ -245,5 +268,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX };
 })();

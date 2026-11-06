@@ -6,11 +6,11 @@
   const T = LH.map.T;
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const VILLAGES = ['youtube', 'instagram'];
+  const VILLAGES = ['instagram', 'youtube'];
   const STAGE_NAMES = { none: 'Nothing yet', keel: 'Keel', ribs: 'Ribs', hull: 'Hull', deck: 'Deck', mast: 'Mast', sails: 'Sails', flag: 'Flag' };
   const cache = {};
   let D = null; // current village data
-  let village = 'youtube';
+  let village = 'instagram';
 
   // ---------- helpers ----------
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -371,10 +371,12 @@
     const w = D.world;
     const stats = [
       [w.story.day, w.story.day === 1 ? 'day' : 'days'],
-      [w.villagers.length, 'villagers'],
+      [w.villagers.length, 'with a house'],
       [w.ship.planks, 'planks'],
-      [w.story.atSea, 'waiting at sea'],
     ];
+    // followers live in the beach camp; the count arrives with the next day (hidden until then)
+    if (w.story.followers) stats.splice(1, 0, [w.story.followers.toLocaleString('en-US'), 'live here']);
+    if (w.story.atSea) stats.push([w.story.atSea, 'waiting at sea']);
     const box = $('stats');
     box.replaceChildren(...stats.map(([n, l]) => { const d = el('div', 'stat'); d.appendChild(el('b', null, String(n))); d.appendChild(el('span', null, l.toUpperCase())); return d; }));
     $('day-badge').textContent = D.open ? 'Day ' + w.story.day : 'Opening soon';
@@ -539,7 +541,7 @@
   window.addEventListener('hashchange', () => { const h = fromHash(); if (h && (h.v !== village || h.id)) load(h.v, h.id); });
 
   const start = fromHash();
-  load(start ? start.v : 'youtube', start && start.id).then(() => requestAnimationFrame(loop));
+  load(start ? start.v : 'instagram', start && start.id).then(() => requestAnimationFrame(loop));
   // fonts arrive a moment later; name tags and portraits use them
   document.fonts && document.fonts.ready.then(() => { if (D) { renderRegister(false); } });
 })();

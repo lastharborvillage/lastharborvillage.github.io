@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Last Harbor</title>
+<script>
+  // Instagram's bio link turns "#instagram" into "%23instagram", which GitHub Pages cannot find.
+  // Send any such address (and anything else unknown) to the village it names, or the front page.
+  (function () {
+    var p = decodeURIComponent(location.pathname).replace(/^\/+/, '');
+    var m = p.match(/#?(youtube|instagram)(\/[\w-]+)?/i);
+    location.replace('/' + (m ? '#' + m[1].toLowerCase() + (m[2] || '') : ''));
+  })();
+</script>
+<style>body{background:#10141f;color:#e8e2d0;font-family:sans-serif;text-align:center;padding:40px 16px}a{color:#f0a640}</style>
+</head>
+<body>
+<p>Taking you to <a href="/">Last Harbor</a>…</p>
+</body>
+</html>

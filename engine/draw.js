@@ -528,6 +528,21 @@
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);
+    if ((l.stage || 0) >= 4 && l.type !== 'clearing') landmarkDressing(c, l, t, lights);
+  }
+  // Stages 4-6 of any landmark: it has become a proper place of the village. 4: a banner on a pole;
+  // 5: lanterns on both sides; 6: a rope fence with posts in front (a site people visit).
+  function landmarkDressing(c, l, t, lights) {
+    const s = LH.map.LANDMARKS[l.type];
+    const x0 = l.tileX * T, w = Math.max(1, s.w) * T, by = (l.tileY + Math.max(1, s.h)) * T;
+    const wave = Math.round(Math.sin(t * 3 + l.tileX) * 1);
+    rect(c, 'ink', x0 - 5, by - 26, 2, 26); rect(c, 'wood2', x0 - 5, by - 26, 1, 26);
+    for (let i = 0; i < 7; i++) rect(c, i % 2 ? 'gold' : 'ember', x0 - 3 + i, by - 25 + (i > 3 ? wave : 0), 1, 6);
+    if ((l.stage || 0) >= 5) for (const lx of [x0 - 9, x0 + w + 4]) { rect(c, 'ink', lx, by - 14, 1, 14); rect(c, 'lantern', lx - 1, by - 16, 3, 3); glow(lights, lx, by - 15, 12); }
+    if ((l.stage || 0) >= 6) {
+      for (let x = x0 - 2; x <= x0 + w + 2; x += 8) { rect(c, 'wood2', x, by - 1, 2, 6); }
+      for (let x = x0 - 2; x < x0 + w + 2; x++) px(c, 'sand2', x, by + 1 + Math.round(Math.sin((x - x0) / 8 * Math.PI) * 1));
+    }
   }
   function drawStump(c, x, y) {
     rect(c, 'ink', x - 3, y - 4, 7, 4); rect(c, 'wood', x - 2, y - 3, 5, 3); rect(c, 'wood3', x - 2, y - 4, 5, 1); px(c, 'wood2', x, y - 4);

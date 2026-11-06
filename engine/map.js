@@ -223,7 +223,7 @@
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.
   const LANDMARK_PLACES = { ...PLACES, forest: [17, 21], cliffs: [-21, 5], farms: [-17, 15], fogbeach: [-36, 3], hill: [29, 6], north: [4, 26] };
-  const clearingRadius = (l) => Math.min(8, 2 + (l.stage || 0) * 1.5);
+  const clearingRadius = (l) => Math.min(11, 2 + (l.stage || 0) * 1.5);
   const landmarkTiles = (l) => {
     const s = LANDMARKS[l.type];
     return s && s.w ? footprint(l.tileX, l.tileY, s.w, s.h) : [];
@@ -244,39 +244,61 @@
     for (const l of world.landmarks || []) { const q = LANDMARKS[l.type]; if (q && q.w) take(l.tileX, l.tileY, q.w, q.h, 1); }
     const isCommonTile = (x, y) => { for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isCommon(ox, oy)) return true; return false; };
     const ok = (x, y) => isLand(x, y) && y >= coastY(x) + 3 && y > FOG_Y + 3 && !isRoad(x, y) && !reserved(x, y) && !taken.has(x + ',' + y) && !isCommonTile(x, y);
-    const cand = [];
-    for (let dx = -14; dx <= 14; dx++) for (let dy = -14; dy <= 14; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
-    cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
-    for (const [x, y] of cand) {
-      let fits = true;
-      for (let i = 0; i < w && fits; i++) for (let j = 0; j < h && fits; j++) if (!ok(x + i, y + j)) fits = false;
-      if (fits) return [x, y];
+    // nearest first; when the area is crowded the search widens (the map has room far beyond the village)
+    for (const R of [14, 30, 60]) {
+      const cand = [];
+      for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
+      cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+      for (const [x, y] of cand) {
+        let fits = true;
+        for (let i = 0; i < w && fits; i++) for (let j = 0; j < h && fits; j++) if (!ok(x + i, y + j)) fits = false;
+        if (fits) return [x, y];
+      }
     }
+    return null;
+  }
+  // "frontier-west" / "frontier-east" / "frontier-inland": just past the edge of everything built so far
+  // (homes and landmarks), so the story can push the map outward: "beyond the forest we found...".
+  function frontier(world, dir) {
+    let x0 = -12, x1 = 20, y1 = 14;
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) { x0 = Math.min(x0, v.home.tileX); x1 = Math.max(x1, v.home.tileX + 2); y1 = Math.max(y1, v.home.tileY + 2); }
+    for (const l of world.landmarks || []) { x0 = Math.min(x0, l.tileX); x1 = Math.max(x1, l.tileX + 3); y1 = Math.max(y1, l.tileY + 3); }
+    if (dir === 'west') return [x0 - 8, 8];
+    if (dir === 'east') return [x1 + 8, 10];
+    if (dir === 'inland') return [4, y1 + 8];
     return null;
   }
 
   // The followers' camp: every follower (YouTube: subscriber) lives in a tent on the beach, on the two
   // sand rows at the waterline where no house can ever be built. It starts next to the harbour and
-  // fills the beach westward. Returns up to n spots [x, y, k] in world tiles (k: a stable tent index);
-  // fixed order, so a tent never moves when more arrive. CAMP_MAX tents fit; beyond that the camp is full.
-  const CAMP_MAX = 150;
+  // fills the beach westward, one stretch of coast at a time: the first stretch (x -8..-42) gets one
+  // tent per sand tile and then a second pass fills the gaps; then the next stretch further west, all
+  // the way along the coast, then the coast east of the lighthouse. Returns up to n spots [x, y, k] in
+  // world tiles (k: a stable tent index); fixed order, so a tent never moves when more arrive. The
+  // camp grows with the map (about 1,600 tents); beyond CAMP_MAX the counter still shows everyone.
+  const CAMP_STRETCHES = [[-8, -42], [-43, -80], [-81, -120], [-121, -160], [-161, -200], [-201, -240], [35, 70], [71, 110], [111, 150], [151, 190], [191, 230]];
   let campSpots = null;
-  function camp(n) {
-    if (!campSpots) {
-      campSpots = [];
-      // first one tent per sand tile (both rows), then a second pass fills the gaps (a crowded camp)
+  function buildCamp() {
+    const out = [];
+    for (const [a, b] of CAMP_STRETCHES) {
+      const step = b < a ? -1 : 1;
       for (const [ox0, ox1] of [[0.5, 0.15], [0.0, 0.65]]) {
-        for (let x = -8; x >= -42 && campSpots.length < CAMP_MAX; x--) {
+        for (let x = a; step < 0 ? x >= b : x <= b; x += step) {
           for (const [r, ox] of [[1, ox0], [0, ox1]]) {
             const y = coastY(x) + r;
-            if (!isLand(x, y) || reserved(x, y) || campSpots.length >= CAMP_MAX) continue;
-            campSpots.push([x + ox + 0.25, y + 0.75 + (h2(x, r, 61) - 0.5) * 0.15, campSpots.length]);
+            if (!isLand(x, y) || reserved(x, y)) continue;
+            out.push([x + ox + 0.25, y + 0.75 + (h2(x, r, 61) - 0.5) * 0.15, out.length]);
           }
         }
       }
     }
-    return campSpots.slice(0, Math.max(0, Math.min(n || 0, CAMP_MAX)));
+    return out;
   }
+  function camp(n) {
+    if (!campSpots) campSpots = buildCamp();
+    return campSpots.slice(0, Math.max(0, Math.min(n || 0, campSpots.length)));
+  }
+  const CAMP_MAX = buildCamp().length;
 
   // World validation. Returns a list of problems (empty = OK).
   function check(world) {
@@ -313,5 +335,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6 };
 })();

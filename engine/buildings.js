@@ -361,7 +361,15 @@
     const h = v.home;
     const style = (districts[h.district] || {}).style || 'hut';
     const lay = LH.map.homeLayout(h);
-    drawBuilding(c, h.tileX * T, h.tileY * T, spec(style, h.kind, lay), t, Lights, lay);
+    const P = spec(style, h.kind, lay);
+    // A home grows with its owner's story (home.stage, set by the writer): 1 flower box and a lantern,
+    // 2 an annex, 3 a second storey, 4 bunting and an awning. Stage 0 / none = the house as it was built.
+    const st = h.stage || 0;
+    if (st >= 1) { P.flowerbox = true; P.lantern = true; }
+    if (st >= 2 && P.w <= 30) P.annex = 1;
+    if (st >= 3) P.storeys = 2;
+    if (st >= 4) { P.bunting = true; if (!P.awning) P.awning = LH.fam('yellow'); }
+    drawBuilding(c, h.tileX * T, h.tileY * T, P, t, Lights, lay);
   }
 
   // Commons: plots that never get a house. Decorated once the village reaches them.

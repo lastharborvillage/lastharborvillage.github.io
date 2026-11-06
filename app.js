@@ -53,7 +53,16 @@
   const ZOOMS = [1, 1.5, 2, 3, 4, 5, 6, 8];
   const HOME = { x: 7 * T, y: 3 * T };
   const M = { x: HOME.x, y: HOME.y, zi: 3, tod: null, sel: null, actors: [], visible: true, last: 0, fly: null, hinted: false };
+  // how far the map can be dragged: the old village area, widened to every home, landmark and tent
   const BOUNDS = { x0: -44 * T, x1: 38 * T, y0: -14 * T, y1: 27 * T };
+  function fitBounds(w) {
+    Object.assign(BOUNDS, { x0: -44 * T, x1: 38 * T, y0: -14 * T, y1: 27 * T });
+    const grow = (x, y) => { BOUNDS.x0 = Math.min(BOUNDS.x0, x - 6 * T); BOUNDS.x1 = Math.max(BOUNDS.x1, x + 6 * T); BOUNDS.y1 = Math.max(BOUNDS.y1, y + 6 * T); };
+    for (const v of w.villagers || []) if (v.home && v.home.tileX != null) grow(v.home.tileX * T, v.home.tileY * T);
+    for (const l of w.landmarks || []) grow(l.tileX * T, l.tileY * T);
+    const tents = LH.map.camp((w.story && w.story.followers) || 0);
+    if (tents.length) { const [tx, ty] = tents[tents.length - 1]; grow(tx * T, ty * T); }
+  }
   const zoom = () => ZOOMS[M.zi];
   const dpr = () => Math.min(2, window.devicePixelRatio || 1);
   const clampCam = () => { M.x = Math.max(BOUNDS.x0, Math.min(BOUNDS.x1, M.x)); M.y = Math.max(BOUNDS.y0, Math.min(BOUNDS.y1, M.y)); };
@@ -207,6 +216,13 @@
       const st = LH.map.shipStage(s.planks);
       const goal = s.goal || LH.map.SHIP_GOAL;
       push({ id: 'ship', title: 'The Ship', kicker: st.index ? 'Stage: ' + STAGE_NAMES[st.id] : 'Waiting for planks', text: 'Every villager adds one plank. ' + s.planks + ' of ' + goal + ' so far. When the last plank is in, the village sails into the fog.', person: 'bram' }, [s.x - 6, s.y - 40, s.x + 110, s.y + 5]);
+    }
+    // the followers' camp on the beach: one box around the first stretch of tents
+    const tents = LH.map.camp((w.story && w.story.followers) || 0);
+    if (tents.length) {
+      const xs = tents.slice(0, 140).map((p) => p[0] * T), ys = tents.slice(0, 140).map((p) => p[1] * T);
+      const n = w.story.followers;
+      push({ id: 'camp', title: 'The Camp', kicker: 'Beach · ' + n.toLocaleString('en-US') + ' tents', text: 'Every follower lives here, in a tent on the beach. ' + (n === 1 ? 'One tent so far.' : n.toLocaleString('en-US') + ' of them so far, and the camp keeps growing along the coast.') + ' Follow, and yours goes up the next day. Comment a name and a job to move into a house.' }, [Math.min(...xs) - 6, Math.min(...ys) - 10, Math.max(...xs) + 6, Math.max(...ys) + 2]);
     }
     // landmarks: the big changes the story made (a cave, a clearing, ruins...), each with its story
     const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue' };
@@ -546,6 +562,7 @@
       cache[v] = await r.json();
     }
     D = cache[v];
+    fitBounds(D.world);
     M.sel = null;
     const narrow = window.innerWidth < 600;
     M.x = HOME.x; M.y = HOME.y + (narrow ? 2 * T : 0);

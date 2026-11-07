@@ -145,16 +145,34 @@
     return s;
   }
 
+  // Strolling: about 4 in 10 villagers now and then walk a few steps along the path in front of their
+  // home, look around, and walk back. Deterministic in t (every id has its own rhythm and direction).
+  // Returns { dx (pixels from the door), walk, face }.
+  function stroll(id, t) {
+    const h = C.hashStr(String(id));
+    if (C.h2(h, 7) >= 0.4) return { dx: 0, walk: false, face: 1 };
+    const P = 14 + C.h2(h, 8) * 10, dist = (1.3 + C.h2(h, 9) * 1.5) * T, dir = C.h2(h, 10) < 0.5 ? -1 : 1;
+    const q = (((t + C.h2(h, 11) * P) % P) + P) % P / P; // 0..1 through the cycle
+    // 0-.3 at the door, .3-.45 walk out, .45-.7 stand there, .7-.85 walk back, .85-1 at the door
+    if (q < 0.3 || q >= 0.85) return { dx: 0, walk: false, face: dir };
+    if (q < 0.45) return { dx: dir * dist * C.eio((q - 0.3) / 0.15), walk: true, face: dir };
+    if (q < 0.7) return { dx: dir * dist, walk: false, face: Math.floor(q * 20) % 3 === 0 ? -dir : dir };
+    return { dx: dir * dist * (1 - C.eio((q - 0.7) / 0.15)), walk: true, face: -dir };
+  }
+
   // Animation frame (0/1) of a sprite at time t, phase-shifted per id so a crowd is not in sync.
   const animFrame = (id, rate, t) => Math.floor(t * rate + C.h2(C.hashStr(String(id)), 3) * 2) % 2;
 
   // Draws a villager with feet at (x, y). Returns head-top y.
   function drawVillager(c, app, id, x, y, t, lights, o = {}) {
     const s = villagerSprite(app);
-    const f = o.frame != null ? o.frame : animFrame(id, s.rate, t);
+    // walking (o.walk): quicker steps with a small bob; o.face -1 = facing left (mirrored)
+    const f = o.frame != null ? o.frame : o.walk ? Math.floor(t * 6) % 2 : animFrame(id, s.rate, t);
+    const bob = o.walk ? Math.floor(t * 6) % 2 : 0;
     c.globalAlpha = 0.28; rect(c, 'ink', x - 5, y - 1, 11, 2); c.globalAlpha = 1;
-    const dx = Math.round(x - s.w / 2), dy = Math.round(y - s.h + 1);
-    c.drawImage(s.frames[f], dx, dy);
+    const dx = Math.round(x - s.w / 2), dy = Math.round(y - s.h + 1) - bob;
+    if (o.face === -1) { c.save(); c.translate(dx * 2 + s.w, 0); c.scale(-1, 1); c.drawImage(s.frames[f], dx, dy); c.restore(); }
+    else c.drawImage(s.frames[f], dx, dy);
     if (s.glow && lights) lights.push({ x: dx + OX + SPR.HAND[0] - 2 + s.glow[0] + (s.w - FW) / 2, y: dy + OY + SPR.HAND[1] + s.glow[1] + (s.h - FH), r: 12, kind: 'lamp' });
     if (app.pet) {
       const p = petSprite(app.pet);
@@ -949,16 +967,18 @@
     const hide = o.hide || new Set();
     const people = [];
     for (const f of world.founders || []) if (f.pos && f.appearance) people.push({ id: f.id, name: f.displayName, crew: false, x: f.pos[0], y: f.pos[1], app: f.appearance, founder: true });
+    const still = o.still || new Set(); // episodes keep their subjects in place
     for (const v of world.villagers) {
       if (hide.has(v.id) || !v.home || v.home.tileX == null) continue;
-      const [x, y] = v.pos || map.homeSpot(v);
-      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, x, y, app: v.appearance });
+      const [hx, hy] = v.pos || map.homeSpot(v);
+      const st = v.pos || still.has(v.id) || o.walk === false ? { dx: 0, walk: false, face: 1 } : stroll(v.id, t);
+      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, x: hx + st.dx, y: hy, app: v.appearance, walk: st.walk, face: st.face });
     }
     const offsets = o.offsets || {};
     for (const p of people) {
       if (p.x < bx0 - 40 || p.x > bx0 + bw + 40 || p.y < by0 - 10 || p.y > by0 + bh + 60) continue;
       const lift = offsets[p.id] || 0;
-      add(p.y, () => { const head = drawVillager(c, p.app, p.id, p.x, p.y - lift, t, lights); actors.push({ ...p, headY: head }); });
+      add(p.y, () => { const head = drawVillager(c, p.app, p.id, p.x, p.y - lift, t, lights, { walk: p.walk, face: p.face }); actors.push({ ...p, headY: head }); });
     }
     for (const e of o.extras || []) add(e.y, () => e.draw(c, lights));
     if (o.cat) add(o.cat[1], () => { const s = petSprite('cat'); const f = animFrame('the-cat', 0.7, t); c.drawImage(s.frames[f], Math.round(o.cat[0] - s.w / 2), Math.round(o.cat[1] - s.h + 1)); });

@@ -416,6 +416,9 @@
     // followers live in the beach camp; the count arrives with the next day (hidden until then)
     if (w.story.followers) stats.splice(1, 0, [w.story.followers.toLocaleString('en-US'), 'live here']);
     if (w.story.atSea) stats.push([w.story.atSea, 'waiting at sea']);
+    // the next village upgrade: a goal people can help reach
+    const nx = LH.map.nextUpgrade(w);
+    if (nx && D.open) stats.push([nx.at - w.villagers.length, 'more villagers for ' + nx.name]);
     const box = $('stats');
     box.replaceChildren(...stats.map(([n, l]) => { const d = el('div', 'stat'); d.appendChild(el('b', null, String(n))); d.appendChild(el('span', null, l.toUpperCase())); return d; }));
     $('day-badge').textContent = D.open ? 'Day ' + w.story.day : 'Opening soon';

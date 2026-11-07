@@ -198,6 +198,15 @@
         rect(g, 'sand2', x, top, 1, bot - top);
       }
       for (let i = 0; i < 5; i++) px(g, i % 2 ? 'sand3' : 'sand', Math.floor(r() * 16), 8 + Math.floor(r() * 4));
+    } else if (type === 'stonepath' || type === 'stonepath-dark') { // upgrade "stonepaths": flagstones to the door
+      rect(g, type === 'stonepath-dark' ? 'moss' : 'grass', 0, 0, T, T);
+      rect(g, 'stone2', 0, 6, T, 7);
+      for (let i = 0; i < 4; i++) { const x = i * 4 + (variant % 2) * 2 - 1; rect(g, 'stone', x + 1, 7, 3, 2); rect(g, 'stone', x, 10, 3, 2); px(g, 'stone3', x + 1, 7); }
+      for (let x = 0; x < T; x++) { if (r() < 0.35) px(g, 'moss', x, 6); if (r() < 0.35) px(g, 'moss', x, 12); }
+    } else if (type === 'road') { // upgrade "cobbles": the main roads are paved
+      rect(g, 'stone2', 0, 0, T, T);
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 5; x++) { const ox = (y % 2) * 2 - 1; rect(g, (x + y + variant) % 3 ? 'stone' : 'stone3', x * 4 + ox, y * 4, 3, 3); }
+      speck('sand2', 3);
     } else if (type === 'yard') {
       rect(g, 'sand2', 0, 0, T, T); speck('sand3', 6); speck('wood3', 5); speck('sand', 5);
     } else if (type === 'cobble') {
@@ -766,6 +775,12 @@
     // occupied tiles (homes, fronts, buildings, commons) keep trees away; paths join the doors
     const busy = new Set();
     const paths = new Set();
+    // village upgrades (map.UPGRADES): unlocked by the villager count, and each one only reaches as far
+    // from the centre as the village has grown since (map.upgradeReach), so they spread outward
+    const up = map.upgrades(world);
+    const reach = {};
+    for (const u of map.UPGRADES) reach[u.id] = map.upgradeReach(world, u.id);
+    const has = (id, x, y) => map.upgradeCovers(reach[id], x, y);
     const homes = [];
     const mark = (set, x, y) => set.add(x + ',' + y);
     const { occupied, housed, near } = worldIndex(world);
@@ -811,7 +826,8 @@
     const groundAt = (tx, ty) => {
       const g = map.ground(tx, ty, districts);
       if (g === 'cobble' && !openDistricts.includes('market')) return 'grass';
-      if (GRASSY.includes(g) && paths.has(tx + ',' + ty)) return g === 'darkgrass' ? 'footpath-dark' : 'footpath';
+      if (g === 'path' && map.isRoad(tx, ty) && has('cobbles', tx, ty)) return 'road';
+      if (GRASSY.includes(g) && paths.has(tx + ',' + ty)) return has('stonepaths', tx, ty) ? (g === 'darkgrass' ? 'stonepath-dark' : 'stonepath') : g === 'darkgrass' ? 'footpath-dark' : 'footpath';
       if (g === 'field' && busy.has(tx + ',' + ty)) return 'grass';
       return g;
     };
@@ -862,6 +878,44 @@
       const x = p.x * T, y = p.y * T;
       if (x < bx0 - 120 || x > bx0 + bw + 120 || y < by0 - 120 || y > by0 + bh + 140) continue;
       add(p.type === 'dock' ? y - (p.len || 4) * T : y, () => fn(c, x, y, p, t, lights, world));
+    }
+    // village upgrades (map.UPGRADES): street lamps and planters along the main roads, but only as far
+    // as people live (so they spread as the village grows), and garden fences in front of the homes
+    if (up.size && housed.length) {
+      let hx0 = Infinity, hx1 = -Infinity, hy1 = -Infinity;
+      for (const v of housed) { hx0 = Math.min(hx0, v.home.tileX); hx1 = Math.max(hx1, v.home.tileX + 2); hy1 = Math.max(hy1, v.home.tileY + 2); }
+      const inView = (x, y) => x >= bx0 - 40 && x <= bx0 + bw + 40 && y >= by0 - 20 && y <= by0 + bh + 60;
+      const free = (tx, ty) => !busy.has(tx + ',' + ty) && !map.isRoad(tx, ty) && !map.RESERVED.some((r) => tx >= r[0] && tx <= r[2] && ty >= r[1] && ty <= r[3]);
+      // lamps stand on the edge of the road itself (the verge is usually someone's garden): along the
+      // south side of the coast road every 5 tiles, and both sides of the high street, alternating
+      const doorAt = (tx, ty) => paths.has(tx + ',' + ty);
+      if (up.has('lamps')) {
+        const spots = [];
+        for (let x = Math.max(-42, hx0 - 2); x <= Math.min(34, hx1 + 2); x++) if (((x % 5) + 5) % 5 === 3 && x !== 2 && !doorAt(x, 6) && has('lamps', x, 5)) spots.push([x * T + 8, 6 * T, x]);
+        for (let y = 8; y <= Math.min(40, hy1 + 2); y += 4) if (has('lamps', 2, y)) spots.push([y % 8 ? 3 * T + 1 : 2 * T - 1, y * T + 10]);
+        for (const [x, y] of spots) if (inView(x, y)) add(y, () => PROPS.lamppost(c, x, y, {}, t, lights));
+      }
+      if (up.has('planters')) {
+        for (let y = 10; y <= Math.min(40, hy1 + 2); y += 4) {
+          const x = y % 8 ? 2 * T - 6 : 3 * T + 6, yy = y * T + 8; // opposite the lamps
+          if (!inView(x, yy) || !has('planters', 2, y)) continue;
+          if ((y / 6 | 0) % 2) add(yy, () => PROPS.bench(c, x, yy));
+          else add(yy, () => { rect(c, 'ink', x - 7, yy - 6, 14, 6); rect(c, 'wood', x - 6, yy - 5, 12, 4); rect(c, 'wood3', x - 6, yy - 5, 12, 1); for (let i = 0; i < 5; i++) { px(c, 'moss2', x - 5 + i * 2.5, yy - 7); px(c, ['rose', 'gold', 'white', 'plum', 'ember'][(i + y) % 5], x - 5 + i * 2.5, yy - 8); } });
+        }
+      }
+      if (up.has('fences')) {
+        for (const v of homes) {
+          const hx = v.home.tileX, hy = v.home.tileY, fy = (hy + 3) * T - 3;
+          if (!inView(hx * T, fy) || !has('fences', hx + 1, hy + 2)) continue;
+          // a picket fence along the front of the plot with a gate gap at the front path, and short sides
+          add(fy, () => {
+            const seg = (x0, x1) => { rect(c, 'wood2', x0, fy - 3, x1 - x0, 1); rect(c, 'wood2', x0, fy - 1, x1 - x0, 1); for (let x = x0; x <= x1; x += 3) { rect(c, 'ink', x, fy - 5, 1, 6); px(c, 'wood3', x, fy - 5); } };
+            seg((hx - 1) * T + 3, hx * T - 1);
+            seg((hx + 2) * T + 1, (hx + 3) * T - 3);
+            for (const sx of [(hx - 1) * T + 3, (hx + 3) * T - 3]) rect(c, 'wood2', sx, fy - 12, 1, 9);
+          });
+        }
+      }
     }
     // the followers' camp on the beach: one tent per follower (see map.camp)
     const followers = o.followers != null ? o.followers : (world.story && world.story.followers) || 0;

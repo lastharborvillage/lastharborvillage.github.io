@@ -239,6 +239,27 @@
     return null;
   }
 
+  // Village upgrades: as more villagers move in, the village itself gets better. Each unlocks at a
+  // villager count and stays (drawn by renderWorld; the writer is told which one comes next).
+  const UPGRADES = [
+    { at: 10, id: 'lamps', name: 'street lamps along the main roads' },
+    { at: 20, id: 'stonepaths', name: 'stone paths to every door' },
+    { at: 30, id: 'fences', name: 'garden fences around the homes' },
+    { at: 50, id: 'cobbles', name: 'cobbled main roads' },
+    { at: 80, id: 'planters', name: 'benches and flower planters along the high street' },
+  ];
+  const upgrades = (world) => new Set(UPGRADES.filter((u) => (world.villagers || []).length >= u.at).map((u) => u.id));
+  const nextUpgrade = (world) => UPGRADES.find((u) => (world.villagers || []).length < u.at) || null;
+  // Upgrades start in the centre (the harbour crossroads) and spread outward: when one unlocks it
+  // reaches 6 tiles from the centre, and half a tile further for every villager after that (so with
+  // 40 more villagers it covers about 26 tiles). 0 = not started.
+  const UPGRADE_CENTRE = [2, 7];
+  function upgradeReach(world, id) {
+    const u = UPGRADES.find((q) => q.id === id), n = (world.villagers || []).length;
+    return u && n >= u.at ? 6 + (n - u.at) * 0.5 : 0;
+  }
+  const upgradeCovers = (reach, x, y) => reach > 0 && Math.hypot(x - UPGRADE_CENTRE[0], (y - UPGRADE_CENTRE[1]) * 1.2) <= reach;
+
   // Landmarks: the big changes the story makes to the map ("Slaxx found a cave", "the woodcutters
   // started clearing the forest"). Each has a footprint in tiles (w x h, top-left at tileX/tileY) that
   // no home may ever take; a clearing has none: it only removes trees in a circle that grows with its
@@ -363,5 +384,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
 })();

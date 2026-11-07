@@ -145,19 +145,51 @@
     return s;
   }
 
-  // Strolling: about 4 in 10 villagers now and then walk a few steps along the path in front of their
-  // home, look around, and walk back. Deterministic in t (every id has its own rhythm and direction).
-  // Returns { dx (pixels from the door), walk, face }.
+  // Moving about: every villager has their own day, a loop of short walks around the yard and the path
+  // in front of their home (any direction, never into the house), each followed by a stop where they
+  // work (their tool's action), look around or just stand. About 3 in 10 are busy at home and only take
+  // a step or two now and then. The loop ends where it starts, so it repeats without a jump.
+  // Deterministic in t (seeded per id). Returns { dx, dy (pixels from the door), walk, face }.
+  const plans = new Map();
+  function dayPlan(id) {
+    let p = plans.get(id);
+    if (p) return p;
+    const r = C.rng(C.hashStr('walk:' + id));
+    const busy = r() < 0.3;
+    const n = busy ? 2 + Math.floor(r() * 2) : 4 + Math.floor(r() * 4);
+    const legs = [];
+    let x = 0, y = 0, face = r() < 0.5 ? -1 : 1, total = 0;
+    for (let i = 0; i < n; i++) {
+      const last = i === n - 1;
+      const reach = busy ? 0.8 : 1.2 + r() * 1.6; // tiles
+      let x1 = last ? 0 : Math.round((r() * 2 - 1) * reach * T);
+      const y1 = last ? 0 : Math.round(r() * (busy ? 0.4 : 1.3) * T);
+      if (!last && Math.abs(x1 - x) + Math.abs(y1 - y) < 6) x1 = x + (x1 >= x ? 8 : -8);
+      const walk = Math.hypot(x1 - x, y1 - y) / (10 + r() * 6); // seconds, at 10-16 px/s
+      const stop = busy ? 4 + r() * 6 : r() < 0.35 ? 3 + r() * 5 : 0.8 + r() * 2.2;
+      if (x1 !== x) face = x1 > x ? 1 : -1;
+      legs.push({ x0: x, y0: y, x1, y1, walk, stop, face, look: r() < 0.45, start: total });
+      total += walk + stop;
+      x = x1; y = y1;
+    }
+    p = { legs, total, phase: r() * total };
+    plans.set(id, p);
+    return p;
+  }
   function stroll(id, t) {
-    const h = C.hashStr(String(id));
-    if (C.h2(h, 7) >= 0.4) return { dx: 0, walk: false, face: 1 };
-    const P = 14 + C.h2(h, 8) * 10, dist = (1.3 + C.h2(h, 9) * 1.5) * T, dir = C.h2(h, 10) < 0.5 ? -1 : 1;
-    const q = (((t + C.h2(h, 11) * P) % P) + P) % P / P; // 0..1 through the cycle
-    // 0-.3 at the door, .3-.45 walk out, .45-.7 stand there, .7-.85 walk back, .85-1 at the door
-    if (q < 0.3 || q >= 0.85) return { dx: 0, walk: false, face: dir };
-    if (q < 0.45) return { dx: dir * dist * C.eio((q - 0.3) / 0.15), walk: true, face: dir };
-    if (q < 0.7) return { dx: dir * dist, walk: false, face: Math.floor(q * 20) % 3 === 0 ? -dir : dir };
-    return { dx: dir * dist * (1 - C.eio((q - 0.7) / 0.15)), walk: true, face: -dir };
+    const p = dayPlan(String(id));
+    const q = (((t + p.phase) % p.total) + p.total) % p.total;
+    let leg = p.legs[0];
+    for (const l of p.legs) if (q >= l.start) leg = l;
+    const lt = q - leg.start;
+    if (lt < leg.walk) {
+      const e = lt / leg.walk;
+      return { dx: C.lerp(leg.x0, leg.x1, e), dy: C.lerp(leg.y0, leg.y1, e), walk: true, face: leg.face };
+    }
+    // stopped: working or standing; now and then a look over the shoulder
+    const s = (lt - leg.walk) / leg.stop;
+    const face = leg.look && s > 0.35 && s < 0.65 ? -leg.face : leg.face;
+    return { dx: leg.x1, dy: leg.y1, walk: false, face };
   }
 
   // Animation frame (0/1) of a sprite at time t, phase-shifted per id so a crowd is not in sync.
@@ -1349,8 +1381,8 @@
     for (const v of world.villagers) {
       if (hide.has(v.id) || !v.home || v.home.tileX == null) continue;
       const [hx, hy] = v.pos || map.homeSpot(v);
-      const st = v.pos || still.has(v.id) || o.walk === false ? { dx: 0, walk: false, face: 1 } : stroll(v.id, t);
-      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, x: hx + st.dx, y: hy, app: v.appearance, walk: st.walk, face: st.face });
+      const st = v.pos || still.has(v.id) || o.walk === false ? { dx: 0, dy: 0, walk: false, face: 1 } : stroll(v.id, t);
+      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, x: hx + st.dx, y: hy + (st.dy || 0), app: v.appearance, walk: st.walk, face: st.face });
     }
     const offsets = o.offsets || {};
     for (const p of people) {

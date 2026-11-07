@@ -466,7 +466,6 @@
     ];
     // followers live in the beach camp; the count arrives with the next day (hidden until then)
     if (w.story.followers) stats.splice(1, 0, [w.story.followers.toLocaleString('en-US'), 'live here']);
-    if (w.story.atSea) stats.push([w.story.atSea, 'waiting at sea']);
     // the next village upgrade: a goal people can help reach
     const nx = LH.map.nextUpgrade(w);
     if (nx && D.open) stats.push([nx.at - w.villagers.length, 'more villagers for ' + nx.name]);
@@ -582,7 +581,7 @@
     const w = D.world;
     const crew = people().filter((v) => v.crew).length;
     $('register-sub').textContent = people().length
-      ? people().length + ' villagers have moved in' + (crew ? ', ' + crew + ' signed up as crew' : '') + '.' + (w.story.atSea ? ' ' + w.story.atSea + ' more are waiting at sea for a house.' : '')
+      ? people().length + ' villagers have moved in' + (crew ? ', ' + crew + ' signed up as crew' : '') + '.'
       : 'Nobody has moved in yet. The first comments become the first villagers.';
     $('founders').replaceChildren(...w.founders.map((f) => personButton(f, 'FOUNDER')));
     const dist = $('f-district').value, onlyCrew = $('f-crew').checked, sort = $('f-sort').value;

@@ -702,22 +702,27 @@
   }
 
   // ---------------------------------------------------------------- fog wall
-  function drawFog(c, x0, y0, w, h, t) {
+  // fast (website): the fog's noise is worked out once per 2x2 block (4x fewer noise calls; the
+  // pixel-art dithering stays per pixel). Episodes use the exact per-pixel version.
+  function drawFog(c, x0, y0, w, h, t, fast) {
     const fogTop = map.FOG_Y * T;
     const maxEdge = fogTop + 30;
     if (y0 > maxEdge + 50) return;
     const rows = Math.min(h, Math.ceil(maxEdge + 50 - y0));
     if (rows <= 0) return;
+    const F2 = rgb('fog2'), F = rgb('fog'), F3 = rgb('fog3'), WH = rgb('white');
+    const noiseAt = (wx, wy) => C.vnoise(wx * 0.03 + t * 0.22, wy * 0.05, 5) * 0.6 + C.vnoise(wx * 0.09 - t * 0.17, wy * 0.12 + t * 0.05, 6) * 0.4;
+    if (fast) return drawFogHalf(c, x0, y0, w, rows, t, fogTop, noiseAt, [F2, F, F3, WH]);
     const img = c.getImageData(0, 0, w, rows);
     const d = img.data;
-    const F2 = rgb('fog2'), F = rgb('fog'), F3 = rgb('fog3'), WH = rgb('white');
     for (let xi = 0; xi < w; xi++) {
       const wx = x0 + xi;
       const edge = fogTop + 12 * Math.sin(wx * 0.021 + t * 0.12) + 7 * Math.sin(wx * 0.057 - t * 0.21) + 6 * C.vnoise(wx * 0.05 + t * 0.3, t * 0.1, 4);
       for (let yi = 0; yi < rows; yi++) {
         const wy = y0 + yi;
         const below = wy - edge;
-        const n = C.vnoise(wx * 0.03 + t * 0.22, wy * 0.05, 5) * 0.6 + C.vnoise(wx * 0.09 - t * 0.17, wy * 0.12 + t * 0.05, 6) * 0.4;
+        if (below >= 40) break; // nothing below the wall's ragged edge in this column
+        const n = noiseAt(wx, wy);
         let a;
         if (below < -26) a = 1;
         else if (below < 0) a = bayer(wx, wy) < (-below / 26) * 0.85 + 0.15 ? 1 : 0;
@@ -733,9 +738,124 @@
     }
     c.putImageData(img, 0, 0);
   }
+  // The same fog at half resolution (website): every value is worked out for 2x2 pixels at once into
+  // a small see-through layer, which is then stretched over the scene (a quarter of the work).
+  let fogLayer = null;
+  function drawFogHalf(c, x0, y0, w, rows, t, fogTop, noiseAt, [F2, F, F3, WH]) {
+    const w2 = Math.ceil(w / 2) + 1, r2 = Math.ceil(rows / 2) + 1, ox = x0 & 1, oy = y0 & 1; // even world pixels
+    if (!fogLayer || fogLayer.width !== w2 || fogLayer.height !== r2) fogLayer = canvas(w2, r2);
+    const g = fogLayer.getContext('2d');
+    const img = g.createImageData(w2, r2), d = img.data;
+    for (let xi = 0; xi < w2; xi++) {
+      const wx = x0 - ox + xi * 2;
+      const edge = fogTop + 12 * Math.sin(wx * 0.021 + t * 0.12) + 7 * Math.sin(wx * 0.057 - t * 0.21) + 6 * C.vnoise(wx * 0.05 + t * 0.3, t * 0.1, 4);
+      for (let yi = 0; yi < r2; yi++) {
+        const wy = y0 - oy + yi * 2, below = wy - edge;
+        if (below >= 40) break;
+        const n = noiseAt(wx, wy);
+        let a;
+        if (below < -26) a = 1;
+        else if (below < 0) a = bayer(wx >> 1, wy >> 1) < (-below / 26) * 0.85 + 0.15 ? 1 : 0;
+        else a = n > 0.56 && bayer(wx >> 1, wy >> 1) < 0.45 * (1 - below / 40) ? 0.85 : 0;
+        if (!a) continue;
+        const m = n + Math.min(1, Math.max(0, (-below - 26) / 140)) * 0.25;
+        const cc = m > 0.56 ? WH : m > 0.3 ? F2 : below > -34 && m < 0.22 ? F3 : F;
+        const o = (yi * w2 + xi) * 4;
+        d[o] = cc[0]; d[o + 1] = cc[1]; d[o + 2] = cc[2]; d[o + 3] = Math.round(a * 255);
+      }
+    }
+    g.putImageData(img, 0, 0);
+    c.imageSmoothingEnabled = false;
+    c.drawImage(fogLayer, -ox, -oy, w2 * 2, r2 * 2);
+  }
 
   // ---------------------------------------------------------------- the scene
   let buf = null;
+
+  // Is there a tree on tile (tx, ty)? { x, y, kind } (base pixel), { stump } inside a clearing, or null.
+  function treeAt(tx, ty, busy, cleared, districts) {
+    if (busy.has(tx + ',' + ty)) return null;
+    const g = map.ground(tx, ty, districts);
+    if (g !== 'grass' && g !== 'darkgrass' && g !== 'rockgrass') return null;
+    if (ty < map.coastY(tx) + 3) return null;
+    if (map.RESERVED.some((r) => tx >= r[0] - 1 && tx <= r[2] + 1 && ty >= r[1] - 1 && ty <= r[3] + 1)) return null;
+    const dist = map.districtAt(tx, ty, districts);
+    const dens = dist === 'forest' ? 0.5 : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.1;
+    if (C.h2(tx, ty, 11) >= dens) return null;
+    const kind = dist === 'forest' || dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
+    const x = tx * T + 8 + Math.floor(C.h2(tx, ty, 13) * 5) - 2, y = ty * T + 14;
+    return cleared.has(tx + ',' + ty) ? { x, y, stump: true } : { x, y, kind };
+  }
+  const TREE_PAD = 48; // tree pieces reach this far above their tiles (tall pines)
+
+  // Website ground cache (renderWorld o.fast): the land never changes for a given world, so it is
+  // drawn once into 32x32-tile pieces (with every home's paths and plots, not only the ones on
+  // screen), plus a list of the water tiles in each piece, which are still drawn every frame.
+  const groundCaches = new WeakMap();
+  function groundCacheFor(world, districts, openDistricts, makeGroundAt, landTile) {
+    let gc = groundCaches.get(world);
+    if (gc) return gc;
+    const paths = new Set(), busy = new Set();
+    const mark = (s, x, y) => s.add(x + ',' + y);
+    const { occupied, housed } = worldIndex(world);
+    for (const v of housed) {
+      const hx = v.home.tileX, hy = v.home.tileY;
+      for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
+      mark(paths, hx, hy + 2); mark(paths, hx + 1, hy + 2);
+      if (occupied.has((hx + 4) + ',' + hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
+    }
+    for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
+    for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
+    const cleared = new Set();
+    for (const l of world.landmarks || []) {
+      const s = map.LANDMARKS[l.type];
+      if (!s) continue;
+      if (l.type === 'clearing') {
+        const r = map.clearingRadius(l);
+        for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) if (dx * dx + dy * dy <= r * r) mark(cleared, l.tileX + dx, l.tileY + dy);
+        mark(busy, l.tileX, l.tileY);
+      } else for (let dx = -1; dx <= s.w; dx++) for (let dy = -1; dy <= s.h; dy++) mark(busy, l.tileX + dx, l.tileY + dy);
+    }
+    // the commons (wells, gardens) that get decorated near homes keep trees away too
+    const { near } = worldIndex(world);
+    const seen = new Set();
+    for (const v of housed) for (let ty = v.home.tileY - 8; ty <= v.home.tileY + 8; ty++) for (let tx = v.home.tileX - 8; tx <= v.home.tileX + 8; tx++) {
+      const k = tx + ',' + ty;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (map.isCommon(tx, ty) && near(tx, ty)) for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, tx + dx, ty + dy);
+    }
+    const gAt = makeGroundAt(paths, busy);
+    const N = 32, pieces = new Map(), treePieces = new Map();
+    gc = {
+      // the trees of a piece, drawn once (no sway), reaching TREE_PAD pixels above it; null if none
+      trees(cx, cy, districts) {
+        const k = cx + ',' + cy;
+        if (treePieces.has(k)) return treePieces.get(k);
+        let cv = null, g2 = null;
+        for (let ty = cy * N; ty < (cy + 1) * N; ty++) for (let tx = cx * N; tx < (cx + 1) * N; tx++) {
+          const tr = treeAt(tx, ty, busy, cleared, districts);
+          if (!tr) continue;
+          if (!cv) { cv = canvas(N * T, N * T + TREE_PAD); g2 = cv.getContext('2d'); g2.translate(-cx * N * T, -cy * N * T + TREE_PAD); }
+          if (tr.stump) drawStump(g2, tr.x, tr.y); else drawTree(g2, tr.x, tr.y, tr.kind, tx * 31 + ty, 0);
+        }
+        treePieces.set(k, cv);
+        return cv;
+      },
+      piece(cx, cy) {
+        const k = cx + ',' + cy;
+        let p = pieces.get(k);
+        if (p) return p;
+        const cv = canvas(N * T, N * T), g2 = cv.getContext('2d'), water = [];
+        for (let ty = cy * N; ty < (cy + 1) * N; ty++) for (let tx = cx * N; tx < (cx + 1) * N; tx++) if (!landTile(g2, gAt, tx, ty, cx * N * T, cy * N * T)) water.push([tx, ty]);
+        p = { canvas: cv, water };
+        pieces.set(k, p);
+        return p;
+      },
+    };
+    groundCaches.set(world, gc);
+    return gc;
+  }
 
   // Per-world data that does not change between frames, built once per villager list:
   // occupied plots, villagers with a home, and near(tx, ty) = "a home within 8 tiles" (buckets of 9).
@@ -841,33 +961,49 @@
 
     // ground
     const GRASSY = ['grass', 'darkgrass', 'rockgrass', 'field'];
-    const groundAt = (tx, ty) => {
+    const makeGroundAt = (pathSet, busySet) => (tx, ty) => {
       const g = map.ground(tx, ty, districts);
       if (g === 'cobble' && !openDistricts.includes('market')) return 'grass';
       if (g === 'path' && map.isRoad(tx, ty) && has('cobbles', tx, ty)) return 'road';
-      if (GRASSY.includes(g) && paths.has(tx + ',' + ty)) return has('stonepaths', tx, ty) ? (g === 'darkgrass' ? 'stonepath-dark' : 'stonepath') : g === 'darkgrass' ? 'footpath-dark' : 'footpath';
-      if (g === 'field' && busy.has(tx + ',' + ty)) return 'grass';
+      if (GRASSY.includes(g) && pathSet.has(tx + ',' + ty)) return has('stonepaths', tx, ty) ? (g === 'darkgrass' ? 'stonepath-dark' : 'stonepath') : g === 'darkgrass' ? 'footpath-dark' : 'footpath';
+      if (g === 'field' && busySet.has(tx + ',' + ty)) return 'grass';
       return g;
     };
-    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-      const g = groundAt(tx, ty);
-      if (g === 'sea' || g === 'shallow') { drawWater(c, tx, ty, t); continue; }
-      c.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T, ty * T);
-      if (g !== 'path' && g !== 'field') continue;
+    // one land tile (not water) with its soft edges, drawn into g2 (whose origin is world pixel ox, oy)
+    const landTile = (g2, gAt, tx, ty, ox, oy) => {
+      const g = gAt(tx, ty);
+      if (g === 'sea' || g === 'shallow') return false;
+      g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
+      if (g !== 'path' && g !== 'field') return true;
       // soft grass edges where the path (or a field) meets grass; a field's edge is deeper and more
       // ragged, so fields read as patches of land, not tiles
       const deep = g === 'field' ? [0.9, 0.65, 0.4, 0.18, 0.06] : [0.75, 0.4, 0.12];
       for (const [sx, sy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-        const n = groundAt(tx + sx, ty + sy);
+        const n = gAt(tx + sx, ty + sy);
         if (!GRASSY.includes(n) || (g === 'field' && n === 'field')) continue;
         const fill = n === 'darkgrass' ? 'moss' : 'grass';
         for (let i = 0; i < T; i++) for (let d = 0; d < deep.length; d++) {
           if (C.h2(tx * T + i, ty * T + d * 7 + sx * 3 + sy * 5, 41) > deep[d]) continue;
           const xx = sx === 0 ? i : sx < 0 ? d : T - 1 - d;
           const yy = sy === 0 ? i : sy < 0 ? d : T - 1 - d;
-          px(c, fill, tx * T + xx, ty * T + yy);
+          px(g2, fill, tx * T + xx - ox, ty * T + yy - oy);
         }
       }
+      return true;
+    };
+    if (o.fast) {
+      // website: the land is drawn once per world into 32x32-tile pieces and reused every frame; only
+      // the water (it moves) is drawn each frame
+      const GC = groundCacheFor(world, districts, openDistricts, makeGroundAt, landTile);
+      const CH = 32 * T;
+      for (let cy = Math.floor(ty0 * T / CH); cy <= Math.floor((ty1 + 1) * T / CH); cy++) for (let cx = Math.floor(tx0 * T / CH); cx <= Math.floor((tx1 + 1) * T / CH); cx++) {
+        const piece = GC.piece(cx, cy);
+        for (const [wx, wy] of piece.water) if (wx >= tx0 && wx <= tx1 && wy >= ty0 && wy <= ty1) drawWater(c, wx, wy, t);
+        c.drawImage(piece.canvas, cx * CH, cy * CH);
+      }
+    } else {
+      const groundAt = makeGroundAt(paths, busy);
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (!landTile(c, groundAt, tx, ty, 0, 0)) drawWater(c, tx, ty, t);
     }
 
     // objects, painted back to front
@@ -942,19 +1078,19 @@
       if (x < bx0 - 40 || x > bx0 + bw + 40 || y < by0 - 40 || y > by0 + bh + 40) continue;
       add(y, () => drawTent(c, x, y, k, t, lights));
     }
-    for (let ty = ty0; ty <= ty1 + 2; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-      if (busy.has(tx + ',' + ty)) continue;
-      const g = map.ground(tx, ty, districts);
-      if (g !== 'grass' && g !== 'darkgrass' && g !== 'rockgrass') continue;
-      if (ty < map.coastY(tx) + 3) continue;
-      if (map.RESERVED.some((r) => tx >= r[0] - 1 && tx <= r[2] + 1 && ty >= r[1] - 1 && ty <= r[3] + 1)) continue;
-      const dist = map.districtAt(tx, ty, districts);
-      const dens = dist === 'forest' ? 0.5 : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.1;
-      if (C.h2(tx, ty, 11) >= dens) continue;
-      const kind = dist === 'forest' || dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
-      const x = tx * T + 8 + Math.floor(C.h2(tx, ty, 13) * 5) - 2, y = ty * T + 14;
-      if (cleared.has(tx + ',' + ty)) { add(y, () => drawStump(c, x, y)); continue; }
-      add(y, () => drawTree(c, x, y, kind, tx * 31 + ty, t));
+    // trees (zoomed far out on the website they come from the cached pieces instead: drawn once, no sway)
+    const treesCached = o.fast && z <= 2;
+    if (treesCached) {
+      const GC = groundCaches.get(world), CH = 32 * T;
+      for (let cy = Math.floor(ty0 * T / CH); cy <= Math.floor((ty1 + 3) * T / CH); cy++) for (let cx = Math.floor(tx0 * T / CH); cx <= Math.floor((tx1 + 1) * T / CH); cx++) {
+        const p = GC.trees(cx, cy, districts);
+        if (p) add(cy * CH - 1e6, () => c.drawImage(p, cx * CH, cy * CH - TREE_PAD)); // under everything else
+      }
+    } else for (let ty = ty0; ty <= ty1 + 2; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+      const tr = treeAt(tx, ty, busy, cleared, districts);
+      if (!tr) continue;
+      if (tr.stump) add(tr.y, () => drawStump(c, tr.x, tr.y));
+      else add(tr.y, () => drawTree(c, tr.x, tr.y, tr.kind, tx * 31 + ty, t));
     }
     for (const l of world.landmarks || []) {
       const s = map.LANDMARKS[l.type];
@@ -995,7 +1131,7 @@
 
     // fog wall
     c.setTransform(1, 0, 0, 1, 0, 0);
-    drawFog(c, bx0, by0, bw, bh, t);
+    drawFog(c, bx0, by0, bw, bh, t, o.fast);
 
     // time of day
     if (tod.tint) {

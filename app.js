@@ -92,7 +92,7 @@
     const z = Math.max(1, Math.round(zoom() * r));
     M.cam = { x: M.x, y: M.y, z, w, h };
     const cat = D.cat ? [D.cat[0] * T, D.cat[1] * T] : undefined;
-    const res = LH.draw.renderWorld(ctx, { world: D.world, cam: { x: M.x, y: M.y, z }, t, tod: M.tod, cat });
+    const res = LH.draw.renderWorld(ctx, { world: D.world, cam: { x: M.x, y: M.y, z }, t, tod: M.tod, cat, fast: true });
     M.actors = res.actors;
     // name tags when close enough to read
     const tagSize = Math.round(13 * r);
@@ -113,7 +113,10 @@
   function loop(now) {
     requestAnimationFrame(loop);
     if (!M.visible || document.hidden) return;
-    if (now - M.last < (M.fly ? 16 : 66)) return; // ~15 fps is plenty for waves and lights
+    // full speed while the map is being dragged, zoomed or flying (and a moment after); ~15 fps is
+    // plenty for waves and lights when nobody touches it
+    const busyNow = M.fly || now - (M.touched || 0) < 600;
+    if (now - M.last < (busyNow ? 0 : 66)) return;
     M.last = now;
     draw(now / 1000);
   }
@@ -126,12 +129,14 @@
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     M.fly = null;
+    M.touched = performance.now();
     if (pointers.size === 1) drag = { x: e.clientX, y: e.clientY, cx: M.x, cy: M.y, moved: 0 };
     else if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zi: M.zi }; drag = null; }
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    M.touched = performance.now();
     if (pinch && pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const f = Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
@@ -296,7 +301,7 @@
   $('p-person').addEventListener('click', () => { const id = placePerson; pdlg.close(); if (id) openVillager(id); });
   $('p-find').addEventListener('click', () => { pdlg.close(); showPanel('village'); setTimeout(() => $('search').focus(), 100); });
 
-  function setZoom(zi) { M.zi = Math.max(0, Math.min(ZOOMS.length - 1, zi)); }
+  function setZoom(zi) { M.zi = Math.max(0, Math.min(ZOOMS.length - 1, zi)); M.touched = performance.now(); }
   $('zoom-in').addEventListener('click', () => setZoom(M.zi + 1));
   $('zoom-out').addEventListener('click', () => setZoom(M.zi - 1));
   $('map-home').addEventListener('click', () => { M.sel = null; flyTo(OVERVIEW.x, OVERVIEW.y); setZoom(0); });
@@ -313,51 +318,39 @@
   }
 
   // ---------- music: the episodes' tune (music.mp3, made by scripts/site-music.mjs) ----------
-  // Browsers only allow sound after the visitor touches the page, so it starts on the first tap,
-  // click or key (unless they muted it before), loops without a gap and pauses in a hidden tab.
-  const MUSIC_LOOP = 83.478; // seconds: 32 bars at 92 bpm (the tail is folded into the start)
-  const music = { ctx: null, gain: null, started: false, on: true };
-  try { music.on = localStorage.getItem('lh-music') !== 'off'; } catch { /* no storage: default on */ }
+  // A plain looping <audio> element (unlike Web Audio it also plays on an iPhone with the silent
+  // switch on; its volume is baked into the file because iPhones ignore a page's volume). Browsers
+  // only allow sound after the visitor touches the page, so it starts on the first tap, click or key
+  // (unless they muted it before) and pauses while the tab is hidden. The button shows the real state.
+  const audio = new Audio('music.mp3');
+  audio.loop = true; audio.preload = 'auto';
+  let musicOn = true, musicBlocked = false;
+  try { musicOn = localStorage.getItem('lh-music') !== 'off'; } catch { /* no storage: default on */ }
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* older browsers */ }
   function musicButton() {
-    const b = $('music');
-    b.setAttribute('aria-pressed', String(music.on));
-    b.setAttribute('aria-label', music.on ? 'Music on (tap to mute)' : 'Music muted (tap to play)');
+    const b = $('music'), playing = !audio.paused;
+    b.setAttribute('aria-pressed', String(musicOn));
+    b.dataset.playing = String(playing);
+    b.setAttribute('aria-label', !musicOn ? 'Music muted (tap to play)' : playing ? 'Music playing (tap to mute)' : 'Music on, starts when you tap the page');
   }
-  async function musicStart() {
-    if (music.started || !music.on) return;
-    music.started = true;
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      music.ctx = new AC();
-      music.gain = music.ctx.createGain();
-      music.gain.gain.value = 0;
-      music.gain.connect(music.ctx.destination);
-      const buf = await music.ctx.decodeAudioData(await (await fetch('music.mp3')).arrayBuffer());
-      const src = music.ctx.createBufferSource();
-      src.buffer = buf; src.loop = true; src.loopStart = 0; src.loopEnd = Math.min(MUSIC_LOOP, buf.duration);
-      src.connect(music.gain);
-      src.start();
-      musicVolume();
-    } catch { music.started = false; }
+  function musicPlay() {
+    if (!musicOn || document.hidden) return;
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => { musicBlocked = true; musicButton(); });
   }
-  function musicVolume() {
-    if (!music.ctx) return;
-    const t = music.ctx.currentTime;
-    music.gain.gain.cancelScheduledValues(t);
-    music.gain.gain.setValueAtTime(music.gain.gain.value, t);
-    music.gain.gain.linearRampToValueAtTime(music.on ? 0.35 : 0, t + (music.on ? 1.5 : 0.25));
-    if (music.on && music.ctx.state === 'suspended') music.ctx.resume();
-  }
+  for (const ev of ['play', 'pause', 'playing']) audio.addEventListener(ev, musicButton);
+  audio.addEventListener('playing', () => { musicBlocked = false; });
   $('music').addEventListener('click', (e) => {
     e.stopPropagation();
-    music.on = !music.on;
-    try { localStorage.setItem('lh-music', music.on ? 'on' : 'off'); } catch { /* fine */ }
+    musicOn = !musicOn;
+    try { localStorage.setItem('lh-music', musicOn ? 'on' : 'off'); } catch { /* fine */ }
+    if (musicOn) musicPlay(); else audio.pause();
     musicButton();
-    if (music.on && !music.started) musicStart(); else musicVolume();
   });
-  const firstTouch = () => { musicStart(); for (const ev of ['pointerdown', 'keydown']) window.removeEventListener(ev, firstTouch, true); };
-  for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, firstTouch, true);
-  document.addEventListener('visibilitychange', () => { if (!music.ctx) return; if (document.hidden) music.ctx.suspend(); else if (music.on) music.ctx.resume(); });
+  // every touch tries again until it is playing (a blocked first attempt is not the end)
+  const touch = () => { if (musicOn && audio.paused) musicPlay(); if (!audio.paused || !musicOn) for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, touch, true); };
+  for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, touch, true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) audio.pause(); else if (musicOn && !musicBlocked) musicPlay(); });
   musicButton();
 
   // ---------- tabs: one panel at a time (the map is the first) ----------

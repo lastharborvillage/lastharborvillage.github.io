@@ -268,6 +268,11 @@
     cave: { w: 3, h: 2 }, clearing: { w: 0, h: 0 }, ruins: { w: 3, h: 3 }, stones: { w: 3, h: 3 },
     mine: { w: 2, h: 2 }, tower: { w: 2, h: 2 }, shrine: { w: 2, h: 2 }, pond: { w: 3, h: 2 },
     garden: { w: 3, h: 2 }, campfire: { w: 2, h: 2 }, pit: { w: 2, h: 2 }, statue: { w: 1, h: 1 },
+    // added 2026-11-07 (like-goal rewards and more story places)
+    beacon: { w: 2, h: 2 }, windmill: { w: 2, h: 2 }, well: { w: 1, h: 1 }, festival: { w: 3, h: 2 },
+    greenhouse: { w: 3, h: 2 }, observatory: { w: 2, h: 2 }, fountain: { w: 2, h: 2 }, belltower: { w: 2, h: 2 },
+    treehouse: { w: 2, h: 2 }, balloon: { w: 2, h: 2 }, fishracks: { w: 3, h: 1 }, orchard: { w: 3, h: 3 },
+    gate: { w: 2, h: 1 }, maypole: { w: 1, h: 1 }, boat: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.
@@ -343,6 +348,9 @@
     }
     return out;
   }
+  // How many tents: followers who do not have a house yet. Villagers moved out of their tent into a
+  // house (most villagers follow too; the platforms do not say which followers commented).
+  const tentsFor = (world, followers) => Math.max(0, (followers || 0) - ((world && world.villagers) || []).length);
   function camp(n) {
     if (!campSpots) campSpots = buildCamp();
     return campSpots.slice(0, Math.max(0, Math.min(n || 0, campSpots.length)));
@@ -384,5 +392,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
 })();

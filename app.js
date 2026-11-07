@@ -61,7 +61,7 @@
     const grow = (x, y) => { BOUNDS.x0 = Math.min(BOUNDS.x0, x - 6 * T); BOUNDS.x1 = Math.max(BOUNDS.x1, x + 6 * T); BOUNDS.y1 = Math.max(BOUNDS.y1, y + 6 * T); };
     for (const v of w.villagers || []) if (v.home && v.home.tileX != null) grow(v.home.tileX * T, v.home.tileY * T);
     for (const l of w.landmarks || []) grow(l.tileX * T, l.tileY * T);
-    const tents = LH.map.camp((w.story && w.story.followers) || 0);
+    const tents = LH.map.camp(LH.map.tentsFor(w, (w.story && w.story.followers) || 0));
     if (tents.length) { const [tx, ty] = tents[tents.length - 1]; grow(tx * T, ty * T); }
   }
   const zoom = () => ZOOMS[M.zi];
@@ -224,14 +224,14 @@
       push({ id: 'ship', title: 'The Ship', kicker: st.index ? 'Stage: ' + STAGE_NAMES[st.id] : 'Waiting for planks', text: 'Every villager adds one plank. ' + s.planks + ' of ' + goal + ' so far. When the last plank is in, the village sails into the fog.', person: 'bram' }, [s.x - 6, s.y - 40, s.x + 110, s.y + 5]);
     }
     // the followers' camp on the beach: one box around the first stretch of tents
-    const tents = LH.map.camp((w.story && w.story.followers) || 0);
+    const n = LH.map.tentsFor(w, (w.story && w.story.followers) || 0);
+    const tents = LH.map.camp(n);
     if (tents.length) {
       const xs = tents.slice(0, 140).map((p) => p[0] * T), ys = tents.slice(0, 140).map((p) => p[1] * T);
-      const n = w.story.followers;
-      push({ id: 'camp', title: 'The Camp', kicker: 'Beach · ' + n.toLocaleString('en-US') + ' tents', text: 'Every follower lives here, in a tent on the beach. ' + (n === 1 ? 'One tent so far.' : n.toLocaleString('en-US') + ' of them so far, and the camp keeps growing along the coast.') + ' Follow, and yours goes up the next day. Comment a name and a job to move into a house.' }, [Math.min(...xs) - 6, Math.min(...ys) - 10, Math.max(...xs) + 6, Math.max(...ys) + 2]);
+      push({ id: 'camp', title: 'The Camp', kicker: 'Beach · ' + n.toLocaleString('en-US') + (n === 1 ? ' tent' : ' tents'), text: 'Every follower without a house lives here, in a tent on the beach. ' + (n === 1 ? 'One tent so far.' : n.toLocaleString('en-US') + ' tents so far, and the camp keeps growing along the coast.') + ' Follow, and yours goes up the next day. Comment a name and a job to move from your tent into a house.' }, [Math.min(...xs) - 6, Math.min(...ys) - 10, Math.max(...xs) + 6, Math.max(...ys) + 2]);
     }
     // landmarks: the big changes the story made (a cave, a clearing, ruins...), each with its story
-    const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue' };
+    const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue', beacon: 'Beacon', windmill: 'Windmill', well: 'Well', festival: 'Festival square', greenhouse: 'Greenhouse', observatory: 'Observatory', fountain: 'Fountain', belltower: 'Bell tower', treehouse: 'Treehouse', balloon: 'Balloon', fishracks: 'Fish racks', orchard: 'Orchard', gate: 'Gate', maypole: 'Maypole', boat: 'Boat' };
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;
@@ -465,7 +465,7 @@
       [w.ship.planks, 'planks'],
     ];
     // followers live in the beach camp; the count arrives with the next day (hidden until then)
-    if (w.story.followers) stats.splice(1, 0, [w.story.followers.toLocaleString('en-US'), 'live here']);
+    if (w.story.followers) stats.splice(1, 0, [Math.max(w.story.followers, w.villagers.length).toLocaleString('en-US'), 'residents']);
     // the next village upgrade: a goal people can help reach
     const nx = LH.map.nextUpgrade(w);
     if (nx && D.open) stats.push([nx.at - w.villagers.length, 'more villagers for ' + nx.name]);

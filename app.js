@@ -294,7 +294,7 @@
   }
   pdlg.addEventListener('click', (e) => { if (e.target === pdlg) pdlg.close(); });
   $('p-person').addEventListener('click', () => { const id = placePerson; pdlg.close(); if (id) openVillager(id); });
-  $('p-find').addEventListener('click', () => { pdlg.close(); $('find').scrollIntoView({ behavior: 'smooth' }); setTimeout(() => $('search').focus(), 500); });
+  $('p-find').addEventListener('click', () => { pdlg.close(); showPanel('village'); setTimeout(() => $('search').focus(), 100); });
 
   function setZoom(zi) { M.zi = Math.max(0, Math.min(ZOOMS.length - 1, zi)); }
   $('zoom-in').addEventListener('click', () => setZoom(M.zi + 1));
@@ -309,8 +309,66 @@
     M.sel = id;
     if (M.zi < 5) setZoom(5);
     flyTo(s[0], s[1] - 12);
-    $('village').scrollIntoView({ behavior: 'smooth' });
+    showPanel('village');
   }
+
+  // ---------- music: the episodes' tune (music.mp3, made by scripts/site-music.mjs) ----------
+  // Browsers only allow sound after the visitor touches the page, so it starts on the first tap,
+  // click or key (unless they muted it before), loops without a gap and pauses in a hidden tab.
+  const MUSIC_LOOP = 83.478; // seconds: 32 bars at 92 bpm (the tail is folded into the start)
+  const music = { ctx: null, gain: null, started: false, on: true };
+  try { music.on = localStorage.getItem('lh-music') !== 'off'; } catch { /* no storage: default on */ }
+  function musicButton() {
+    const b = $('music');
+    b.setAttribute('aria-pressed', String(music.on));
+    b.setAttribute('aria-label', music.on ? 'Music on (tap to mute)' : 'Music muted (tap to play)');
+  }
+  async function musicStart() {
+    if (music.started || !music.on) return;
+    music.started = true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      music.ctx = new AC();
+      music.gain = music.ctx.createGain();
+      music.gain.gain.value = 0;
+      music.gain.connect(music.ctx.destination);
+      const buf = await music.ctx.decodeAudioData(await (await fetch('music.mp3')).arrayBuffer());
+      const src = music.ctx.createBufferSource();
+      src.buffer = buf; src.loop = true; src.loopStart = 0; src.loopEnd = Math.min(MUSIC_LOOP, buf.duration);
+      src.connect(music.gain);
+      src.start();
+      musicVolume();
+    } catch { music.started = false; }
+  }
+  function musicVolume() {
+    if (!music.ctx) return;
+    const t = music.ctx.currentTime;
+    music.gain.gain.cancelScheduledValues(t);
+    music.gain.gain.setValueAtTime(music.gain.gain.value, t);
+    music.gain.gain.linearRampToValueAtTime(music.on ? 0.35 : 0, t + (music.on ? 1.5 : 0.25));
+    if (music.on && music.ctx.state === 'suspended') music.ctx.resume();
+  }
+  $('music').addEventListener('click', (e) => {
+    e.stopPropagation();
+    music.on = !music.on;
+    try { localStorage.setItem('lh-music', music.on ? 'on' : 'off'); } catch { /* fine */ }
+    musicButton();
+    if (music.on && !music.started) musicStart(); else musicVolume();
+  });
+  const firstTouch = () => { musicStart(); for (const ev of ['pointerdown', 'keydown']) window.removeEventListener(ev, firstTouch, true); };
+  for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, firstTouch, true);
+  document.addEventListener('visibilitychange', () => { if (!music.ctx) return; if (document.hidden) music.ctx.suspend(); else if (music.on) music.ctx.resume(); });
+  musicButton();
+
+  // ---------- tabs: one panel at a time (the map is the first) ----------
+  function showPanel(name) {
+    for (const p of document.querySelectorAll('.panel')) p.classList.toggle('on', p.dataset.panel === name);
+    for (const b of document.querySelectorAll('.tabbar button')) { if (b.dataset.go === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    const p = document.querySelector('.panel.on');
+    if (p && name !== 'village') p.scrollTop = 0;
+    if (name === 'village') { M.visible = true; }
+  }
+  for (const b of document.querySelectorAll('[data-go]')) b.addEventListener('click', (e) => { e.preventDefault(); showPanel(b.dataset.go); });
 
   // ---------- villager dialog ----------
   const dlg = $('villager');
@@ -423,6 +481,11 @@
     box.replaceChildren(...stats.map(([n, l]) => { const d = el('div', 'stat'); d.appendChild(el('b', null, String(n))); d.appendChild(el('span', null, l.toUpperCase())); return d; }));
     $('day-badge').textContent = D.open ? 'Day ' + w.story.day : 'Opening soon';
     $('village-where').textContent = D.where;
+    // the card on the map: the day, everyone who lives here, and the next upgrade
+    $('map-day').textContent = D.open ? 'DAY ' + w.story.day : 'SOON';
+    $('map-live').textContent = Math.max(w.story.followers || 0, w.villagers.length).toLocaleString('en-US'); // followers (most villagers follow too)
+    $('map-next').hidden = !(nx && D.open);
+    if (nx && D.open) $('map-next').textContent = (nx.at - w.villagers.length) + ' more for ' + nx.name;
   }
 
   function renderSearch() {

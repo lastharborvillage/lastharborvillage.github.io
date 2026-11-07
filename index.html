@@ -19,94 +19,90 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- The page is an app: the map fills the screen (Village tab); everything else lives in the other
+     tabs of the bar at the bottom (app.js showPanel). -->
 <header class="top">
-  <div class="wrap top-row">
-    <a class="brand" href="#" aria-label="Last Harbor">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">LAST HARBOR</span>
-    </a>
-    <nav class="tabs" role="tablist" aria-label="Village">
-      <button role="tab" data-village="instagram" aria-selected="true">Instagram village</button>
-      <button role="tab" data-village="youtube" aria-selected="false">YouTube village</button>
-    </nav>
-  </div>
-  <nav class="wrap jump" aria-label="Sections">
-    <a href="#village">Village</a><a href="#ship">Ship</a><a href="#story">Story</a><a href="#register">Villagers</a><a href="#join">Move in</a>
+  <a class="brand" href="#" aria-label="Last Harbor, back to the village" data-go="village">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">LAST HARBOR</span>
+  </a>
+  <p class="top-day"><span class="live-dot" aria-hidden="true"></span> <span id="village-where"></span><span class="sep"> · </span><span id="day-badge">Day 0</span></p>
+  <button class="sound" id="music" aria-pressed="true" aria-label="Music on (tap to mute)" title="Music"><span class="spk" aria-hidden="true"></span></button>
+  <nav class="tabs" role="tablist" aria-label="Village">
+    <button role="tab" data-village="instagram" aria-selected="true">Instagram</button>
+    <button role="tab" data-village="youtube" aria-selected="false">YouTube</button>
   </nav>
 </header>
 
 <main>
-  <section id="village" class="hero">
-    <div class="wrap">
-      <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> <span id="day-badge">Day 0</span> · <span id="village-where"></span></p>
-      <h1>The last village before the fog.</h1>
-      <p class="lede">Old Morten keeps the light at the edge of the world. Every comment becomes a villager, and every villager adds a plank to the ship that will sail into the fog.</p>
-    </div>
-    <div class="map-shell wrap">
-      <div class="map" id="map">
-        <canvas id="map-canvas" aria-label="Map of the village. Drag to look around."></canvas>
-        <div class="map-ui">
-          <button class="mbtn" id="zoom-in" aria-label="Zoom in">+</button>
-          <button class="mbtn" id="zoom-out" aria-label="Zoom out">−</button>
-          <button class="mbtn" id="map-home" aria-label="Back to the harbour">⌂</button>
-          <button class="mbtn wide" id="map-tod" aria-label="Time of day">DAY</button>
-        </div>
-        <div class="map-hint" id="map-hint">Drag to look around · tap a villager or a building</div>
-        <div class="closed-banner" id="closed-banner" hidden>
-          <p class="pix">The Instagram village opens soon</p>
-          <p>Day 1 is on its way. Follow along and be one of the first to move in.</p>
-          <a class="btn" id="closed-follow" href="#">Follow</a>
-        </div>
+  <section id="village" class="panel on" data-panel="village" aria-label="The village">
+    <div class="map" id="map">
+      <canvas id="map-canvas" aria-label="Map of the village. Drag to look around."></canvas>
+      <div class="map-card" aria-live="polite">
+        <p class="mc-day" id="map-day">DAY 0</p>
+        <p class="mc-live"><b id="map-live">0</b> live here</p>
+        <p class="mc-next" id="map-next" hidden></p>
+      </div>
+      <div class="map-ui">
+        <button class="mbtn" id="zoom-in" aria-label="Zoom in">+</button>
+        <button class="mbtn" id="zoom-out" aria-label="Zoom out">−</button>
+        <button class="mbtn" id="map-home" aria-label="Back to the whole village">⌂</button>
+        <button class="mbtn wide" id="map-tod" aria-label="Time of day">DAY</button>
+      </div>
+      <div class="map-find" id="find">
+        <ul class="results" id="results"></ul>
+        <p class="find-title">FIND YOUR VILLAGER</p>
+        <input id="search" type="search" placeholder="Your name or job" autocomplete="off" aria-label="Find your villager">
+      </div>
+      <div class="map-hint" id="map-hint">Drag to look around · tap a villager or a building</div>
+      <div class="closed-banner" id="closed-banner" hidden>
+        <p class="pix">The Instagram village opens soon</p>
+        <p>Day 1 is on its way. Follow along and be one of the first to move in.</p>
+        <a class="btn" id="closed-follow" href="#">Follow</a>
       </div>
     </div>
-    <div class="wrap stats" id="stats"></div>
   </section>
 
-  <section id="find" class="band">
+  <section id="ship" class="panel" data-panel="ship" aria-label="The ship">
     <div class="wrap">
-      <h2>Find your villager</h2>
-      <div class="search">
-        <input id="search" type="search" placeholder="Type a name or a job" autocomplete="off" aria-label="Search villagers">
+      <h1>The last village before the fog</h1>
+      <p class="lede">Old Morten keeps the light at the edge of the world. Every follower gets a tent on the beach, every comment becomes a villager, and every villager adds a plank to the ship that will sail into the fog.</p>
+      <div class="stats" id="stats"></div>
+      <div class="two">
+        <div class="card">
+          <h2>The ship</h2>
+          <p class="big"><span id="planks">0</span><span class="of"> / <span id="goal">1000</span> planks</span></p>
+          <div class="bar"><div class="bar-fill" id="ship-bar"></div></div>
+          <ol class="stages" id="stages"></ol>
+          <p class="muted">Every villager adds one plank. At 1000 the ship sails into the fog, with a crew picked from the village.</p>
+        </div>
+        <div class="card" id="vote-card">
+          <h2>The village decides</h2>
+          <div id="vote"></div>
+        </div>
       </div>
-      <ul class="results" id="results"></ul>
+      <div class="card spaced">
+        <h2>The districts</h2>
+        <ul class="districts" id="districts"></ul>
+      </div>
     </div>
   </section>
 
-  <section id="ship" class="wrap two">
-    <div class="card">
-      <h2>The ship</h2>
-      <p class="big"><span id="planks">0</span><span class="of"> / <span id="goal">1000</span> planks</span></p>
-      <div class="bar"><div class="bar-fill" id="ship-bar"></div></div>
-      <ol class="stages" id="stages"></ol>
-      <p class="muted">Every villager adds one plank. At 1000 the ship sails into the fog, with a crew picked from the village.</p>
-    </div>
-    <div class="card" id="vote-card">
-      <h2>The village decides</h2>
-      <div id="vote"></div>
-    </div>
-  </section>
-
-  <section id="story" class="band">
+  <section id="story" class="panel" data-panel="story" aria-label="The story">
     <div class="wrap">
-      <h2>The story so far</h2>
+      <h1>The story so far</h1>
+      <p class="muted">Every day is a new video. Tap one to watch it.</p>
       <div class="days" id="days"></div>
+      <div class="card spaced">
+        <h2>Washed ashore</h2>
+        <ul class="ashore" id="ashore"></ul>
+      </div>
     </div>
   </section>
 
-  <section class="wrap two">
-    <div class="card">
-      <h2>Washed ashore</h2>
-      <ul class="ashore" id="ashore"></ul>
-    </div>
-    <div class="card">
-      <h2>The districts</h2>
-      <ul class="districts" id="districts"></ul>
-    </div>
-  </section>
-
-  <section id="register" class="band">
+  <section id="register" class="panel" data-panel="villagers" aria-label="The villagers">
     <div class="wrap">
-      <h2>The register</h2>
+      <h1>The register</h1>
       <p class="muted" id="register-sub"></p>
       <div class="founders" id="founders"></div>
       <div class="filters">
@@ -123,8 +119,9 @@
     </div>
   </section>
 
-  <section id="join" class="wrap">
-    <h2>How to move in</h2>
+  <section id="join" class="panel" data-panel="join" aria-label="Move in">
+    <div class="wrap">
+    <h1>How to move in</h1>
     <ol class="steps">
       <li><span class="n">1</span><div><b>Follow and you move in</b><p id="join-follow"></p><p>Every follower lives in Last Harbor: you get a tent on the beach the next day.</p></div></li>
       <li><span class="n">2</span><div><b>Comment for your own house</b><p>A name, a job and one thing about your villager. "Greta, a baker who is scared of bread" works.</p></div></li>
@@ -132,15 +129,21 @@
     </ol>
     <p class="cta-row"><a class="btn" id="join-latest" href="#" target="_blank" rel="noopener">Comment on the latest day</a></p>
     <p class="muted small">Comment <b>crew</b> under a day if you already live here, to sign up for the voyage.</p>
+    <div class="foot">
+      <p>Two villages, never mixed: one built by YouTube, one by Instagram. Every villager is a real public comment. Want yours changed or removed? Send a message to <a href="https://www.instagram.com/lastharborvillage/" target="_blank" rel="noopener">@lastharborvillage</a>.</p>
+      <p class="muted small">Updated <span id="built"></span>. Fonts: Pixelify Sans and Silkscreen (SIL Open Font License).</p>
+    </div>
+    </div>
   </section>
 </main>
 
-<footer class="foot">
-  <div class="wrap">
-    <p>Two villages, never mixed: one built by YouTube, one by Instagram. Every villager is a real public comment. Want yours changed or removed? Send a message to <a href="https://www.instagram.com/lastharborvillage/" target="_blank" rel="noopener">@lastharborvillage</a>.</p>
-    <p class="muted small">Updated <span id="built"></span>. Fonts: Pixelify Sans and Silkscreen (SIL Open Font License).</p>
-  </div>
-</footer>
+<nav class="tabbar" aria-label="Sections">
+  <button data-go="village" aria-current="page"><span class="ic ic-village" aria-hidden="true"></span>Village</button>
+  <button data-go="ship"><span class="ic ic-ship" aria-hidden="true"></span>Ship</button>
+  <button data-go="villagers"><span class="ic ic-people" aria-hidden="true"></span>Villagers</button>
+  <button data-go="story"><span class="ic ic-story" aria-hidden="true"></span>Story</button>
+  <button data-go="join"><span class="ic ic-join" aria-hidden="true"></span>Join</button>
+</nav>
 
 <dialog id="villager" aria-labelledby="v-name">
   <form method="dialog" class="v-close-row"><button class="mbtn" aria-label="Close">×</button></form>

@@ -192,6 +192,166 @@
     return { dx: leg.x1, dy: leg.y1, walk: false, face };
   }
 
+  // Daily work (map.WORKS): a loop of walking out along a route between the houses (map.route), working
+  // at one or more stops (hauling a trap, casting, hoeing...), walking home and resting by the door.
+  // Haulers carry a plank on the way out. Deterministic in t (seeded per id). Points are world pixels.
+  const workPlans = new WeakMap();
+  function workPlan(world, v) {
+    let per = workPlans.get(world);
+    if (!per) { per = new Map(); workPlans.set(world, per); }
+    const key = v.id + '|' + (v.work || '') + '|' + (v.job || '') + '|' + v.home.tileX + ',' + v.home.tileY;
+    if (per.has(key)) return per.get(key);
+    const spot = map.workSpot(world, v);
+    let p = null;
+    if (spot) {
+      const r = C.rng(C.hashStr('work:' + v.id));
+      const home = map.homeSpot(v);
+      const speed = 13 + r() * 5; // px per second
+      const legs = [];
+      let total = 0, face = 1;
+      const go = (pts, carry) => {
+        for (let i = 1; i < pts.length; i++) {
+          const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+          if (x1 !== x0) face = x1 > x0 ? 1 : -1;
+          const walk = Math.hypot(x1 - x0, y1 - y0) / speed;
+          legs.push({ x0, y0, x1, y1, walk, stop: 0, face, carry, start: total });
+          total += walk;
+        }
+      };
+      const stay = (x, y, s, work, f) => { legs.push({ x0: x, y0: y, x1: x, y1: y, walk: 0, stop: s, face: f, work, start: total }); total += s; };
+      const out = map.route(world, home, spot.stops[0]);
+      go(out, spot.work === 'haul');
+      spot.stops.forEach((s, i) => {
+        if (i) go([spot.stops[i - 1], s], false);
+        const f = spot.work === 'patrol' ? (i ? -1 : 1) : spot.work === 'sweep' ? (i ? -1 : 1) : spot.face;
+        stay(s[0], s[1], (spot.stops.length > 1 ? 5 : 9) + r() * 6, spot.work, f);
+      });
+      const last = spot.stops[spot.stops.length - 1];
+      go(map.route(world, last, home), false);
+      stay(home[0], home[1], 3 + r() * 4, null, face);
+      p = { legs, total, phase: r() * total, spot, home };
+    }
+    per.set(key, p);
+    return p;
+  }
+  function runPlan(p, t) {
+    const q = (((t + p.phase) % p.total) + p.total) % p.total;
+    let leg = p.legs[0];
+    for (const l of p.legs) if (q >= l.start) leg = l;
+    const lt = q - leg.start;
+    if (lt < leg.walk) {
+      const e = lt / leg.walk;
+      return { x: C.lerp(leg.x0, leg.x1, e), y: C.lerp(leg.y0, leg.y1, e), walk: true, face: leg.face, carry: leg.carry };
+    }
+    return { x: leg.x1, y: leg.y1, walk: false, face: leg.face, work: leg.work, u: lt - leg.walk };
+  }
+
+  // What working looks like, drawn over the villager (x, y feet, head = head-top y, f facing, u seconds
+  // into the stop). Returns how far the body dips (crouching, bending).
+  const workDip = (w, u) => w === 'traps' || w === 'beachcomb' || w === 'garden' ? (Math.floor(u * 1.4) % 2) : w === 'farm' || w === 'chop' ? (Math.floor(u * 2.2) % 2) : 0;
+  function drawWork(c, w, x, y, head, f, t, u, id) {
+    const hx = x + f * 6, hy = y - 10; // about where the hands are
+    if (w === 'traps') {
+      // a wire trap on a rope: hauled up out of the water and lowered again
+      const k = (u % 4) / 4, lift = Math.round(Math.sin(k * Math.PI) * 6);
+      const tx = x + f * 10, ty = y - 4 - lift;
+      rect(c, 'sand3', hx, hy, 1, ty - hy);
+      rect(c, 'ink', tx - 4, ty - 5, 9, 6); rect(c, 'wood', tx - 3, ty - 4, 7, 4);
+      for (let i = -3; i <= 3; i += 2) rect(c, 'sand2', tx + i, ty - 4, 1, 4);
+      if (lift > 2) { px(c, 'foam', tx - 2, ty + 2 + (Math.floor(t * 8) % 3)); px(c, 'foam', tx + 2, ty + 1 + (Math.floor(t * 7) % 3)); }
+      rect(c, 'foam', x - 6, y, 13, 1);
+    } else if (w === 'fishing') {
+      // a rod over the water; the float bobs, and now and then something bites
+      const tipx = x + f * 13, tipy = y - 21;
+      for (let i = 0; i < 9; i++) px(c, 'wood2', hx + Math.round(f * i * 0.8), hy - Math.round(i * 1.2));
+      const bite = (u % 7) > 5.6;
+      const fx = x + f * 20, fy = y - 13 + (bite ? 2 : Math.round(Math.sin(t * 2.5 + x) * 0.6));
+      c.globalAlpha = 0.7;
+      for (let i = 0; i <= 8; i++) px(c, 'cream', Math.round(C.lerp(tipx, fx, i / 8)), Math.round(C.lerp(tipy, fy, i / 8) + Math.sin((i / 8) * Math.PI) * 2));
+      c.globalAlpha = 1;
+      rect(c, 'ember', fx, fy - 1, 2, 2); px(c, 'white', fx, fy - 2);
+      if (bite) { rect(c, 'foam', fx - 3, fy + 1, 2, 1); rect(c, 'foam', fx + 3, fy + 1, 2, 1); }
+    } else if (w === 'beachcomb') {
+      if ((u % 3) > 1.8) { px(c, 'white', x + f * 5, y - 2); px(c, 'rose', x + f * 6, y - 1); px(c, 'gold', x + f * 5, y - 6 - Math.floor(u * 4) % 2); }
+    } else if (w === 'farm') {
+      // a hoe going up and down, with a puff of earth when it lands
+      const up = Math.floor(u * 2.2) % 2 === 0;
+      const ex = x + f * (up ? 9 : 11), ey = up ? y - 15 : y;
+      for (let i = 0; i <= 6; i++) px(c, 'wood2', Math.round(C.lerp(hx, ex, i / 6)), Math.round(C.lerp(hy, ey, i / 6)));
+      rect(c, 'stone2', ex - (f < 0 ? 2 : 0), ey, 3, 1);
+      if (!up) { px(c, 'wood3', ex - 2, ey - 2); px(c, 'wood2', ex + 2, ey - 3); px(c, 'wood3', ex + 1, ey - 1); }
+    } else if (w === 'chop') {
+      const up = Math.floor(u * 2.2) % 2 === 0;
+      const ax = x + f * (up ? 4 : 10), ay = up ? head - 4 : y - 5;
+      for (let i = 0; i <= 5; i++) px(c, 'wood2', Math.round(C.lerp(hx, ax, i / 5)), Math.round(C.lerp(hy, ay, i / 5)));
+      rect(c, 'stone3', ax - 1, ay - 1, 3, 3);
+      if (!up) { px(c, 'wood3', ax + f * 4, ay - 3); px(c, 'wood3', ax + f * 6, ay - 1); px(c, 'cream', ax - f * 2, ay - 4); }
+    } else if (w === 'garden') {
+      // a watering can and a trickle of drops
+      rect(c, 'ink', hx - 1, hy - 1, 6, 5); rect(c, 'stone3', hx, hy, 4, 3); rect(c, 'stone3', hx + f * 4, hy - 1, 3, 1);
+      for (let i = 0; i < 3; i++) px(c, 'foam', hx + f * 7, hy + 1 + ((Math.floor(t * 9) + i * 3) % 9));
+    } else if (w === 'sweep') {
+      const s = Math.round(Math.sin(u * 6) * 3);
+      for (let i = 0; i <= 7; i++) px(c, 'wood2', hx + Math.round(i * 0.3 * f) + Math.round(s * i / 7), hy + i);
+      rect(c, 'sand3', hx + f * 2 + s - 2, y - 2, 5, 2);
+      if (Math.floor(u * 3) % 2) { c.globalAlpha = 0.5; px(c, 'sand2', hx + s + f * 6, y - 3); px(c, 'sand2', hx + s + f * 8, y - 5); c.globalAlpha = 1; }
+    } else if (w === 'music') {
+      // little notes floating up
+      for (let i = 0; i < 2; i++) {
+        const k = ((u * 0.6 + i * 0.5) % 1);
+        const nx = x + f * 4 + Math.round(Math.sin(k * 6 + i) * 3) + i * 5, ny = head - 4 - Math.round(k * 14);
+        c.globalAlpha = 1 - k;
+        rect(c, 'ink', nx, ny, 2, 2); rect(c, 'ink', nx + 1, ny - 4, 1, 4);
+        c.globalAlpha = 1;
+      }
+    } else if (w === 'laundry') {
+      if (Math.floor(u * 1.2) % 2) rect(c, 'white', hx - 1, hy - 8, 4, 3);
+    } else if (w === 'patrol') {
+      // stops to look out, hand over the eyes
+      if ((u % 4) > 1.5) rect(c, 'ink', x + f * 2, head + 4, 4, 1);
+    }
+  }
+  // The things that stay at a work spot, working or not: trap buoys, a plank pile, a chopping block, a
+  // washing line, flower beds, a stool.
+  function drawWorkProps(c, spot, id, t) {
+    const w = spot.work, [x, y] = spot.stops[0];
+    const r = C.rng(C.hashStr('workprops:' + id));
+    if (w === 'traps') {
+      for (const [bx, by] of [[x + 6, y - 22], [x + 24, y - 18]]) {
+        const b = Math.round(Math.sin(t * 2 + bx) * 1);
+        rect(c, 'ink', bx - 2, by - 5 + b, 5, 5); rect(c, 'ember', bx - 1, by - 4 + b, 3, 3); px(c, 'white', bx - 1, by - 3 + b);
+        rect(c, 'foam', bx - 3, by + b, 7, 1);
+      }
+      // a spare trap on the sand
+      const sx = x - 12, sy = y + 10;
+      rect(c, 'ink', sx - 4, sy - 6, 9, 6); rect(c, 'wood', sx - 3, sy - 5, 7, 4);
+      for (let i = -3; i <= 3; i += 2) rect(c, 'sand2', sx + i, sy - 5, 1, 4);
+    } else if (w === 'haul') {
+      for (let i = 0; i < 3; i++) { rect(c, 'ink', x + 6 + i, y - 2 - i * 3, 18, 3); rect(c, i % 2 ? 'wood3' : 'wood', x + 7 + i, y - 1 - i * 3, 16, 2); }
+    } else if (w === 'chop') {
+      const bx = x + spot.face * 11;
+      rect(c, 'ink', bx - 5, y - 6, 10, 6); rect(c, 'wood', bx - 4, y - 5, 8, 5); rect(c, 'wood3', bx - 4, y - 6, 8, 1); px(c, 'wood2', bx, y - 6);
+      for (let i = 0; i < 3; i++) { rect(c, 'ink', bx - 18 * spot.face - 5, y - 3 - i * 3, 10, 3); rect(c, 'wood3', bx - 18 * spot.face - 4, y - 2 - i * 3, 8, 2); }
+    } else if (w === 'laundry') {
+      const x0 = x - 14, x1 = x + 14;
+      rect(c, 'wood2', x0, y - 20, 1, 20); rect(c, 'wood2', x1, y - 20, 1, 20);
+      for (let i = x0; i <= x1; i++) px(c, 'stone', i, y - 19 + Math.round(Math.sin(((i - x0) / (x1 - x0)) * Math.PI) * 1.5));
+      const cols = ['white', 'cream', 'rose', 'teal', 'gold', 'plum'];
+      for (let k = 0; k < 3; k++) {
+        const cx = x0 + 3 + k * 8, cl = cols[Math.floor(r() * cols.length)];
+        const sway = Math.round(Math.sin(t * 2.4 + k) * 1);
+        rect(c, cl, cx + sway * 0.5, y - 18, 6, 7 + (k % 2)); rect(c, 'ink', cx, y - 19, 6, 1);
+      }
+    } else if (w === 'garden') {
+      const bx = x + spot.face * 12;
+      rect(c, 'wood2', bx - 7, y - 3, 14, 3); rect(c, 'wood4', bx - 6, y - 3, 12, 2);
+      const cols = ['rose', 'gold', 'plum', 'white'];
+      for (let i = 0; i < 4; i++) { rect(c, 'moss', bx - 5 + i * 3, y - 6, 1, 3); px(c, cols[(i + Math.floor(r() * 4)) % 4], bx - 5 + i * 3, y - 7); }
+    } else if (w === 'music') {
+      rect(c, 'ink', x - 4, y - 5, 8, 2); rect(c, 'wood3', x - 3, y - 5, 6, 1); rect(c, 'wood2', x - 3, y - 3, 1, 3); rect(c, 'wood2', x + 2, y - 3, 1, 3);
+    }
+  }
+
   // Animation frame (0/1) of a sprite at time t, phase-shifted per id so a crowd is not in sync.
   const animFrame = (id, rate, t) => Math.floor(t * rate + C.h2(C.hashStr(String(id)), 3) * 2) % 2;
 
@@ -202,7 +362,7 @@
     const f = o.frame != null ? o.frame : o.walk ? Math.floor(t * 6) % 2 : animFrame(id, s.rate, t);
     const bob = o.walk ? Math.floor(t * 6) % 2 : 0;
     c.globalAlpha = 0.28; rect(c, 'ink', x - 5, y - 1, 11, 2); c.globalAlpha = 1;
-    const dx = Math.round(x - s.w / 2), dy = Math.round(y - s.h + 1) - bob;
+    const dx = Math.round(x - s.w / 2), dy = Math.round(y - s.h + 1) - bob + (o.dip || 0);
     if (o.face === -1) { c.save(); c.translate(dx * 2 + s.w, 0); c.scale(-1, 1); c.drawImage(s.frames[f], dx, dy); c.restore(); }
     else c.drawImage(s.frames[f], dx, dy);
     if (s.glow && lights) lights.push({ x: dx + OX + SPR.HAND[0] - 2 + s.glow[0] + (s.w - FW) / 2, y: dy + OY + SPR.HAND[1] + s.glow[1] + (s.h - FH), r: 12, kind: 'lamp' });
@@ -1378,9 +1538,23 @@
     const people = [];
     for (const f of world.founders || []) if (f.pos && f.appearance) people.push({ id: f.id, name: f.displayName, crew: false, x: f.pos[0], y: f.pos[1], app: f.appearance, founder: true });
     const still = o.still || new Set(); // episodes keep their subjects in place
+    const working = o.working || new Set(); // episodes: villagers shown at their work spot, working
     for (const v of world.villagers) {
       if (hide.has(v.id) || !v.home || v.home.tileX == null) continue;
       const [hx, hy] = v.pos || map.homeSpot(v);
+      // daily work (map.WORKS): by day the work props stay at the spot; the villager walks there and back
+      const wp = !v.pos && map.workOf(v) ? workPlan(world, v) : null;
+      if (wp && (wp.spot.x > bx0 - 80 && wp.spot.x < bx0 + bw + 80 && wp.spot.y > by0 - 40 && wp.spot.y < by0 + bh + 60)) add(wp.spot.y - 2, () => drawWorkProps(c, wp.spot, v.id, t));
+      if (wp && working.has(v.id)) {
+        const [sx, sy] = wp.spot.stops[0];
+        people.push({ id: v.id, name: v.displayName, crew: !!v.crew, patron: v.patron === true, x: sx, y: sy, app: v.appearance, walk: false, face: wp.spot.face, work: wp.spot.work, u: t });
+        continue;
+      }
+      if (wp && !still.has(v.id) && o.walk !== false && o.tod !== 'night') {
+        const st = runPlan(wp, t);
+        people.push({ id: v.id, name: v.displayName, crew: !!v.crew, patron: v.patron === true, x: st.x, y: st.y, app: v.appearance, walk: st.walk, face: st.face, work: st.work, u: st.u, carry: st.carry });
+        continue;
+      }
       const st = v.pos || still.has(v.id) || o.walk === false ? { dx: 0, dy: 0, walk: false, face: 1 } : stroll(v.id, t);
       people.push({ id: v.id, name: v.displayName, crew: !!v.crew, patron: v.patron === true, x: hx + st.dx, y: hy + (st.dy || 0), app: v.appearance, walk: st.walk, face: st.face });
     }
@@ -1388,7 +1562,13 @@
     for (const p of people) {
       if (p.x < bx0 - 40 || p.x > bx0 + bw + 40 || p.y < by0 - 10 || p.y > by0 + bh + 60) continue;
       const lift = offsets[p.id] || 0;
-      add(p.y, () => { const head = drawVillager(c, p.app, p.id, p.x, p.y - lift, t, lights, { walk: p.walk, face: p.face }); actors.push({ ...p, headY: head }); });
+      add(p.y, () => {
+        const dip = p.work ? workDip(p.work, p.u) : 0;
+        const head = drawVillager(c, p.app, p.id, p.x, p.y - lift, t, lights, { walk: p.walk, face: p.face, dip });
+        if (p.work) drawWork(c, p.work, p.x, p.y - lift, head, p.face || 1, t, p.u, p.id);
+        if (p.carry) { rect(c, 'ink', p.x - 11, head - 5, 22, 4); rect(c, 'wood3', p.x - 10, head - 4, 20, 2); }
+        actors.push({ ...p, headY: head });
+      });
     }
     for (const e of o.extras || []) add(e.y, () => e.draw(c, lights));
     if (o.cat) add(o.cat[1], () => { const s = petSprite('cat'); const f = animFrame('the-cat', 0.7, t); c.drawImage(s.frames[f], Math.round(o.cat[0] - s.w / 2), Math.round(o.cat[1] - s.h + 1)); });

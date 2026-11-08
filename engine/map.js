@@ -366,6 +366,121 @@
   }
   const CAMP_MAX = buildCamp().length;
 
+  // Daily work (2026-11-08): villagers walk off to a work spot, work there a while and walk home again
+  // (engine/draw.js workPlan). A villager's `work` is one of WORK_TYPES (set from a comment: "I set fish
+  // traps" -> "traps"); without it the work follows from their `job` words (fisher -> fishing), and
+  // "none" means they only potter about at home. Nobody works at night.
+  const WORKS = {
+    traps: { at: 'shore', label: 'sets and hauls fish traps in the shallows' },
+    fishing: { at: 'shore', label: 'fishes with a rod from the beach' },
+    beachcomb: { at: 'shore', label: 'combs the beach for shells and driftwood' },
+    farm: { at: 'field', label: 'hoes the fields' },
+    haul: { at: 'shipyard', label: 'carries planks to the shipyard' },
+    chop: { at: 'home', label: 'chops firewood in the yard' },
+    laundry: { at: 'home', label: 'hangs out the washing' },
+    garden: { at: 'home', label: 'waters the herb and flower beds' },
+    sweep: { at: 'home', label: 'sweeps the path' },
+    music: { at: 'home', label: 'plays music on a stool outside' },
+    patrol: { at: 'road', label: 'walks the coast road on watch' },
+  };
+  const WORK_TYPES = Object.keys(WORKS);
+  const WORK_WORDS = [
+    [/trap|lobster|crab/, 'traps'], [/fish|angler/, 'fishing'],
+    [/farm|vegetable|crop|harvest|shepherd|orchard/, 'farm'], [/wood ?chop|woodcut|lumber|forester|logger/, 'chop'],
+    [/carpenter|shipwright|builder|joiner|mason|sailor|dock/, 'haul'],
+    [/herb|healer|apothecar|witch|druid|beekeep|gardener|florist|botan/, 'garden'],
+    [/bard|music|singer|lute|minstrel|drummer|piper|fiddl/, 'music'], [/tailor|seamstress|weaver|laundr|washer/, 'laundry'],
+    [/guard|watch(?!maker)|soldier|sellsword|knight|\branger|hunter|sheriff|patrol|sentry/, 'patrol'],
+    [/collector|scaveng|beachcomb|treasure|explorer|pirate|shell/, 'beachcomb'],
+    [/innkeep|tavern|baker|cook|cleaner|maid|caretaker|janitor|butler/, 'sweep'],
+  ];
+  function workOf(v) {
+    if (!v || v.work === 'none') return null;
+    if (WORKS[v.work]) return v.work;
+    const j = String(v.job || '').toLowerCase();
+    const m = WORK_WORDS.find(([re]) => re.test(j));
+    return m ? m[1] : null;
+  }
+  // Where the work happens, in world pixels (feet): { x, y, stops: [[x, y], ...] (where they work), face }.
+  // Shore work is at the waterline: the harbour beach between the docks first, then the camp beach
+  // (never on a dock, the slipway or the headland); field work in the nearest field; home work beside
+  // their own door; patrol along the coast road.
+  const SHORE_X = [];
+  for (let x = -60; x <= 60; x++) if (!(x >= -4 && x <= -3) && !(x >= 3 && x <= 4) && !(x >= 9 && x <= 33)) SHORE_X.push(x);
+  function workSpot(world, v, work = workOf(v)) {
+    if (!work || !v.home || v.home.tileX == null) return null;
+    const r = LH.core.rng(LH.core.hashStr('workspot|' + v.id + '|' + work));
+    const [hx, hy] = homeSpot(v);
+    const htx = Math.floor(hx / T);
+    const side = r() < 0.5 ? -1 : 1;
+    const at = WORKS[work].at;
+    if (at === 'shore') {
+      const xs = SHORE_X.slice().sort((a, b) => Math.abs(a - htx) - Math.abs(b - htx) || a - b);
+      const x = xs[Math.floor(r() * 6)];
+      const px0 = x * T + 8, py0 = coastY(x) * T + 3;
+      const stops = work === 'beachcomb' ? [[px0, py0 + 6], [px0 - 18, coastY(x - 1) * T + 9], [px0 - 34, coastY(x - 2) * T + 7]] : work === 'traps' ? [[px0, py0], [px0 + 14, coastY(x + 1) * T + 3]] : [[px0, py0]];
+      return { x: px0, y: py0, stops, face: work === 'fishing' ? side : 1, work };
+    }
+    if (at === 'field') {
+      const ds = world.districts || DISTRICTS;
+      for (let R = 1; R <= 40; R++) for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== R) continue;
+        const x = htx + dx, y = Math.floor(hy / T) + dy;
+        if (ground(x, y, ds) !== 'field' || inPlot(x, y) || ground(x + 1, y, ds) !== 'field') continue;
+        if (r() < 0.6) continue; // not everyone in the same corner of the field
+        return { x: x * T + 8, y: y * T + 10, stops: [[x * T + 8, y * T + 10], [x * T + 24, y * T + 10]], face: 1, work };
+      }
+      return { x: hx + side * 20, y: hy, stops: [[hx + side * 20, hy]], face: -side, work }; // no field near: the yard
+    }
+    if (at === 'shipyard') {
+      const x = (9 + Math.floor(r() * 6)) * T + 8, y = 4 * T + 10;
+      return { x, y, stops: [[x, y]], face: 1, work };
+    }
+    if (at === 'road') {
+      const a = hx - (4 + r() * 4) * T, b = hx + (4 + r() * 4) * T, y = 5 * T + 10;
+      return { x: a, y, stops: [[a, y], [b, y]], face: 1, work };
+    }
+    // at home: beside the door (the front path and the side lane are always free)
+    const x = hx + side * 20;
+    const stops = work === 'sweep' ? [[hx - 14, hy + 2], [hx + 14, hy + 2]] : [[x, hy]];
+    return { x, y: hy, stops, face: -side, work };
+  }
+  // A walking route between two points (world pixels) around houses, buildings, landmarks and water:
+  // a breadth-first search over tiles, returned as the corner points (pixels) from a to b.
+  function route(world, a, b) {
+    const ta = [Math.floor(a[0] / T), Math.floor(a[1] / T)], tb = [Math.floor(b[0] / T), Math.floor(b[1] / T)];
+    const blocked = new Set();
+    for (const v of world.villagers || []) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY).forEach((k) => blocked.add(k));
+    for (const q of world.buildings || []) footprint(q.tileX, q.tileY, q.w || 2, q.h || 2).forEach((k) => blocked.add(k));
+    for (const l of world.landmarks || []) landmarkTiles(l).forEach((k) => blocked.add(k));
+    const x0 = Math.min(ta[0], tb[0]) - 8, x1 = Math.max(ta[0], tb[0]) + 8, y0 = Math.min(ta[1], tb[1]) - 6, y1 = Math.max(ta[1], tb[1]) + 6;
+    const free = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1 && !blocked.has(x + ',' + y) && (y >= coastY(x) || (x === tb[0] && y === tb[1]));
+    const key = (x, y) => x + ',' + y;
+    const prev = new Map([[key(ta[0], ta[1]), null]]);
+    const todo = [ta];
+    let found = ta[0] === tb[0] && ta[1] === tb[1];
+    for (let i = 0; i < todo.length && !found; i++) {
+      const [x, y] = todo[i];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = key(nx, ny);
+        if (prev.has(k) || !free(nx, ny)) continue;
+        prev.set(k, key(x, y));
+        if (nx === tb[0] && ny === tb[1]) { found = true; break; }
+        todo.push([nx, ny]);
+      }
+    }
+    if (!found) return [a, b];
+    const tiles = [];
+    for (let k = key(tb[0], tb[1]); k; k = prev.get(k)) tiles.unshift(k.split(',').map(Number));
+    const pts = [a];
+    for (let i = 1; i < tiles.length - 1; i++) {
+      const [px0, py0] = tiles[i - 1], [px1, py1] = tiles[i], [px2, py2] = tiles[i + 1];
+      if (px1 - px0 !== px2 - px1 || py1 - py0 !== py2 - py1) pts.push([px1 * T + 8, py1 * T + 10]); // a corner
+    }
+    pts.push(b);
+    return pts;
+  }
+
   // World validation. Returns a list of problems (empty = OK).
   function check(world) {
     const p = [];
@@ -401,5 +516,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

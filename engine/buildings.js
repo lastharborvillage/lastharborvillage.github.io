@@ -374,7 +374,7 @@
     rect(c, 'ink', x + 5, by - 10, 6, 10); rect(c, 'plum2', x + 6, by - 9, 4, 9); px(c, 'gold', x + 9, by - 5);
     const f = Math.floor(t * 2) % 2;
     rect(c, 'ink', x + 5, by - 23, 6, 6); rect(c, f ? 'lanternhi' : 'lantern', x + 6, by - 22, 4, 4); px(c, 'ink', x + 5, by - 23); px(c, 'ink', x + 10, by - 23);
-    if (Lights) Lights.push({ x: x + 8, y: by - 20, r: 14, kind: 'window' });
+    if (Lights) Lights.push({ x: x + 8, y: by - 20, r: 14, kind: 'lamp' });
     const top = by - h, ch = 24;
     for (let k = 0; k <= ch; k++) {
       const hw = Math.round(12 * (k / ch)) + 1, yy = top - ch + k;
@@ -392,7 +392,7 @@
     rect(c, 'ink', cx - 8, by - 17, 16, 18); rect(c, 'cream', cx - 7, by - 16, 14, 16); rect(c, 'sand', cx + 3, by - 16, 4, 16);
     rect(c, 'ink', cx - 3, by - 9, 6, 9); rect(c, 'wood', cx - 2, by - 8, 4, 8); px(c, 'ink', cx - 3, by - 9); px(c, 'ink', cx + 2, by - 9); px(c, 'gold', cx + 1, by - 4);
     rect(c, 'ink', cx - 6, by - 15, 4, 4); rect(c, 'lanternhi', cx - 5, by - 14, 2, 2);
-    if (Lights) Lights.push({ x: cx - 4, y: by - 13, r: 10, kind: 'window' });
+    if (Lights) Lights.push({ x: cx - 4, y: by - 13, r: 10, kind: 'lamp' });
     const capY = by - 17, R = 18, H = 14;
     for (let k = 0; k <= H; k++) {
       const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((H - k) / (H + 0.5)) ** 2)));
@@ -413,7 +413,7 @@
     for (let i = 0; i < kw; i += 4) { rect(c, 'ink', kx + i - 1, by - kh - 4, 4, 5); rect(c, 'stone3', kx + i, by - kh - 3, 2, 3); }
     rect(c, 'ink', cx - 4, by - 12, 8, 12); rect(c, 'wood2', cx - 3, by - 11, 6, 11); px(c, 'ink', cx - 4, by - 12); px(c, 'ink', cx + 3, by - 12);
     for (let i = 0; i < 3; i++) rect(c, 'stone2', cx - 3, by - 9 + i * 3, 6, 1);
-    for (const wx of [kx + 4, kx + kw - 9]) { rect(c, 'ink', wx - 1, by - 21, 7, 7); rect(c, 'lanternhi', wx, by - 20, 5, 5); rect(c, 'wood2', wx + 2, by - 20, 1, 5); if (Lights) Lights.push({ x: wx + 2.5, y: by - 17.5, r: 10, kind: 'window' }); }
+    for (const wx of [kx + 4, kx + kw - 9]) { rect(c, 'ink', wx - 1, by - 21, 7, 7); rect(c, 'lanternhi', wx, by - 20, 5, 5); rect(c, 'wood2', wx + 2, by - 20, 1, 5); if (Lights) Lights.push({ x: wx + 2.5, y: by - 17.5, r: 10, kind: 'lamp' }); }
     const wv = Math.floor(t * 3) % 2;
     for (const tx of [kx - 9, kx + kw + 1]) {
       const tw = 9, th = 32;

@@ -32,6 +32,8 @@
     const w = tw + pad * 2 + badge, h = Math.round(fs * 1.35);
     const x = Math.round(sx - w / 2), y = Math.round(sy - h - 8);
     plate(ctx, x, y, w, h, o.alpha);
+    // a patron's name tag has a gold edge (o.patron; only villagers with "patron": true)
+    if (o.patron) { ctx.fillStyle = PAL.gold; ctx.fillRect(x + 4, y, w - 8, 2); ctx.fillRect(x + 4, y + h - 2, w - 8, 2); ctx.fillRect(x, y + 4, 2, h - 8); ctx.fillRect(x + w - 2, y + 4, 2, h - 8); }
     ctx.fillStyle = 'rgba(27,23,36,0.88)';
     for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(sx) - 4 + i, y + h + i * 2 - 1, 8 - i * 2, 2);
     if (o.crew) {

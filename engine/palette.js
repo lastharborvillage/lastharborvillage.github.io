@@ -39,7 +39,10 @@
     // hair-only names
     blonde: ['gold', 'gold2'], ginger: ['ember', 'ember2'], auburn: ['ember2', 'wood4'],
   };
-  const SKIN = { 1: ['skin1', 'skin1s'], 2: ['skin2', 'skin2s'], 3: ['skin3', 'skin3s'], 4: ['skin4', 'skin4s'], 5: ['skin5', 'skin5s'] };
+  const SKIN = { 1: ['skin1', 'skin1s'], 2: ['skin2', 'skin2s'], 3: ['skin3', 'skin3s'], 4: ['skin4', 'skin4s'], 5: ['skin5', 'skin5s'],
+    // other kinds of villagers (2026-11-08), made from existing colours: "skin": "golem" etc.
+    golem: ['stone', 'stone2'], skeleton: ['white', 'stone3'], orc: ['moss', 'moss2'], ghost: ['fog2', 'fog'],
+    robot: ['stone3', 'stone'], merfolk: ['sea3', 'sea2'], troll: ['teal', 'teal2'], imp: ['ember', 'ember2'] };
 
   // Time-of-day grades (multiplied over the world) and how strongly lights glow.
   const TOD = {

@@ -100,13 +100,13 @@
       for (const a of res.actors.sort((p, q) => p.sy - q.sy)) {
         if (!a.name || a.id === M.sel) continue;
         if (a.sx < 0 || a.sx > w || a.sHead < 30 * r || a.sy > h + 20) continue;
-        LH.ui.nameTag(ctx, a.name, a.sx, a.sHead - 2 * r, { crew: a.crew, size: tagSize });
+        LH.ui.nameTag(ctx, a.name, a.sx, a.sHead - 2 * r, { crew: a.crew, patron: a.patron, size: tagSize });
       }
     }
     // the selected villager: a bobbing marker and a tag at any zoom
     const s = M.sel && res.actors.find((a) => a.id === M.sel);
     if (s) {
-      LH.ui.nameTag(ctx, s.name, s.sx, s.sHead - (4 + Math.sin(t * 4) * 2) * r, { crew: s.crew, size: Math.round(16 * r), color: LH.PAL.lanternhi });
+      LH.ui.nameTag(ctx, s.name, s.sx, s.sHead - (4 + Math.sin(t * 4) * 2) * r, { crew: s.crew, patron: s.patron, size: Math.round(16 * r), color: LH.PAL.lanternhi });
     }
   }
 
@@ -418,7 +418,7 @@
     const s = spotOf(p);
     const res = LH.draw.renderWorld(g, { world: D.world, cam: { x: s[0], y: s[1] - 10, z: 7 }, t: 2, tod: 'day' });
     const a = res.actors.find((q) => q.id === p.id);
-    if (a) LH.ui.nameTag(g, p.displayName, a.sx, a.sHead - 6, { crew: p.crew, size: 40, color: LH.PAL.lanternhi });
+    if (a) LH.ui.nameTag(g, p.displayName, a.sx, a.sHead - 6, { crew: p.crew, patron: p.patron === true, size: 40, color: LH.PAL.lanternhi });
     g.fillStyle = 'rgba(27,23,36,0.92)';
     g.fillRect(0, 960, 1080, 390);
     g.fillStyle = LH.PAL.lantern;

@@ -125,7 +125,12 @@
 
   // Home kinds: the building a villager lives in, chosen from their job ('house' if none fits).
   const HOME_KINDS = ['house', 'forge', 'bakery', 'fishhut', 'barn', 'tavern', 'library', 'apothecary', 'tailor',
-    'carpenter', 'pottery', 'watchtower', 'beekeeper', 'cookhouse', 'studio', 'musichall'];
+    'carpenter', 'pottery', 'watchtower', 'beekeeper', 'cookhouse', 'studio', 'musichall',
+    // added 2026-11-08
+    'florist', 'barber', 'tinker', 'shop', 'school', 'boathouse', 'wizardtower', 'mushroom',
+    // patron-only (only for villagers with "patron": true; not live yet)
+    'manor', 'castle'];
+  const PATRON_HOME_KINDS = ['manor', 'castle'];
 
   // Small fixed offsets per plot so houses do not line up perfectly; door -1 left, 0 centre, 1 right.
   function homeLayout(h) {
@@ -146,7 +151,10 @@
         for (let y = -24; y <= 300; y += 1) for (let x = -240; x <= 240; x += 1) if (isSlot(x, y)) allSlots.push({ x, y });
       }
       const c = d.center;
-      list = allSlots.map((s) => ({ x: s.x, y: s.y, d: (s.x + 1 - c[0]) ** 2 + (s.y + 1 - c[1]) ** 2, a: Math.atan2(s.y + 1 - c[1], s.x + 1 - c[0]) }));
+      // Distance counts sideways 1.5x (2026-11-08): new homes fill inland below the centre before the
+      // row stretches far left and right, so the village grows round, which fills a tall phone frame.
+      // Only new homes use this; homes never move.
+      list = allSlots.map((s) => ({ x: s.x, y: s.y, d: ((s.x + 1 - c[0]) * 1.5) ** 2 + (s.y + 1 - c[1]) ** 2, a: Math.atan2(s.y + 1 - c[1], s.x + 1 - c[0]) }));
       list.sort((p, q) => p.d - q.d || p.a - q.a || p.x - q.x);
       slotCache.set(key, list);
     }
@@ -206,7 +214,8 @@
     const next = SHIP_STAGES[s + 1] ? SHIP_STAGES[s + 1].at : SHIP_GOAL;
     return { index: s, id: SHIP_STAGES[s].id, progress: Math.min(1, (planks - SHIP_STAGES[s].at) / Math.max(1, next - SHIP_STAGES[s].at)) };
   }
-  const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0);
+  // villagers + the founders' planks + the planks of villagers who left (the ship never shrinks)
+  const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0) + ((world.ship && world.ship.keptPlanks) || 0);
 
   // Objects viewers can ask for (each has a drawer in engine/draw.js PROPS). New kinds are added here
   // and in PROPS together.
@@ -392,5 +401,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE };
 })();

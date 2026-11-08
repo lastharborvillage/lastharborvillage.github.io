@@ -1382,7 +1382,7 @@
       if (hide.has(v.id) || !v.home || v.home.tileX == null) continue;
       const [hx, hy] = v.pos || map.homeSpot(v);
       const st = v.pos || still.has(v.id) || o.walk === false ? { dx: 0, dy: 0, walk: false, face: 1 } : stroll(v.id, t);
-      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, x: hx + st.dx, y: hy + (st.dy || 0), app: v.appearance, walk: st.walk, face: st.face });
+      people.push({ id: v.id, name: v.displayName, crew: !!v.crew, patron: v.patron === true, x: hx + st.dx, y: hy + (st.dy || 0), app: v.appearance, walk: st.walk, face: st.face });
     }
     const offsets = o.offsets || {};
     for (const p of people) {

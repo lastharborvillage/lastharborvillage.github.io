@@ -36,6 +36,14 @@
     wheat: ['U.U.U', '.UUU.', '..U..', '..m..', '..m..'],
     note: ['.kkkk', '.k..k', '.k..k', 'kk.kk', 'kk.kk'],
     pan: ['.kkk...', 'kgggk..', 'kgggkdd', '.kkk...'],
+    // added 2026-11-08
+    flower: ['.P.P.', 'PYPYP', '.PMP.', '..M..', '..M..'],
+    scissors: ['G...G', '.G.G.', '..k..', '.kRk.', 'kR.Rk'],
+    gear: ['.g.g.', 'ggggg', 'gg.gg', 'ggggg', '.g.g.'],
+    coin: ['.UUU.', 'UuUuU', 'UUuUU', 'UuUuU', '.UUU.'],
+    slate: ['kkkkkkk', 'kmmmmmk', 'kmWmWmk', 'kmmmmmk', 'kkkkkkk'],
+    boat: ['...k...', '..kW...', '.kWWk..', 'ddddddd', '.ddddd.'],
+    star: ['...Y...', '..YYY..', 'YYYYYYY', '..YYY..', '.Y...Y.'],
   };
 
   // District building styles.
@@ -68,6 +76,18 @@
     cookhouse: { sign: 'pan', prop: 'cauldron', smoke: 'light', chimney: -1 },
     studio: { sign: 'brush', prop: 'easel', roof: 'gable' },
     musichall: { w: 32, storeys: 2, wall: 'beams', wallCol: 'cream', roof: 'hip', roofCol: 'teal', sign: 'note', bunting: true, annex: 0 },
+    // added 2026-11-08
+    florist: { wall: 'plaster', wallCol: 'cream', roof: 'gable', roofCol: 'pink', sign: 'flower', prop: 'flowers', awning: 'pink', shutters: 'green' },
+    barber: { wall: 'bricks', wallCol: 'stone3', roof: 'side', roofCol: 'red', sign: 'scissors', awning: 'red', prop: 'pots' },
+    tinker: { w: 30, wall: 'vplanks', wallCol: 'wood', roof: 'side', roofCol: 'grey', sign: 'gear', chimney: 'big', smoke: 'dark', prop: 'crate' },
+    shop: { w: 32, wall: 'beams', wallCol: 'cream', roof: 'side', roofCol: 'green', sign: 'coin', awning: 'green', prop: 'barrels', lantern: true, annex: 0 },
+    school: { w: 34, storeys: 2, wall: 'bricks', wallCol: 'stone3', roof: 'hip', roofCol: 'red', sign: 'slate', doorType: 'arch', prop: 'flowers', annex: 0 },
+    boathouse: { w: 32, wall: 'planks', wallCol: 'wood3', roof: 'gable', roofCol: 'navy', sign: 'boat', doorType: 'barn', prop: 'net', annex: 0, chimney: 0 },
+    wizardtower: { shape: 'wizard', sign: 'star' },
+    mushroom: { shape: 'mushroom' },
+    // patron-only (not live yet)
+    manor: { w: 34, storeys: 3, wall: 'bricks', wallCol: 'stone3', roof: 'hip', roofCol: 'navy', doorType: 'arch', lantern: true, bunting: true, prop: 'pots', annex: 0, chimney: 1, patron: true },
+    castle: { shape: 'castle', patron: true },
   };
   const DOORS = ['red', 'blue', 'green', 'purple', 'teal', 'brown', 'yellow', 'navy'];
   const SHADE = { wood3: 'wood', wood: 'wood2', cream: 'sand', sand: 'sand2', stone3: 'stone', stone: 'stone2', ember: 'ember2' };
@@ -101,6 +121,7 @@
       net: K.net || false,
       bunting: !!K.bunting,
       tower: !!K.tower,
+      shape: K.shape || null,
       seed: L.seed,
     };
     if (P.w > 30) P.annex = 0;
@@ -142,6 +163,7 @@
     if (P.wall === 'beams') {
       rect(c, 'wood2', wx, wy, 2, h); rect(c, 'wood2', wx + w - 2, wy, 2, h); rect(c, 'wood2', wx, wy, w, 2);
       if (P.storeys === 2) rect(c, 'wood2', wx, wy + 11, w, 2);
+      if (P.storeys === 3) { rect(c, 'wood2', wx, wy + 11, w, 2); rect(c, 'wood2', wx, wy + 21, w, 2); }
       for (let i = 0; i < 6; i++) { px(c, 'wood2', wx + 2 + i, wy + 2 + i); px(c, 'wood2', wx + w - 3 - i, wy + 2 + i); }
     }
     rect(c, sh, wx, wy + h - 1, w, 1);
@@ -243,9 +265,12 @@
     const cx = x + 16 + lay.dx;
     const by = y + 30 + lay.dy;
     if (P.tower) return drawTower(c, cx, by, P, t, Lights);
+    if (P.shape === 'wizard') return drawWizardTower(c, cx, by, P, t, Lights);
+    if (P.shape === 'mushroom') return drawMushroom(c, cx, by, P, t, Lights);
+    if (P.shape === 'castle') return drawCastle(c, cx, by, P, t, Lights);
     const lift = P.stilts ? 5 : 0;
-    const wallH = P.storeys === 2 ? 25 : 17;
-    const roofH = (P.storeys === 2 ? 11 : 18) - lift;
+    const wallH = P.storeys === 3 ? 33 : P.storeys === 2 ? 25 : 17;
+    const roofH = (P.storeys === 3 ? 10 : P.storeys === 2 ? 11 : 18) - lift;
     const w = P.w, wx = Math.round(cx - w / 2), wb = by - lift, wy = wb - wallH;
     c.globalAlpha = 0.25; rect(c, 'ink', wx + 1, by, w + 3, 2); c.globalAlpha = 1;
     if (P.stilts) for (const sx of [wx + 1, wx + Math.floor(w / 2) - 1, wx + w - 3]) { rect(c, 'ink', sx - 1, wb - 1, 4, lift + 2); rect(c, 'wood2', sx, wb - 1, 2, lift + 1); }
@@ -288,7 +313,7 @@
     if (!P.stilts) { rect(c, 'sand2', dx0, wb + 1, dw, by + 10 - wb); px(c, 'sand3', dx0 + 1, wb + 3); }
 
     // windows: avoid the door; upper floor gets a row too
-    const rows = P.storeys === 2 ? [wy + 3, wy + 14] : [wy + 4];
+    const rows = P.storeys === 3 ? [wy + 3, wy + 13, wy + 23] : P.storeys === 2 ? [wy + 3, wy + 14] : [wy + 4];
     for (const ry of rows) {
       const lower = ry === rows[rows.length - 1];
       const n = w >= 32 ? 3 : 2;
@@ -339,6 +364,68 @@
     pf(c, cx + P.side * (w / 2 - 5), by + 4, t, P.seed % 13, Lights);
   }
 
+  // ---- special shapes (added 2026-11-08) ----
+  // A wizard's tower: narrow stone, a glowing round window, a tall purple cone roof with stars.
+  function drawWizardTower(c, cx, by, P, t, Lights) {
+    const x = cx - 8, w = 16, h = 30;
+    c.globalAlpha = 0.25; rect(c, 'ink', x, by, w + 4, 2); c.globalAlpha = 1;
+    rect(c, 'ink', x - 1, by - h, w + 2, h + 1); rect(c, 'stone', x, by - h, w, h);
+    wallPattern(c, { ...P, wall: 'stones', wallCol: 'stone' }, x, by - h, w, h);
+    rect(c, 'ink', x + 5, by - 10, 6, 10); rect(c, 'plum2', x + 6, by - 9, 4, 9); px(c, 'gold', x + 9, by - 5);
+    const f = Math.floor(t * 2) % 2;
+    rect(c, 'ink', x + 5, by - 23, 6, 6); rect(c, f ? 'lanternhi' : 'lantern', x + 6, by - 22, 4, 4); px(c, 'ink', x + 5, by - 23); px(c, 'ink', x + 10, by - 23);
+    if (Lights) Lights.push({ x: x + 8, y: by - 20, r: 14, kind: 'window' });
+    const top = by - h, ch = 24;
+    for (let k = 0; k <= ch; k++) {
+      const hw = Math.round(12 * (k / ch)) + 1, yy = top - ch + k;
+      rect(c, 'ink', cx - hw - 1, yy, hw * 2 + 2, 1);
+      if (k > 0) rect(c, k > ch - 3 ? 'plum2' : 'plum', cx - hw, yy, hw * 2, 1);
+    }
+    for (const [dx, dy] of [[-3, 8], [4, 13], [-6, 18], [1, 20]]) px(c, Math.floor(t * 3 + dx) % 3 ? 'gold' : 'lanternhi', cx + dx, top - ch + dy);
+    px(c, 'lanternhi', cx, top - ch - 1);
+    sign(c, x + w + 2, by - 15, 'star');
+  }
+
+  // A mushroom house (fairies, gnomes): a cream stem with a round door and a red spotted cap.
+  function drawMushroom(c, cx, by, P, t, Lights) {
+    c.globalAlpha = 0.25; rect(c, 'ink', cx - 10, by, 22, 2); c.globalAlpha = 1;
+    rect(c, 'ink', cx - 8, by - 17, 16, 18); rect(c, 'cream', cx - 7, by - 16, 14, 16); rect(c, 'sand', cx + 3, by - 16, 4, 16);
+    rect(c, 'ink', cx - 3, by - 9, 6, 9); rect(c, 'wood', cx - 2, by - 8, 4, 8); px(c, 'ink', cx - 3, by - 9); px(c, 'ink', cx + 2, by - 9); px(c, 'gold', cx + 1, by - 4);
+    rect(c, 'ink', cx - 6, by - 15, 4, 4); rect(c, 'lanternhi', cx - 5, by - 14, 2, 2);
+    if (Lights) Lights.push({ x: cx - 4, y: by - 13, r: 10, kind: 'window' });
+    const capY = by - 17, R = 18, H = 14;
+    for (let k = 0; k <= H; k++) {
+      const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((H - k) / (H + 0.5)) ** 2)));
+      rect(c, 'ink', cx - hw - 1, capY - H + k, hw * 2 + 2, 1);
+      if (k > 0) rect(c, k > H - 3 ? 'ember2' : 'ember', cx - hw, capY - H + k, hw * 2, 1);
+    }
+    rect(c, 'ink', cx - R, capY + 1, R * 2, 1); rect(c, 'sand2', cx - R + 2, capY, R * 2 - 4, 1);
+    for (const [dx, dy, s] of [[-10, 6, 3], [-2, 3, 4], [7, 7, 3], [12, 11, 2], [-14, 11, 2], [2, 10, 2]]) rect(c, 'white', cx + dx, capY - H + dy, s, s - 1);
+    PROP.flowers(c, cx + 13, by + 3, t, P.seed % 13);
+  }
+
+  // A small castle (patron-only): a stone keep with battlements, two round towers, gold flags.
+  function drawCastle(c, cx, by, P, t, Lights) {
+    c.globalAlpha = 0.25; rect(c, 'ink', cx - 22, by, 46, 2); c.globalAlpha = 1;
+    const kx = cx - 12, kw = 24, kh = 24;
+    rect(c, 'ink', kx - 1, by - kh, kw + 2, kh + 1); rect(c, 'stone3', kx, by - kh, kw, kh);
+    wallPattern(c, { ...P, wall: 'bricks', wallCol: 'stone3' }, kx, by - kh, kw, kh);
+    for (let i = 0; i < kw; i += 4) { rect(c, 'ink', kx + i - 1, by - kh - 4, 4, 5); rect(c, 'stone3', kx + i, by - kh - 3, 2, 3); }
+    rect(c, 'ink', cx - 4, by - 12, 8, 12); rect(c, 'wood2', cx - 3, by - 11, 6, 11); px(c, 'ink', cx - 4, by - 12); px(c, 'ink', cx + 3, by - 12);
+    for (let i = 0; i < 3; i++) rect(c, 'stone2', cx - 3, by - 9 + i * 3, 6, 1);
+    for (const wx of [kx + 4, kx + kw - 9]) { rect(c, 'ink', wx - 1, by - 21, 7, 7); rect(c, 'lanternhi', wx, by - 20, 5, 5); rect(c, 'wood2', wx + 2, by - 20, 1, 5); if (Lights) Lights.push({ x: wx + 2.5, y: by - 17.5, r: 10, kind: 'window' }); }
+    const wv = Math.floor(t * 3) % 2;
+    for (const tx of [kx - 9, kx + kw + 1]) {
+      const tw = 9, th = 32;
+      rect(c, 'ink', tx - 1, by - th, tw + 2, th + 1); rect(c, 'stone', tx, by - th, tw, th);
+      wallPattern(c, { ...P, wall: 'bricks', wallCol: 'stone' }, tx, by - th, tw, th);
+      rect(c, 'ink', tx + 3, by - 22, 3, 5); rect(c, 'night', tx + 4, by - 21, 1, 3);
+      for (let k = 0; k <= 9; k++) { const hw = Math.round(6 * (k / 9)); rect(c, 'ink', tx + 4 - hw - 1, by - th - 10 + k, hw * 2 + 3, 1); if (k) rect(c, 'sea', tx + 4 - hw,by - th - 10 + k, hw * 2 + 1, 1); }
+      rect(c, 'ink', tx + 4, by - th - 17, 1, 7); rect(c, 'gold', tx + 5, by - th - 17 + wv, 4, 2); rect(c, 'gold2', tx + 5, by - th - 15 + wv, 3, 1);
+    }
+    PROP.pots(c, cx + 9, by + 3);
+  }
+
   // The guard's watchtower: a narrow stone tower with a wooden lookout and a flag.
   function drawTower(c, cx, by, P, t, Lights) {
     const x = cx - 10, w = 14, h = 28;
@@ -369,7 +456,16 @@
     if (st >= 2 && P.w <= 30) P.annex = 1;
     if (st >= 3) P.storeys = 2;
     if (st >= 4) { P.bunting = true; if (!P.awning) P.awning = LH.fam('yellow'); }
+    // floors asked for (home.floors 2-3, a villager's own request): taller, never lower
+    if (h.floors && h.floors > P.storeys) P.storeys = Math.min(3, h.floors);
     drawBuilding(c, h.tileX * T, h.tileY * T, P, t, Lights, lay);
+    // a patron's home has a little gold pennant by the door (only when "patron": true; not live yet)
+    if (v.patron === true) {
+      const [hx, hy] = LH.map.homeSpot(v);
+      const fx = Math.round(hx - 12), fy = Math.round(hy - 2), wv = Math.floor(t * 3) % 2;
+      rect(c, 'ink', fx - 1, fy - 17, 3, 17); rect(c, 'wood2', fx, fy - 16, 1, 16);
+      rect(c, 'gold', fx + 1, fy - 16 + wv, 5, 2); rect(c, 'gold2', fx + 1, fy - 14 + wv, 4, 1); px(c, 'lanternhi', fx, fy - 18);
+    }
   }
 
   // Commons: plots that never get a house. Decorated once the village reaches them.

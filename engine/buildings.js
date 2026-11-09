@@ -466,6 +466,14 @@
       rect(c, 'ink', fx - 1, fy - 17, 3, 17); rect(c, 'wood2', fx, fy - 16, 1, 16);
       rect(c, 'gold', fx + 1, fy - 16 + wv, 5, 2); rect(c, 'gold2', fx + 1, fy - 14 + wv, 4, 1); px(c, 'lanternhi', fx, fy - 18);
     }
+    // a founder (one of the village's first 100) has a gold plaque on a post by the door, with a star
+    if (LH.map.isFounder(v)) {
+      const [hx, hy] = LH.map.homeSpot(v);
+      const fx = Math.round(hx + 9), fy = Math.round(hy - 1), glint = Math.floor(t * 1.5 + (v.home.tileX || 0)) % 6 === 0;
+      rect(c, 'ink', fx, fy - 9, 2, 9); rect(c, 'wood2', fx, fy - 8, 1, 8);
+      rect(c, 'ink', fx - 3, fy - 14, 8, 7); rect(c, 'gold2', fx - 2, fy - 13, 6, 5); rect(c, 'gold', fx - 2, fy - 13, 5, 4);
+      px(c, glint ? 'white' : 'lanternhi', fx, fy - 12); px(c, 'lanternhi', fx - 1, fy - 11); px(c, 'lanternhi', fx + 1, fy - 11);
+    }
   }
 
   // Commons: plots that never get a house. Decorated once the village reaches them.

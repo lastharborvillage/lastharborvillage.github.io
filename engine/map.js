@@ -215,7 +215,23 @@
     return { index: s, id: SHIP_STAGES[s].id, progress: Math.min(1, (planks - SHIP_STAGES[s].at) / Math.max(1, next - SHIP_STAGES[s].at)) };
   }
   // villagers + the founders' planks + the planks of villagers who left (the ship never shrinks)
-  const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0) + ((world.ship && world.ship.keptPlanks) || 0);
+  // planks: one per villager, the founders' planks, planks kept by villagers who left, and shared planks
+  // (Instagram: every share of an episode adds SHARE_PLANKS; apply.mjs sets ship.sharePlanks)
+  const SHARE_PLANKS = 5;
+  const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0) + ((world.ship && world.ship.keptPlanks) || 0) + ((world.ship && world.ship.sharePlanks) || 0);
+
+  // Founders: the first FOUNDER_LIMIT villagers of a village (v0001-v0100) get a gold plaque by their door,
+  // forever. Ids are never reused, so a spot never comes back.
+  const FOUNDER_LIMIT = 100;
+  const idNum = (id) => parseInt(String(id).replace(/\D/g, ''), 10) || 0;
+  const isFounder = (v) => idNum(v.id) >= 1 && idNum(v.id) <= FOUNDER_LIMIT;
+  const foundersLeft = (world) => Math.max(0, FOUNDER_LIMIT - Math.max(0, ...world.villagers.map((v) => idNum(v.id)), ...((world.left || []).map((l) => idNum(l.id)))));
+
+  // The district race: homes per open district (the first to story.race.goal wins story.race.reward)
+  function raceCounts(world) {
+    const ds = world.districts || DISTRICTS;
+    return unlocked(world).map((id) => ({ id, name: ds[id].name, homes: world.villagers.filter((v) => v.home && v.home.district === id).length })).sort((a, b) => b.homes - a.homes);
+  }
 
   // Objects viewers can ask for (each has a drawer in engine/draw.js PROPS). New kinds are added here
   // and in PROPS together.
@@ -516,5 +532,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

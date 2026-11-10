@@ -531,6 +531,18 @@
       '..kak......kak..',
       '..kk........kk..',
     ] },
+    // ---- added 2026-11-10 (Instagram day 7): a gas mask with a long hose like a trunk ----
+    gasmask: { y: 6, layer: 'face', rows: [
+      '....kjjjjjjk....',
+      '....kjFjjFjk....',
+      '....kjjjjjjk....',
+      '.....kjggjk.....',
+      '.......kgk......',
+      '.......kgk......',
+      '........kgk.....',
+      '.........kgk....',
+      '..........kk....',
+    ] },
     // ---- other kinds of villagers (with "skin": golem / skeleton / orc / ghost / robot / merfolk / troll / imp) ----
     wings: { y: 10, layer: 'neck', accent: 'foam', rows: [
       '.kk..........kk.',
@@ -692,6 +704,11 @@
     pitchfork: { rate: 2, bob: true, frames: [
       { ax: 2, ay: 5, rows: ['g.g.g', 'ggggg', '..d..', '..d..', '..d..', '..d..', '..d..'] },
       { ax: 2, ay: 4, rows: ['g.g.g', 'ggggg', '..d..', '..d..', '..d..', '..d..', '..d..'] },
+    ] },
+    // added 2026-11-10 (Instagram day 7): a shepherd's crook
+    crook: { rate: 1, bob: true, frames: [
+      { ax: 3, ay: 5, rows: ['.dd.', 'd..d', 'd..d', '...d', '...d', '...d', '...d', '...d', '...d'] },
+      { ax: 3, ay: 4, rows: ['.dd.', 'd..d', 'd..d', '...d', '...d', '...d', '...d', '...d', '...d'] },
     ] },
     spear: { rate: 1, bob: true, frames: [
       { ax: 2, ay: 6, rows: ['..G..', '.GgG.', '..d..', '..d..', '..d..', '..d..', '..d..', '..d..', '..d..'] },
@@ -1174,6 +1191,30 @@
       'kQQQYQQk',
       '.kQQQQk.',
       '..kkkk..',
+    ]] },
+    // ---- added 2026-11-10 (Instagram day 7) ----
+    bear: { accent: 'brown', frames: [[
+      '.k.k........',
+      'kAkAk.......',
+      'kAAAAk......',
+      'kEAAAkkkkk..',
+      'kkTAAAAAAAk.',
+      '.kAAAAAAAAAk',
+      '.kAAaAAAAaAk',
+      '.kAAkkkkAAk.',
+      '.kAk....kAk.',
+      '.kk.....kk..',
+    ], [
+      '.k.k........',
+      'kAkAk.......',
+      'kAAAAk......',
+      'kEAAAkkkkk..',
+      'kkTAAAAAAAk.',
+      '.kAAAAAAAAAk',
+      '.kAAaAAAAaAk',
+      '.kAAkkkkAAk.',
+      'kAk......kAk',
+      'kk.......kk.',
     ]] },
     // ---- patron-only ----
     dragon: { accent: 'green', patron: true, frames: [[

@@ -108,6 +108,9 @@
   // chessboard; about one plot in six is a common (well, garden, pond...) and never gets a house.
   let allSlots = null;
   const mod = (a, n) => ((a % n) + n) % n;
+  // Does the front path of the home at hx,hy run on to its right-hand neighbour? Not always (about 1 in
+  // 3 rows break), so the lanes are not one long straight line per row (2026-11-10).
+  const linksRight = (hx, hy) => h2(hx, hy, 555) >= 0.33;
   const isRoad = (x, y) => (y === 5 && x >= -42 && x <= 34) || (x === 2 && y >= 4 && y <= 40);
   // Plots are 4x4 tiles: the 2x2 house, its front path row, and room for a side yard and a back
   // garden. Every other row shifts two tiles (a brick pattern).
@@ -135,7 +138,9 @@
   // Small fixed offsets per plot so houses do not line up perfectly; door -1 left, 0 centre, 1 right.
   function homeLayout(h) {
     const r = LH.core.rng(LH.core.hashStr('plot|' + h.tileX + ',' + h.tileY));
-    const dx = Math.round(r() * 12 - 6), dy = Math.round(r() * 4 - 2);
+    // dy -8..+1 (2026-11-10, was -2..2): homes sit at different depths in their plot, so a row of
+    // houses no longer stands on one line (never further forward: the lane runs in front)
+    const dx = Math.round(r() * 12 - 6), dy = Math.round(r() * 9 - 8);
     const door = h.kind === 'watchtower' ? 1 : [-1, 0, 0, 1][Math.floor(r() * 4)];
     return { dx, dy, door, seed: Math.floor(r() * 1e9) };
   }
@@ -532,5 +537,5 @@
     return p;
   }
 
-  LH.map = { T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

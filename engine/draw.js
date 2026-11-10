@@ -1245,6 +1245,87 @@
   // drawn once into 32x32-tile pieces (with every home's paths and plots, not only the ones on
   // screen), plus a list of the water tiles in each piece, which are still drawn every frame.
   const groundCaches = new WeakMap();
+  // Winding lanes (2026-11-10, user: roads were straight lines on a grid). Roads and footpaths stay on
+  // the same tiles (walking and placement are unchanged) but each path tile is drawn as a narrower band
+  // that wanders a little and changes width, joined to its neighbours, with a soft ragged edge; every
+  // door gets its own short path down to the lane. Tiles are composed once and cached.
+  const LANES = ['path', 'road', 'footpath', 'footpath-dark', 'stonepath', 'stonepath-dark'];
+  const laneCache = new Map(), pixCache = new Map(), spurCache = new WeakMap();
+  function tilePixels(type, variant) {
+    const k = type + '|' + variant;
+    let d = pixCache.get(k);
+    if (!d) { d = tileCanvas(type, variant).getContext('2d').getImageData(0, 0, T, T).data; pixCache.set(k, d); }
+    return d;
+  }
+  // door paths: for each tile, the doors whose path crosses it ({x, y0}: door x, house front y)
+  function doorSpurs(world) {
+    let m = spurCache.get(world.villagers);
+    if (m) return m;
+    m = new Map();
+    const put = (tx, ty, sp) => { const k = tx + ',' + ty; if (!m.has(k)) m.set(k, []); m.get(k).push(sp); };
+    for (const v of worldIndex(world).housed) {
+      const L = map.homeLayout(v.home), hx = v.home.tileX, hy = v.home.tileY;
+      const x = (hx + 1) * T + L.dx + L.door * 8, y0 = hy * T + 30 + L.dy;
+      const sp = { x, y0 };
+      for (const tx of new Set([Math.floor((x - 3) / T), Math.floor((x + 3) / T)])) { put(tx, hy + 1, sp); put(tx, hy + 2, sp); }
+    }
+    spurCache.set(world.villagers, m);
+    return m;
+  }
+  const isRoadLane = (g) => g === 'path' || g === 'road';
+  // centre line of a horizontal lane in tile row ty at world x (and of a vertical one in column tx at y)
+  const laneMidY = (wx, ty, road) => ty * T + 8 + (road ? 1.6 : 2.3) * Math.sin(wx * 0.09 + ty * 1.7) + (road ? 0.6 : 1) * Math.sin(wx * 0.27 + ty * 0.6);
+  const laneMidX = (wy, tx, road) => tx * T + 8 + (road ? 1.6 : 2.3) * Math.sin(wy * 0.09 + tx * 1.3) + (road ? 0.6 : 1) * Math.sin(wy * 0.23 + tx * 0.8);
+  const laneHalf = (w, k, road) => (road ? 5.2 : 3.6) + (road ? 0.8 : 0.9) * Math.sin(w * 0.15 + k * 2.1);
+  const spurTile = (world, g, base, tx, ty) => laneTile(world, g, base, tx, ty, null);
+  function laneTile(world, g, base, tx, ty, gAt) {
+    const only = !gAt; // a grass tile that only a door path crosses
+    const lane = (x, y) => !only && LANES.includes(gAt(x, y));
+    const nL = lane(tx - 1, ty), nR = lane(tx + 1, ty), nU = lane(tx, ty - 1), nD = lane(tx, ty + 1);
+    const spurs = doorSpurs(world).get(tx + ',' + ty) || [];
+    const variant = Math.floor(C.h2(tx, ty, 1) * 4);
+    const key = tx + ',' + ty + '|' + g + '|' + base + '|' + (+only) + (+nL) + (+nR) + (+nU) + (+nD) + '|' + spurs.map((p) => p.x + ':' + p.y0).join(',');
+    let cv = laneCache.get(key);
+    if (cv) return cv;
+    const road = isRoadLane(g);
+    const P = tilePixels(g, variant), G = tilePixels(base, variant);
+    cv = canvas(T, T);
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
+    const horiz = nL || nR || !(nU || nD), vert = nU || nD;
+    for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
+      const wx = tx * T + lx + 0.5, wy = ty * T + ly + 0.5;
+      let d = -Infinity; // how far inside the lane this pixel is (px), > 0 = on the lane
+      if (!only && horiz) {
+        const my = laneMidY(wx, ty, road), hw = laneHalf(wx, ty, road);
+        let dd = hw - Math.abs(wy - my);
+        const cx = vert ? laneMidX(wy, tx, road) : tx * T + 8;
+        if (!nL && wx < cx) dd = Math.min(dd, hw - (cx - wx)); // rounded end on the left
+        if (!nR && wx > cx) dd = Math.min(dd, hw - (wx - cx));
+        d = Math.max(d, dd);
+      }
+      if (!only && vert) {
+        const mx = laneMidX(wy, tx, road), hw = laneHalf(wy, tx, road);
+        let dd = hw - Math.abs(wx - mx);
+        const cy = horiz ? laneMidY(wx, ty, road) : ty * T + 8;
+        if (!nU && wy < cy) dd = Math.min(dd, hw - (cy - wy));
+        if (!nD && wy > cy) dd = Math.min(dd, hw - (wy - cy));
+        d = Math.max(d, dd);
+      }
+      for (const sp of spurs) { // a door's own path, from the house front down to the lane
+        const end = only ? Infinity : laneMidY(sp.x, ty, road);
+        if (wy < sp.y0 - 1 || wy > end) continue;
+        d = Math.max(d, 2.4 + 0.5 * Math.sin(wy * 0.4 + sp.x) - Math.abs(wx - sp.x));
+      }
+      const rag = (C.h2(Math.floor(wx), Math.floor(wy), 47) - 0.5) * 1.4;
+      const on = d + rag > 0;
+      const i = (ly * T + lx) * 4, src = on ? P : G;
+      o[i] = src[i]; o[i + 1] = src[i + 1]; o[i + 2] = src[i + 2]; o[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    laneCache.set(key, cv);
+    return cv;
+  }
+
   function groundCacheFor(world, districts, openDistricts, makeGroundAt, landTile) {
     let gc = groundCaches.get(world);
     if (gc) return gc;
@@ -1255,7 +1336,7 @@
       const hx = v.home.tileX, hy = v.home.tileY;
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
       mark(paths, hx, hy + 2); mark(paths, hx + 1, hy + 2);
-      if (occupied.has((hx + 4) + ',' + hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
+      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
     }
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
     for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
@@ -1380,7 +1461,7 @@
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
       if (!home) return;
       mark(paths, hx, hy + 2); mark(paths, hx + 1, hy + 2);
-      if (occupied.has((hx + 4) + ',' + hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
+      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
       yards.push([hx, hy]);
     };
     for (const v of housed) {
@@ -1416,7 +1497,7 @@
     const GRASSY = ['grass', 'darkgrass', 'rockgrass', 'field'];
     const makeGroundAt = (pathSet, busySet) => (tx, ty) => {
       const g = map.ground(tx, ty, districts);
-      if (g === 'cobble' && !openDistricts.includes('market')) return 'grass';
+      if (g === 'cobble' && !openDistricts.includes('market')) return map.isRoad(tx, ty) ? 'path' : 'grass'; // the high street runs on through the closed market
       if (g === 'path' && map.isRoad(tx, ty) && has('cobbles', tx, ty)) return 'road';
       if (GRASSY.includes(g) && pathSet.has(tx + ',' + ty)) return has('stonepaths', tx, ty) ? (g === 'darkgrass' ? 'stonepath-dark' : 'stonepath') : g === 'darkgrass' ? 'footpath-dark' : 'footpath';
       if (g === 'field' && busySet.has(tx + ',' + ty)) return 'grass';
@@ -1426,6 +1507,15 @@
     const landTile = (g2, gAt, tx, ty, ox, oy) => {
       const g = gAt(tx, ty);
       if (g === 'sea' || g === 'shallow') return false;
+      if (LANES.includes(g) || (GRASSY.includes(g) && g !== 'field' && doorSpurs(world).has(tx + ',' + ty))) {
+        // winding lanes (laneTile): a lane tile, or a grass tile a door path crosses
+        const isLane = LANES.includes(g);
+        const base = isLane ? (g.endsWith('-dark') ? 'darkgrass' : 'grass') : g;
+        const below = gAt(tx, ty + 1);
+        const spurType = isLane ? g : LANES.includes(below) ? below : 'footpath';
+        g2.drawImage(isLane ? laneTile(world, g, base, tx, ty, gAt) : spurTile(world, spurType, base, tx, ty), tx * T - ox, ty * T - oy);
+        return true;
+      }
       g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
       if (g === 'cobble') {
         // the market square is a rounded patch, not a rectangle (2026-11-10): grass outside a soft,

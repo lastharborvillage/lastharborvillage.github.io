@@ -191,25 +191,142 @@
 
   // Gives every villager without a tile a home: the first free slot of its district (which must
   // be unlocked when the villager is added; otherwise the harbour). Never moves existing homes.
+  // New homes are placed off the grid (2026-11-10, user: the village looked like a grid). Homes that
+  // already have a spot never move (the first villages' homes stay on the old 4x4 plots). A home's
+  // "core" is its 2x2 house, the front row below it and the 2x2 yard to its right (x..x+3, y..y+2).
+  // A new home's core must be on open land (not the waterline, a reserved area or a road, except the
+  // front row may meet a road) and keep one free tile all round from every other core, building,
+  // landmark and object. Candidates near the district centre come first (sideways counts 1.5x, so the
+  // village grows round), with some noise in the order so homes do not line up in rows.
+  let siteList = null;
+  const siteCache = new Map();
+  const siteOK = (x, y) => {
+    for (let dx = 0; dx < 4; dx++) for (let dy = 0; dy < 3; dy++) {
+      const tx = x + dx, ty = y + dy;
+      if (!isLand(tx, ty) || ty < coastY(tx) + 2 || reserved(tx, ty)) return false;
+      if (dy < 2 && isRoad(tx, ty)) return false;
+    }
+    return y > FOG_Y + 4;
+  };
+  function sites(districtId, districts = DISTRICTS) {
+    const d = districts[districtId];
+    if (!d) return [];
+    const key = d.center.join(',');
+    let list = siteCache.get(key);
+    if (!list) {
+      if (!siteList) {
+        siteList = [];
+        for (let y = -24; y <= 300; y++) for (let x = -240; x <= 240; x++) if (siteOK(x, y)) siteList.push({ x, y });
+      }
+      const c = d.center;
+      list = siteList.map((q) => ({ x: q.x, y: q.y, d: Math.hypot((q.x + 1 - c[0]) * 1.5, q.y + 1 - c[1]) + h2(q.x, q.y, 401) * 3.2 }));
+      list.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
+      siteCache.set(key, list);
+    }
+    return list;
+  }
+  const coreTiles = (x, y) => footprint(x, y, 4, 3);
   function placeAll(world) {
     const ds = world.districts || DISTRICTS;
-    const used = new Set();
-    for (const v of world.villagers) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY).forEach((k) => used.add(k));
-    for (const b of world.buildings || []) footprint(b.tileX, b.tileY, b.w || 2, b.h || 2).forEach((k) => used.add(k));
-    for (const l of world.landmarks || []) landmarkTiles(l).forEach((k) => used.add(k)); // a cave is never built over
+    const used = new Set(); // tiles no new home's core (or the free ring round it) may touch
+    const add = (keys) => keys.forEach((k) => used.add(k));
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) add(coreTiles(v.home.tileX, v.home.tileY));
+    for (const b of world.buildings || []) add(footprint(b.tileX, b.tileY, b.w || 2, b.h || 2));
+    for (const l of world.landmarks || []) add(landmarkTiles(l)); // a cave is never built over
+    for (const q of world.props || []) add([Math.floor(q.x) + ',' + Math.floor(q.y)]);
+    const free = (x, y) => { for (let dx = -1; dx <= 4; dx++) for (let dy = -1; dy <= 3; dy++) if (used.has((x + dx) + ',' + (y + dy))) return false; return true; };
+    const from = new Map(); // per district: candidates before this index are taken for good
     const placed = [];
     world.villagers.forEach((v, i) => {
       if (v.home && v.home.tileX != null) return;
       v.home = v.home || {};
       const open = unlocked(world, i + 1);
       if (!v.home.district || !ds[v.home.district] || !open.includes(v.home.district)) v.home.district = 'harbour';
-      const s = slots(v.home.district, ds).find((p) => !footprint(p.x, p.y).some((k) => used.has(k)));
-      if (!s) throw new Error('no free slot in ' + v.home.district);
+      const list = sites(v.home.district, ds);
+      let k = from.get(v.home.district) || 0;
+      while (k < list.length && !free(list[k].x, list[k].y)) k++;
+      from.set(v.home.district, k);
+      if (k >= list.length) throw new Error('no free spot in ' + v.home.district);
+      const s = list[k];
       v.home.tileX = s.x; v.home.tileY = s.y;
-      footprint(s.x, s.y).forEach((k) => used.add(k));
+      add(coreTiles(s.x, s.y));
       placed.push(v.id);
     });
     return placed;
+  }
+
+  // The footpaths between the homes, as a set of tiles "x,y" (cached per list of villagers). Every home
+  // has a lane along its front row (not on or right beside a road) that always passes its door; homes
+  // on the old grid with a right-hand neighbour mostly link to it (linksRight). A home whose lane does
+  // not touch the network yet gets a path of its own to the nearest lane, road or the market square,
+  // found on the tiles between the houses (2026-11-10, for homes off the grid).
+  const pathCache = new WeakMap();
+  function homePaths(world) {
+    let set = pathCache.get(world.villagers);
+    if (set) return set;
+    set = new Set();
+    const homes = world.villagers.filter((v) => v.home && v.home.tileX != null);
+    const occupied = new Set(homes.map((v) => v.home.tileX + ',' + v.home.tileY));
+    const blocked = new Set();
+    for (const v of homes) footprint(v.home.tileX, v.home.tileY, 4, 2).forEach((k) => blocked.add(k)); // house and yard
+    for (const b of world.buildings || []) footprint(b.tileX, b.tileY, b.w || 2, b.h || 2).forEach((k) => blocked.add(k));
+    for (const l of world.landmarks || []) landmarkTiles(l).forEach((k) => blocked.add(k));
+    const fronts = homes.map((v) => {
+      const hx = v.home.tileX, hy = v.home.tileY, L = homeLayout(v.home);
+      const door = Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T);
+      const own = [];
+      const fp = (x) => { if (frontPathOK(x, hy + 2) && !own.includes(x)) own.push(x); };
+      fp(hx); fp(hx + 1); fp(door);
+      if (occupied.has((hx + 4) + ',' + hy) && linksRight(hx, hy)) { fp(hx + 2); fp(hx + 3); }
+      return { v, hy, door, own };
+    });
+    for (const f of fronts) for (const x of f.own) set.add(x + ',' + (f.hy + 2));
+    const isNet = (x, y) => isRoad(x, y) || inRect(x, y, [-3, 12, 4, 15]);
+    for (const f of fronts) {
+      const y = f.hy + 2;
+      const mine = new Set(f.own.map((x) => x + ',' + y));
+      const start = f.own.length ? f.own.map((x) => [x, y]) : [[f.door, y]];
+      // already joined? (a road beside the door path, or a neighbour's lane touching ours)
+      const touches = start.some(([x, yy]) => [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].some(([dx, dy]) => { const k = (x + dx) + ',' + (yy + dy); return isNet(x + dx, yy + dy) || (set.has(k) && !mine.has(k)); }));
+      if (touches) continue;
+      const prev = new Map(start.map(([x, yy]) => [x + ',' + yy, null]));
+      const todo = start.slice();
+      let hit = null;
+      for (let i = 0; i < todo.length && !hit && i < 3000; i++) {
+        const [x, yy] = todo[i];
+        // try down/up first, so paths head for the lanes and roads between the rows
+        for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+          const nx = x + dx, ny = yy + dy, k = nx + ',' + ny;
+          if (prev.has(k)) continue;
+          if (Math.abs(nx - f.door) > 14 || Math.abs(ny - y) > 12) continue;
+          if (blocked.has(k) || !isLand(nx, ny) || ny < coastY(nx) + 1) continue;
+          prev.set(k, x + ',' + yy);
+          if (isNet(nx, ny) || (set.has(k) && !mine.has(k))) { hit = k; break; }
+          todo.push([nx, ny]);
+        }
+      }
+      if (!hit) continue;
+      for (let k = prev.get(hit); k; k = prev.get(k)) {
+        const [x, yy] = k.split(',').map(Number);
+        if (!isRoad(x, yy)) set.add(k);
+      }
+    }
+    pathCache.set(world.villagers, set);
+    return set;
+  }
+
+  // May the common (well, pond, garden...) on grid plot tx,ty be drawn? Not when a home off the grid
+  // stands on it or right beside it.
+  const coreCache = new WeakMap();
+  function commonFree(world, tx, ty) {
+    let set = coreCache.get(world.villagers);
+    if (!set) {
+      set = new Set();
+      for (const v of world.villagers) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY, 4, 3).forEach((k) => set.add(k));
+      coreCache.set(world.villagers, set);
+    }
+    for (let dx = -1; dx <= 2; dx++) for (let dy = -1; dy <= 3; dy++) if (set.has((tx + dx) + ',' + (ty + dy))) return false;
+    return true;
   }
 
   // Where a villager stands: in front of their door. World pixels (feet).
@@ -269,11 +386,14 @@
     for (const b of world.buildings || []) taken.push([b.tileX + 0.5, b.tileY + 0.5]);
     for (const p of world.props || []) taken.push([p.x, p.y]);
     const near = (x, y) => taken.some(([tx, ty]) => Math.abs(tx - x) < 2 && Math.abs(ty - y) < 2);
+    // never on a home's yard or front row (homes off the grid are not covered by inPlot)
+    const cores = new Set();
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY, 4, 3).forEach((k) => cores.add(k));
     const cand = [];
     for (let dx = -8; dx <= 8; dx++) for (let dy = -8; dy <= 8; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
     cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
     for (const [x, y] of cand) {
-      if (!isLand(x, y) || y < coastY(x) + 2 || isRoad(x, y) || reserved(x, y) || inPlot(x, y)) continue;
+      if (!isLand(x, y) || y < coastY(x) + 2 || isRoad(x, y) || reserved(x, y) || inPlot(x, y) || cores.has(x + ',' + y)) continue;
       if (y <= FOG_Y + 2 || near(x + 0.5, y + 0.85)) continue;
       return [x, y];
     }
@@ -538,7 +658,7 @@
       if (!h || h.tileX == null) { p.push(who + ': has no home tile (run placement)'); return; }
       if (!ds[h.district]) { p.push(who + ': unknown district ' + h.district); return; }
       if (ds[h.district].unlockAt > i + 1 && !v.founder) p.push(who + ': district ' + h.district + ' was still locked when they joined');
-      if (!isSlot(h.tileX, h.tileY)) p.push(who + ': home ' + h.tileX + ',' + h.tileY + ' is not a valid house slot');
+      if (!isSlot(h.tileX, h.tileY) && !siteOK(h.tileX, h.tileY)) p.push(who + ': home ' + h.tileX + ',' + h.tileY + ' is not a valid house spot'); // old grid plot or a spot off the grid
       if (h.kind && !HOME_KINDS.includes(h.kind)) p.push(who + ': unknown home kind "' + h.kind + '" (' + HOME_KINDS.join(', ') + ')');
       claim(footprint(h.tileX, h.tileY), who);
     });
@@ -548,5 +668,5 @@
     return p;
   }
 
-  LH.map = { frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

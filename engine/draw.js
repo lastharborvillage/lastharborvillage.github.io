@@ -1233,10 +1233,14 @@
     if (ty < map.coastY(tx) + 3) return null;
     if (map.RESERVED.some((r) => tx >= r[0] - 1 && tx <= r[2] + 1 && ty >= r[1] - 1 && ty <= r[3] + 1)) return null;
     const dist = map.biomeAt(tx, ty, districts);
-    const dens = dist === 'forest' ? 0.5 : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.1;
+    // natural woods (2026-11-10, user: the forest was an even grid of pines): the density follows smooth
+    // noise, so trees stand in thick groves with glades between them, thinning out towards the edge of
+    // the forest; each tree sits anywhere in its tile, and the forest mixes in some round trees
+    const n = C.vnoise(tx / 6, ty / 6, 14) * 0.7 + C.vnoise(tx / 2.2, ty / 2.2, 15) * 0.3;
+    const dens = dist === 'forest' ? Math.max(0, Math.min(0.85, (n - 0.18) * 1.25)) : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.04 + Math.max(0, n - 0.55) * 0.5;
     if (C.h2(tx, ty, 11) >= dens) return null;
-    const kind = dist === 'forest' || dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
-    const x = tx * T + 8 + Math.floor(C.h2(tx, ty, 13) * 5) - 2, y = ty * T + 14;
+    const kind = dist === 'forest' ? (C.h2(tx, ty, 12) < 0.82 || n > 0.7 ? 'pine' : 'round') : dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
+    const x = tx * T + 8 + Math.round((C.h2(tx, ty, 13) - 0.5) * 12), y = ty * T + 10 + Math.round(C.h2(tx, ty, 16) * 8);
     return cleared.has(tx + ',' + ty) ? { x, y, stump: true } : { x, y, kind };
   }
   const TREE_PAD = 48; // tree pieces reach this far above their tiles (tall pines)
@@ -1423,11 +1427,8 @@
     for (const v of housed) {
       const hx = v.home.tileX, hy = v.home.tileY;
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
-      const fp = (x) => { if (map.frontPathOK(x, hy + 2)) mark(paths, x, hy + 2); };
-      fp(hx); fp(hx + 1);
-      { const L = map.homeLayout(v.home); fp(Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T)); } // the lane always passes the door
-      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { fp(hx + 2); fp(hx + 3); }
     }
+    for (const k of map.homePaths(world)) paths.add(k); // the footpath network (map.homePaths)
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
     for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
     const cleared = new Set();
@@ -1447,7 +1448,7 @@
       const k = tx + ',' + ty;
       if (seen.has(k)) continue;
       seen.add(k);
-      if (map.isCommon(tx, ty) && near(tx, ty)) for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, tx + dx, ty + dy);
+      if (map.isCommon(tx, ty) && near(tx, ty) && map.commonFree(world, tx, ty)) for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, tx + dx, ty + dy);
     }
     const gAt = makeGroundAt(paths, busy);
     const N = 32, pieces = new Map(), treePieces = new Map();
@@ -1550,10 +1551,6 @@
     const plot = (hx, hy, home) => {
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
       if (!home) return;
-      const fp = (x) => { if (map.frontPathOK(x, hy + 2)) mark(paths, x, hy + 2); };
-      fp(hx); fp(hx + 1);
-      { const L = map.homeLayout(home.home); fp(Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T)); } // the lane always passes the door
-      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { fp(hx + 2); fp(hx + 3); }
       yards.push([hx, hy]);
     };
     for (const v of housed) {
@@ -1562,6 +1559,7 @@
       plot(hx, hy, v);
       homes.push(v);
     }
+    for (const k of map.homePaths(world)) paths.add(k); // the footpath network (map.homePaths)
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
     // no tree grows on an object a viewer placed
     for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
@@ -1579,7 +1577,7 @@
     }
     const commons = [];
     for (let ty = ty0 - 3; ty <= ty1 + 2; ty++) for (let tx = tx0 - 3; tx <= tx1 + 1; tx++) {
-      if (!map.isCommon(tx, ty)) continue;
+      if (!map.isCommon(tx, ty) || !map.commonFree(world, tx, ty)) continue;
       if (!near(tx, ty)) continue;
       plot(tx, ty, false);
       commons.push([tx, ty]);

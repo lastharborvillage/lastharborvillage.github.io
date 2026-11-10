@@ -456,12 +456,18 @@
     const w = Math.max(1, s.w), h = Math.max(1, s.h);
     const taken = new Set();
     const take = (x0, y0, ww, hh, m) => { for (let x = x0 - m; x < x0 + ww + m; x++) for (let y = y0 - m; y < y0 + hh + m; y++) taken.add(x + ',' + y); };
-    for (const v of world.villagers) if (v.home && v.home.tileX != null) take(v.home.tileX - 1, v.home.tileY - 1, 5, 5, 0);
+    // homes: the whole plot, and one more row above it (roofs, chimneys and flags reach up)
+    for (const v of world.villagers) if (v.home && v.home.tileX != null) take(v.home.tileX - 1, v.home.tileY - 2, 5, 6, 0);
     for (const b of world.buildings || []) take(b.tileX, b.tileY, b.w || 2, b.h || 2, 1);
-    for (const p of world.props || []) take(Math.floor(p.x), Math.floor(p.y), 1, 1, 1);
+    for (const p of world.props || []) take(Math.floor(p.x), Math.floor(p.y) - 1, 1, 2, 1); // flags and lamps reach a tile up
     for (const l of world.landmarks || []) { const q = LANDMARKS[l.type]; if (q && q.w) take(l.tileX, l.tileY, q.w, q.h, 1); }
+    // the street lamps (draw.js, upgrade 'lamps'): every 5 tiles on the coast road, and every 4 down the
+    // high street; keep clear of them and of the rows just below (a landmark there would hide them)
+    for (let x = -42; x <= 34; x++) if (((x % 5) + 5) % 5 === 3) take(x, 5, 1, 3, 0);
+    for (let y = 8; y <= 40; y += 4) take(1, y - 1, 3, 3, 0);
     const isCommonTile = (x, y) => { for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isCommon(ox, oy)) return true; return false; };
-    const ok = (x, y) => isLand(x, y) && y >= coastY(x) + 3 && y > FOG_Y + 3 && !isRoad(x, y) && !reserved(x, y) && !taken.has(x + ',' + y) && !isCommonTile(x, y);
+    // (not right above a reserved area either: market stalls, crates and boats there reach up into the row above)
+    const ok = (x, y) => isLand(x, y) && y >= coastY(x) + 3 && y > FOG_Y + 3 && !isRoad(x, y) && !reserved(x, y) && !reserved(x, y + 1) && !taken.has(x + ',' + y) && !isCommonTile(x, y);
     // nearest first; when the area is crowded the search widens (the map has room far beyond the village)
     for (const R of [14, 30, 60]) {
       const cand = [];

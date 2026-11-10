@@ -9,6 +9,25 @@
   const T = map.T;
 
   const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+  // A home's left and right edge in world pixels, measured from how it is really drawn (roof overhang,
+  // annex, signs, a founder's plaque), in the band where its side yard is. Cached per look of the home.
+  const extentCache = new Map();
+  const firstFences = new WeakMap();
+  function homeExtent(v, districts) {
+    const h = v.home, key = JSON.stringify([h, v.patron === true, LH.map.isFounder(v), (districts[h.district] || {}).style]);
+    let e = extentCache.get(key);
+    if (e) return e;
+    const W = 112, H = 80, ox = h.tileX * LH.map.T - 40, oy = h.tileY * LH.map.T - 40;
+    const cv = canvas(W, H), g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, -ox, -oy);
+    LH.bld.drawHome(g, v, districts, 0, []);
+    const d = g.getImageData(0, 0, W, H).data;
+    let a = Infinity, b = -Infinity;
+    for (let y = 40 + 6; y < 40 + 34; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 0) { a = Math.min(a, x); b = Math.max(b, x); }
+    e = a === Infinity ? [h.tileX * LH.map.T, (h.tileX + 2) * LH.map.T] : [ox + a, ox + b];
+    extentCache.set(key, e);
+    return e;
+  }
   const rgbCache = {};
   const rgb = (name) => {
     if (rgbCache[name]) return rgbCache[name];
@@ -1408,6 +1427,17 @@
       const g = gAt(tx, ty);
       if (g === 'sea' || g === 'shallow') return false;
       g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
+      if (g === 'cobble') {
+        // the market square is a rounded patch, not a rectangle (2026-11-10): grass outside a soft,
+        // slightly ragged oval over the reserved area, with a few loose stones along the edge
+        for (let yy = 0; yy < T; yy++) for (let xx = 0; xx < T; xx++) {
+          const wx = tx * T + xx + 0.5, wy = ty * T + yy + 0.5;
+          const e = Math.abs((wx - 16) / 64) ** 2.6 + Math.abs((wy - 224) / 32) ** 2.6 + (C.h2(wx >> 1, wy >> 1, 61) - 0.5) * 0.14;
+          if (e > 1) px(g2, C.h2(wx, wy, 62) < 0.12 ? 'moss' : 'grass', wx - 0.5 - ox, wy - 0.5 - oy);
+          else if (e > 0.9 && C.h2(wx >> 1, wy >> 1, 63) < 0.25) px(g2, 'grass', wx - 0.5 - ox, wy - 0.5 - oy);
+        }
+        return true;
+      }
       if (g !== 'path' && g !== 'field') return true;
       // soft grass edges where the path (or a field) meets grass; a field's edge is deeper and more
       // ragged, so fields read as patches of land, not tiles
@@ -1445,7 +1475,52 @@
     const lights = [];
     const add = (y, fn) => objs.push({ y, fn });
     for (const v of homes) add((v.home.tileY + 2) * T - 1 + map.homeLayout(v.home).dy, () => LH.bld.drawHome(c, v, districts, t, lights));
-    for (const [hx, hy] of yards) add(hy * T + 22, () => LH.bld.drawYard(c, hx, hy, map.districtAt(hx + 1, hy + 1, districts), t));
+    // garden fences (map.UPGRADES 'fences', rebuilt 2026-11-10): not every home, about one in three, and
+    // never across a path. A fenced home turns its side yard (right of the house) into a small flower or
+    // vegetable bed with a picket fence round it, sized to the gap that is really free there: the house
+    // and its neighbour are measured as drawn (roof, annex, signs, plaques), roads and their lamps and
+    // viewers' objects are kept clear, and a home whose gap is too narrow simply gets no fence.
+    // The 3 homes nearest the centre that have room always get one, so the unlock is visible straight
+    // away (2026-11-10, user: start with 2-3 gardens, then spread outward as the village grows).
+    const pens = [], fencedYard = new Set();
+    if (up.has('fences')) {
+      const all = worldIndex(world).housed;
+      const homeAt = new Map(all.map((v) => [v.home.tileX + ',' + v.home.tileY, v]));
+      const penFor = (v) => {
+        const hx = v.home.tileX, hy = v.home.tileY;
+        const yb = hy * T + 13, yf = hy * T + 29;
+        const yd = LH.bld.yardOf(hx, hy, map.districtAt(hx + 1, hy + 1, districts));
+        if (!['garden', 'bush', 'none', 'laundry', 'hay', 'tree'].includes(yd.k)) return null;
+        const nb = homeAt.get((hx + 4) + ',' + hy);
+        let x0 = homeExtent(v, districts)[1] + 3, x1 = (nb ? homeExtent(nb, districts)[0] : (hx + 4) * T + 1) - 3;
+        for (let tx = hx + 2; tx <= hx + 4; tx++) for (const ty of [hy, hy + 1]) if (map.isRoad(tx, ty)) x1 = Math.min(x1, tx * T - 5);
+        if (x1 - x0 > 24) { const m = (x0 + x1) >> 1; x0 = m - 12; x1 = m + 12; }
+        if (x1 - x0 < 13) return null;
+        if ((world.props || []).some((p) => p.y * T > yb - 6 && p.y * T < yf + 12 && p.x * T > x0 - 12 && p.x * T < x1 + 12)) return null;
+        return { x0, x1, yb, yf, hx, hy, veg: yd.k === 'garden' || yd.k === 'hay' };
+      };
+      // the first ones: the 3 roomiest-enough homes nearest the centre (computed over the whole village,
+      // not just what is in view, and cached per world state)
+      const fkey = all.length + '|' + (world.props || []).length;
+      let first = firstFences.get(world);
+      if (!first || first.key !== fkey) {
+        const [cx, cy] = map.UPGRADE_CENTRE;
+        const byDist = all.slice().sort((p, q) => Math.hypot(p.home.tileX + 3 - cx, (p.home.tileY + 1 - cy) * 1.2) - Math.hypot(q.home.tileX + 3 - cx, (q.home.tileY + 1 - cy) * 1.2));
+        const ids = new Set();
+        for (const v of byDist) { if (ids.size >= 3) break; if (penFor(v)) ids.add(v.home.tileX + ',' + v.home.tileY); }
+        first = { key: fkey, ids };
+        firstFences.set(world, first);
+      }
+      for (const v of homes) {
+        const hx = v.home.tileX, hy = v.home.tileY, id = hx + ',' + hy;
+        if (!first.ids.has(id) && (C.h2(hx, hy, 913) >= 0.35 || !has('fences', hx + 3, hy + 1))) continue;
+        const pen = penFor(v);
+        if (!pen) continue;
+        pens.push(pen);
+        fencedYard.add(id);
+      }
+    }
+    for (const [hx, hy] of yards) if (!fencedYard.has(hx + ',' + hy)) add(hy * T + 22, () => LH.bld.drawYard(c, hx, hy, map.districtAt(hx + 1, hy + 1, districts), t));
     if (openDistricts.includes('market') && bx0 < 5 * T + 40 && bx0 + bw > -3 * T - 40 && by0 < 16 * T + 20 && by0 + bh > 11 * T) LH.bld.marketSquare(add, c, t, lights);
     for (const [tx, ty] of commons) add(ty * T + 26, () => LH.bld.drawCommon(c, tx, ty, map.districtAt(tx + 1, ty + 1, districts), t, lights));
     for (const b of world.buildings || []) {
@@ -1468,7 +1543,7 @@
       add(p.type === 'dock' ? y - (p.len || 4) * T : y, () => fn(c, x, y, p, t, lights, world));
     }
     // village upgrades (map.UPGRADES): street lamps and planters along the main roads, but only as far
-    // as people live (so they spread as the village grows), and garden fences in front of the homes
+    // as people live (so they spread as the village grows) (the garden fences are laid out above)
     if (up.size && housed.length) {
       let hx0 = Infinity, hx1 = -Infinity, hy1 = -Infinity;
       for (const v of housed) { hx0 = Math.min(hx0, v.home.tileX); hx1 = Math.max(hx1, v.home.tileX + 2); hy1 = Math.max(hy1, v.home.tileY + 2); }
@@ -1491,18 +1566,10 @@
           else add(yy, () => { rect(c, 'ink', x - 7, yy - 6, 14, 6); rect(c, 'wood', x - 6, yy - 5, 12, 4); rect(c, 'wood3', x - 6, yy - 5, 12, 1); for (let i = 0; i < 5; i++) { px(c, 'moss2', x - 5 + i * 2.5, yy - 7); px(c, ['rose', 'gold', 'white', 'plum', 'ember'][(i + y) % 5], x - 5 + i * 2.5, yy - 8); } });
         }
       }
-      if (up.has('fences')) {
-        for (const v of homes) {
-          const hx = v.home.tileX, hy = v.home.tileY, fy = (hy + 3) * T - 3;
-          if (!inView(hx * T, fy) || !has('fences', hx + 1, hy + 2)) continue;
-          // a picket fence along the front of the plot with a gate gap at the front path, and short sides
-          add(fy, () => {
-            const seg = (x0, x1) => { rect(c, 'wood2', x0, fy - 3, x1 - x0, 1); rect(c, 'wood2', x0, fy - 1, x1 - x0, 1); for (let x = x0; x <= x1; x += 3) { rect(c, 'ink', x, fy - 5, 1, 6); px(c, 'wood3', x, fy - 5); } };
-            seg((hx - 1) * T + 3, hx * T - 1);
-            seg((hx + 2) * T + 1, (hx + 3) * T - 3);
-            for (const sx of [(hx - 1) * T + 3, (hx + 3) * T - 3]) rect(c, 'wood2', sx, fy - 12, 1, 9);
-          });
-        }
+      for (const pen of pens) {
+        const district = map.districtAt(pen.hx + 1, pen.hy + 1, districts);
+        add(pen.yb, () => LH.bld.drawGarden(c, pen, district, t, 'back'));
+        add(pen.yf, () => LH.bld.drawGarden(c, pen, district, t, 'front'));
       }
     }
     // the followers' camp on the beach: one tent per follower (see map.camp)

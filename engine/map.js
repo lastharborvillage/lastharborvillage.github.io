@@ -91,7 +91,7 @@
     if (d <= 1) return 'sand';
     if (inRect(x, y, [-7, 0, 7, 3])) return 'boards';
     if (inRect(x, y, [8, 0, 23, 3])) return 'yard';
-    if (inRect(x, y, [-3, 12, 4, 15])) return 'cobble';
+    if (inRect(x, y, [-3, 12, 4, 15])) return 'cobble'; // drawn with a rounded edge (draw.js landTile)
     if (y === 5 && x >= -42 && x <= 34) return 'path'; // coast road
     if (x === 2 && y >= 4 && y <= 40) return 'path'; // high street
     if (dist === 'farms' && isField(x, y)) return 'field';
@@ -269,7 +269,7 @@
   const UPGRADES = [
     { at: 10, id: 'lamps', name: 'street lamps along the main roads' },
     { at: 20, id: 'stonepaths', name: 'stone paths to every door' },
-    { at: 30, id: 'fences', name: 'garden fences around the homes' },
+    { at: 30, id: 'fences', name: 'fenced flower and vegetable gardens beside some of the homes' },
     { at: 50, id: 'cobbles', name: 'cobbled main roads' },
     { at: 80, id: 'planters', name: 'benches and flower planters along the high street' },
   ];

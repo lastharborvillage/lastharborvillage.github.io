@@ -523,7 +523,9 @@
       px(c, d > 0.75 ? 'ink' : xx + yy < -3 ? a : b, x + xx, y + yy);
     }
   }
-  function drawYard(c, tx, ty, district, t) {
+  // what stands in a home's side yard (right of the house) and where; drawYard draws it, and the garden
+  // fences (draw.js) need to know it too
+  function yardOf(tx, ty, district) {
     const r = C.rng(C.hashStr('yard|' + tx + ',' + ty));
     const x = (tx + 3) * T + 2 + Math.round(r() * 4 - 2), y = ty * T + 22 + Math.round(r() * 4 - 2);
     const opts = {
@@ -536,7 +538,104 @@
       forest: ['tree', 'tree', 'woodpile', 'shed', 'bush'],
       fogbeach: ['boat', 'rocks', 'none', 'crates'],
     }[district] || ['tree', 'bush', 'none'];
-    const k = opts[Math.floor(r() * opts.length)];
+    return { k: opts[Math.floor(r() * opts.length)], x, y, r };
+  }
+  // Fenced gardens (village upgrade 'fences', laid out in draw.js). Each one is picked from the home's
+  // plot so it always looks the same: a fence (brown or white pickets, woven wattle, a low stone wall or
+  // a hedge, sometimes with an open gate) and what grows inside (mixed flowers, rows of tulips,
+  // vegetables, pumpkins, sunflowers, a beehive, or herbs round a birdbath). Drawn in two parts so
+  // people and plants sort right: 'back' (back fence and the bed) and 'front' (sides and front fence).
+  const GARDEN_FENCES = ['picket', 'white', 'wattle', 'stone', 'hedge'];
+  const GARDEN_BEDS = ['flowers', 'tulips', 'veg', 'pumpkins', 'sunflowers', 'beehive', 'herbs'];
+  function gardenLook(pen, district) {
+    const r = C.rng(C.hashStr('garden|' + pen.hx + ',' + pen.hy));
+    const fence = GARDEN_FENCES[Math.floor(r() * GARDEN_FENCES.length)];
+    const beds = district === 'farms' ? ['veg', 'veg', 'pumpkins', 'sunflowers', 'beehive'] : pen.veg ? ['veg', 'pumpkins', 'herbs', 'flowers'] : GARDEN_BEDS;
+    return { fence, bed: beds[Math.floor(r() * beds.length)], gate: r() < 0.5, open: r() < 0.5, hue: Math.floor(r() * 5), seed: Math.floor(r() * 1e9) };
+  }
+  function drawGarden(c, pen, district, t, part) {
+    const { x0, x1, yf } = pen, yb = pen.yb + 3, L = gardenLook(pen, district);
+    const W = x1 - x0, mid = (x0 + x1) >> 1;
+    const WHITE = L.fence === 'white';
+    // a fence run along y (its foot), from a to b
+    const run = (y, a, b) => {
+      if (b < a) return;
+      if (L.fence === 'picket' || WHITE) {
+        const pk = WHITE ? 'cream' : 'wood3', sh = WHITE ? 'fog' : 'wood';
+        for (let x = a; x <= b; x += 3) { rect(c, 'ink', x - 1, y - 5, 3, 6); rect(c, pk, x, y - 5, 1, 5); px(c, sh, x, y - 1); }
+        rect(c, WHITE ? 'fog' : 'wood2', a, y - 3, b - a + 1, 1);
+      } else if (L.fence === 'wattle') {
+        rect(c, 'ink', a, y - 4, b - a + 1, 5);
+        for (let i = 0; i < 3; i++) for (let x = a; x <= b; x++) px(c, (x + i * 2) % 4 < 2 ? 'wood3' : 'wood', x, y - 3 + i);
+        for (let x = a; x <= b; x += 6) { rect(c, 'ink', x, y - 6, 1, 2); }
+      } else if (L.fence === 'stone') {
+        for (let x = a, i = 0; x <= b; x += 4, i++) {
+          const w = Math.min(4, b - x + 1), k = i % 3 === 1 ? 'stone2' : 'stone';
+          rect(c, 'ink', x, y - 3, w, 4); rect(c, k, x + 1, y - 3, w - 2, 2); px(c, 'stone3', x + 1, y - 3); px(c, 'stone2', x + 1, y - 1);
+        }
+      } else { // hedge: dark green, round on top
+        for (let x = a; x <= b; x++) {
+          const hh = 4 + (Math.floor((x - a) / 3) % 2);
+          rect(c, 'ink', x, y - hh - 1, 1, hh + 2); rect(c, 'pine', x, y - hh, 1, hh); px(c, 'pine2', x, y - 1); if ((x + y) % 3 === 0) px(c, 'moss2', x, y - hh);
+        }
+      }
+    };
+    // the sides are seen from above, so they stay thin
+    const side = (x) => {
+      const k = L.fence === 'hedge' ? 'pine' : L.fence === 'stone' ? 'stone' : WHITE ? 'fog' : 'wood2';
+      rect(c, 'ink', x - 1, yb, 3, yf - yb - 1); rect(c, k, x, yb, 1, yf - yb - 1);
+    };
+    if (part === 'back') {
+      run(yb, x0, x1);
+      const r = C.rng(L.seed), a = x0 + 3, b = x1 - 3, top = yb + 3, bot = yf - 4;
+      const FL = ['rose', 'gold', 'white', 'plum', 'ember', 'teal'];
+      const flower = (x, y, k) => { px(c, 'moss2', x, y + 1); px(c, k, x, y); };
+      const soilRow = (y) => rect(c, 'wood2', a, y, b - a + 1, 1);
+      if (L.bed === 'flowers') {
+        for (let y = top; y <= bot; y += 2) for (let x = a + (y & 2 ? 1 : 0); x <= b; x += 3) if (r() < 0.8) flower(x, y, FL[Math.floor(r() * FL.length)]);
+      } else if (L.bed === 'tulips') {
+        for (let y = top + 1, row = 0; y <= bot; y += 3, row++) { soilRow(y + 1); for (let x = a; x <= b; x += 2) flower(x, y, FL[(L.hue + row) % 4]); }
+      } else if (L.bed === 'veg') {
+        for (let y = top + 1, row = 0; y <= bot; y += 4, row++) {
+          soilRow(y + 1);
+          if (row % 2 === 0) for (let x = a + 1; x <= b - 1; x += 4) { rect(c, 'pine', x - 1, y - 1, 3, 2); px(c, 'moss2', x, y - 1); } // cabbages
+          else for (let x = a; x <= b; x += 2) { px(c, 'moss2', x, y - 1); px(c, 'grass', x, y - 2); px(c, 'ember', x, y); } // carrots
+        }
+      } else if (L.bed === 'pumpkins') {
+        for (let x = a; x <= b; x++) px(c, x % 3 ? 'moss2' : 'pine', x, top + 4 + Math.round(Math.sin(x * 0.9) * 1.5));
+        const n = W > 18 ? 3 : 2;
+        for (let i = 0; i < n; i++) {
+          const x = a + Math.round((b - a - 4) * (i / (n - 1))), y = top + 3 + (i % 2) * 3;
+          rect(c, 'ink', x, y - 1, 5, 5); rect(c, 'ink', x - 1, y, 7, 3);
+          rect(c, 'ember', x, y, 5, 3); rect(c, 'ember', x + 1, y - 1 + 1, 3, 3); px(c, 'ember2', x + 2, y); px(c, 'ember2', x + 2, y + 1); px(c, 'gold', x, y);
+          px(c, 'pine', x + 2, y - 2);
+        }
+      } else if (L.bed === 'sunflowers') {
+        for (let y = bot - 2; y <= bot; y += 2) for (let x = a + (y & 2 ? 1 : 0); x <= b; x += 3) flower(x, y, 'gold');
+        for (let x = a + 1; x <= b - 1; x += 5) {
+          const sw = Math.round(Math.sin(t * 1.3 + x) * 0.6), y = top + 1;
+          rect(c, 'moss2', x, y, 1, bot - y); px(c, 'moss', x + 1, y + 4);
+          px(c, 'gold', x + sw, y - 3); px(c, 'gold', x - 1 + sw, y - 2); px(c, 'wood', x + sw, y - 2); px(c, 'gold', x + 1 + sw, y - 2); px(c, 'gold2', x + sw, y - 1);
+        }
+      } else if (L.bed === 'beehive') {
+        for (let y = top; y <= bot; y += 2) for (let x = a + (y & 2 ? 1 : 0); x <= b; x += 3) if (Math.abs(x - mid) > 4 || y > top + 6) flower(x, y, FL[(((x + y) % 4) + 4) % 4]);
+        const hx = mid - 2, hy = top + 5;
+        rect(c, 'ink', hx - 1, hy - 5, 7, 6); rect(c, 'ink', hx, hy - 6, 5, 1);
+        rect(c, 'gold', hx, hy - 5, 5, 5); rect(c, 'gold2', hx, hy - 3, 5, 1); rect(c, 'gold2', hx, hy - 1, 5, 1); px(c, 'ink', hx + 2, hy - 1);
+        for (let i = 0; i < 2; i++) { const bt = t * 2 + i * 2.6; px(c, 'ink', Math.round(mid + Math.sin(bt) * (W / 2 - 4)), Math.round(top + Math.cos(bt * 1.3) * 2)); }
+      } else { // herbs round a birdbath
+        for (let i = 0; i < 4; i++) { const x = i % 2 ? b - 1 : a + 1, y = i < 2 ? top + 1 : bot; rect(c, 'pine', x - 1, y - 1, 3, 2); px(c, i === 1 ? 'plum' : i === 2 ? 'white' : 'moss2', x, y - 1); }
+        const y = (top + bot) >> 1;
+        rect(c, 'ink', mid - 3, y - 2, 7, 2); rect(c, 'sea2', mid - 2, y - 2, 5, 1); px(c, 'stone', mid - 3, y - 2); px(c, 'stone', mid + 3, y - 2);
+        rect(c, 'stone2', mid, y, 1, 3); rect(c, 'ink', mid - 1, y + 3, 3, 1);
+      }
+      return;
+    }
+    side(x0); side(x1);
+    run(yf, x0, x1);
+  }
+  function drawYard(c, tx, ty, district, t) {
+    const { k, x, y, r } = yardOf(tx, ty, district);
     c.globalAlpha = 0.22;
     if (k !== 'none' && k !== 'garden') rect(c, 'ink', x - 7, y, 14, 2);
     c.globalAlpha = 1;
@@ -586,8 +685,37 @@
     for (let i = 0; i < 25; i++) rect(c, Math.floor(i / 3) % 2 ? 'white' : a[0], x - 12 + i, y - 21, 1, 5);
     for (let i = 0; i < 25; i += 3) px(c, a[1], x - 12 + i, y - 16);
   }
+  // a market stall with a plain cloth canopy sloping forward and a fringe, baskets on the table
+  function canopyStall(c, x, y, cloth, goods) {
+    const f = LH.fam(cloth);
+    c.globalAlpha = 0.22; rect(c, 'ink', x - 10, y, 21, 2); c.globalAlpha = 1;
+    rect(c, 'wood2', x - 9, y - 15, 1, 15); rect(c, 'wood2', x + 9, y - 15, 1, 15);
+    rect(c, 'ink', x - 10, y - 7, 21, 5); rect(c, 'wood', x - 9, y - 6, 19, 3);
+    goods.forEach((g, i) => { const bx = x - 8 + i * 6; rect(c, 'ink', bx - 1, y - 10, 6, 4); rect(c, 'wood3', bx, y - 8, 4, 2); rect(c, g, bx, y - 10, 4, 2); });
+    for (let i = 0; i < 5; i++) rect(c, 'ink', x - 11 - (i < 1 ? 0 : 0), y - 21 + i, 23, 1);
+    rect(c, f[0], x - 10, y - 20, 21, 3); rect(c, f[1], x - 10, y - 17, 21, 1);
+    for (let i = 0; i < 21; i += 2) px(c, f[1], x - 10 + i, y - 16);
+  }
+  // a hand cart with two big wheels and a load of produce
+  function cart(c, x, y, goods) {
+    c.globalAlpha = 0.22; rect(c, 'ink', x - 10, y, 20, 2); c.globalAlpha = 1;
+    rect(c, 'ink', x + 7, y - 6, 8, 2); rect(c, 'wood2', x + 8, y - 6, 7, 1); // handles
+    rect(c, 'ink', x - 9, y - 10, 17, 7); rect(c, 'wood3', x - 8, y - 9, 15, 2); rect(c, 'wood', x - 8, y - 7, 15, 3);
+    goods.forEach((g, i) => { rect(c, 'ink', x - 8 + i * 4, y - 13, 4, 4); rect(c, g, x - 7 + i * 4, y - 12, 2, 2); });
+    for (const wx of [x - 6, x + 4]) { rect(c, 'ink', wx - 3, y - 6, 6, 6); rect(c, 'wood2', wx - 2, y - 5, 4, 4); px(c, 'ink', wx - 1 + 0, y - 3); }
+  }
+  // crates and barrels stacked by a stall
+  function goodsPile(c, x, y) {
+    c.globalAlpha = 0.22; rect(c, 'ink', x - 9, y, 18, 2); c.globalAlpha = 1;
+    rect(c, 'ink', x - 9, y - 7, 8, 7); rect(c, 'wood3', x - 8, y - 6, 6, 5); rect(c, 'wood', x - 8, y - 4, 6, 1);
+    rect(c, 'ink', x - 6, y - 13, 7, 6); rect(c, 'wood3', x - 5, y - 12, 5, 4); rect(c, 'ember', x - 4, y - 13, 3, 1);
+    rect(c, 'ink', x, y - 9, 8, 9); rect(c, 'wood', x + 1, y - 8, 6, 7); rect(c, 'stone3', x + 1, y - 6, 6, 1); rect(c, 'stone3', x + 1, y - 3, 6, 1);
+  }
+  // The market square (2026-11-10, user: not a rectangle with a stall on each corner): a rounded patch
+  // of cobbles (map.ground) with the fountain off centre and stalls of different kinds scattered round
+  // it, a cart and a pile of goods. The high street (x 2) is kept clear to walk through.
   function marketSquare(add, c, t, Lights) {
-    const fx = 0.5 * T + 8, fy = 13.8 * T;
+    const fx = 0.6 * T, fy = 14.3 * T;
     add(fy, () => {
       for (let yy = -7; yy <= 0; yy++) for (let xx = -13; xx <= 13; xx++) {
         const d = (xx * xx) / 169 + ((yy + 3.5) * (yy + 3.5)) / 16;
@@ -597,9 +725,13 @@
       rect(c, 'ink', fx - 2, fy - 14, 4, 11); rect(c, 'stone3', fx - 1, fy - 13, 2, 10);
       for (let i = 0; i < 6; i++) { const p = ((t * 1.2 + i / 6) % 1); const s = i % 2 ? 1 : -1; px(c, p < 0.5 ? 'foam2' : 'foam', fx + s * Math.round(p * 7), fy - 14 + Math.round(-6 * p + 14 * p * p)); }
     });
-    [[-2.2, 12.9, 'red', ['sea3', 'sea3', 'stone3', 'sea3']], [3.6, 12.9, 'yellow', ['sand2', 'sand', 'sand2', 'gold']], [-2.2, 15.6, 'green', ['moss', 'ember', 'gold', 'moss']], [3.6, 15.6, 'blue', ['rose', 'plum', 'cream', 'teal']]]
-      .forEach(([x, y, a, g]) => add(y * T, () => stall(c, x * T, y * T, a, g)));
+    add(13.0 * T, () => stall(c, -1.4 * T, 13.0 * T, 'red', ['sea3', 'sea3', 'stone3', 'sea3']));
+    add(13.5 * T, () => canopyStall(c, 4.35 * T, 13.5 * T, 'yellow', ['sand2', 'gold', 'sand']));
+    add(15.7 * T, () => canopyStall(c, -1.9 * T, 15.7 * T, 'green', ['moss', 'ember', 'gold']));
+    add(15.4 * T, () => stall(c, 4.4 * T, 15.4 * T, 'blue', ['rose', 'plum', 'cream', 'teal']));
+    add(15.9 * T, () => cart(c, 0.4 * T, 15.9 * T, ['ember', 'gold', 'moss', 'ember']));
+    add(12.7 * T, () => goodsPile(c, 0.6 * T, 12.7 * T));
   }
 
-  LH.bld = { STYLE, TRADE, ICONS, spec, drawBuilding, drawHome, drawCommon, drawYard, marketSquare };
+  LH.bld = { STYLE, TRADE, ICONS, spec, drawBuilding, drawHome, drawCommon, drawYard, yardOf, drawGarden, gardenLook, marketSquare };
 })();

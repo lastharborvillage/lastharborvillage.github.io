@@ -434,6 +434,9 @@
     greenhouse: { w: 3, h: 2 }, observatory: { w: 2, h: 2 }, fountain: { w: 2, h: 2 }, belltower: { w: 2, h: 2 },
     treehouse: { w: 2, h: 2 }, balloon: { w: 2, h: 2 }, fishracks: { w: 3, h: 1 }, orchard: { w: 3, h: 3 },
     gate: { w: 2, h: 1 }, maypole: { w: 1, h: 1 }, boat: { w: 3, h: 2 },
+    // added 2026-11-10 (by hand, at the user's request: more landmarks)
+    bandstand: { w: 2, h: 2 }, hotspring: { w: 3, h: 2 }, wreck: { w: 3, h: 2 }, wishtree: { w: 2, h: 2 }, oven: { w: 2, h: 2 },
+    lookout: { w: 2, h: 2 }, apiary: { w: 3, h: 1 }, maze: { w: 3, h: 3 }, sundial: { w: 1, h: 1 }, totem: { w: 1, h: 1 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.

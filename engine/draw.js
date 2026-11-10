@@ -1024,6 +1024,178 @@
       }
       for (let i = 0; i < 4; i++) px(c, 'wood3', x0 + 12 + i * 7 + (i % 2), by + 1);
     },
+    // added 2026-11-10 (by hand, at the user's request: more landmarks)
+    bandstand(c, x0, y0, l, t, lights) { // a round bandstand: 0 bare posts on a deck; 1 a striped roof; 2 bunting and lamps; 3 music
+      const cx = x0 + 16, by = y0 + 30, st = l.stage || 0;
+      rect(c, 'ink', cx - 15, by - 6, 30, 6); rect(c, 'wood', cx - 14, by - 5, 28, 5); rect(c, 'wood3', cx - 14, by - 5, 28, 1);
+      for (let x = cx - 12; x < cx + 13; x += 4) rect(c, 'wood2', x, by - 3, 1, 3);
+      for (const x of [cx - 13, cx - 5, cx + 4, cx + 12]) { rect(c, 'ink', x - 1, by - 24, 3, 19); rect(c, 'cream', x, by - 23, 1, 18); }
+      rect(c, 'ink', cx - 14, by - 11, 28, 1); rect(c, 'cream', cx - 13, by - 11, 26, 1);
+      if (st >= 1) {
+        for (let r = 0; r < 10; r++) {
+          const hw = 17 - Math.round(r * 1.6);
+          rect(c, 'ink', cx - hw - 1, by - 25 - r, hw * 2 + 3, 1);
+          for (let xx = -hw; xx <= hw; xx++) px(c, Math.floor((xx + 18) / 4) % 2 ? 'cream' : 'ember', cx + xx, by - 25 - r);
+        }
+        rect(c, 'ink', cx - 1, by - 38, 3, 4); px(c, 'gold', cx, by - 38);
+      } else rect(c, 'ink', cx - 15, by - 25, 30, 2);
+      if (st >= 2) {
+        const COLS = ['gold', 'sea3', 'rose', 'moss'];
+        for (let x = cx - 16, n = 0; x <= cx + 16; x += 3, n++) { px(c, COLS[n % 4], x, by - 24 + (n % 2)); }
+        for (const lx of [cx - 18, cx + 17]) { rect(c, 'ink', lx, by - 12, 1, 12); rect(c, 'lantern', lx - 1, by - 14, 3, 3); glow(lights, lx, by - 13, 12); }
+      }
+      if (st >= 3) for (let i = 0; i < 3; i++) {
+        const ph = (t * 0.5 + i / 3) % 1, nx = cx - 6 + i * 6 + Math.round(Math.sin(ph * 6) * 2), ny = by - 40 - Math.round(ph * 14);
+        rect(c, 'ink', nx, ny - 3, 1, 4); rect(c, 'ink', nx - 2, ny, 2, 2); px(c, 'ink', nx + 1, ny - 3);
+      }
+    },
+    hotspring(c, x0, y0, l, t, lights) { // a steaming pool in a ring of rocks: 1 a deck and towels; 2 lamps; 3 a little bath hut
+      const cx = x0 + 24, cy = y0 + 20, st = l.stage || 0;
+      blob(c, 'stone2', cx, cy, 20, 8); blob(c, 'stone', cx - 2, cy - 2, 17, 6, null); blob(c, 'sea3', cx, cy, 15, 5); blob(c, 'foam', cx - 2, cy - 1, 10, 3, null);
+      for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; rect(c, 'stone3', cx + Math.round(Math.cos(a) * 18) - 1, cy + Math.round(Math.sin(a) * 7) - 1, 3, 2); }
+      const b = Math.floor(t * 3) % 6; px(c, 'foam2', cx - 6 + b, cy + 1); px(c, 'foam2', cx + 5 - b, cy - 2);
+      for (let i = 0; i < 7; i++) {
+        const ph = (t * 0.35 + i / 7) % 1, sx = cx - 12 + i * 4 + Math.round(Math.sin(ph * 5 + i) * 2);
+        px(c, ph < 0.5 ? 'foam2' : 'fog2', sx, cy - 4 - Math.round(ph * 18)); if (ph < 0.6) px(c, 'foam2', sx + 1, cy - 5 - Math.round(ph * 18));
+      }
+      if (st >= 1) {
+        rect(c, 'ink', x0 + 1, cy + 6, 14, 5); rect(c, 'wood3', x0 + 2, cy + 7, 12, 2); rect(c, 'wood', x0 + 2, cy + 9, 12, 1);
+        rect(c, 'ink', x0 + 4, cy + 4, 5, 3); rect(c, 'white', x0 + 5, cy + 5, 3, 1); rect(c, 'ink', x0 + 9, cy + 4, 5, 3); rect(c, 'rose', x0 + 10, cy + 5, 3, 1);
+      }
+      if (st >= 2) for (const lx of [x0 + 2, x0 + 45]) { rect(c, 'ink', lx, cy - 10, 1, 14); rect(c, 'lantern', lx - 1, cy - 12, 3, 3); glow(lights, lx, cy - 11, 12); }
+      if (st >= 3) {
+        const hx = x0 + 36, hb = y0 + 31;
+        rect(c, 'ink', hx - 1, hb - 10, 12, 10); rect(c, 'wood', hx, hb - 9, 10, 9); rect(c, 'wood2', hx + 4, hb - 6, 3, 6);
+        for (let r = 0; r < 4; r++) rect(c, 'ink', hx - 2 + r, hb - 11 - r, 14 - r * 2, 1), rect(c, 'teal', hx - 1 + r, hb - 11 - r, Math.max(0, 12 - r * 2), 1);
+      }
+    },
+    wreck(c, x0, y0, l, t, lights) { // an old wreck half sunk in a sand dune: 1 a ladder and a lamp; 2 lived in (door, lit window); 3 a flag and a chimney
+      const by = y0 + 30, st = l.stage || 0;
+      for (let r = 0; r < 12; r++) { // the hull, tipped over, bow up on the right
+        const xs = x0 + 3 + Math.round(r * r * 0.1), xe = x0 + 44 - Math.round(r * 0.6), y = by - 18 + r - Math.round((12 - r) * 0.2);
+        rect(c, 'ink', xs - 1, y, xe - xs + 2, 1);
+        rect(c, r % 3 === 1 ? 'wood4' : r === 0 ? 'wood' : 'wood2', xs, y, xe - xs, 1);
+      }
+      for (let k = 0; k < 4; k++) { const gx = x0 + 10 + k * 8 + (k % 2) * 2; rect(c, 'ink', gx, by - 16 + (k % 2), 3, 3 + (k % 2)); }
+      for (let k = 0; k < 4; k++) rect(c, 'wood2', x0 + 8 + k * 9, by - 23 + (k % 2), 1, 6);
+      rect(c, 'ink', x0 + 43, by - 26, 4, 10); rect(c, 'wood', x0 + 44, by - 25, 2, 8);
+      for (let i = 0; i < 20; i++) px(c, 'wood2', x0 + 20 + Math.round(i * 0.55), by - 18 - i); // the broken mast
+      for (let yy = 0; yy <= 9; yy++) { // the dune that buries the lower hull, flat on top, ragged at the ends
+        const hw = Math.min(25, 12 + yy * 2) + Math.round(C.h2(yy, l.tileX, 51) * 2), y = by - 10 + yy;
+        rect(c, 'ink', x0 + 24 - hw - 1, y, hw * 2 + 2, 1); rect(c, yy < 2 ? 'sand' : yy > 7 ? 'sand2' : 'sand', x0 + 24 - hw, y, hw * 2, 1);
+      }
+      rect(c, 'sand', x0 + 13, by - 11, 22, 1);
+      for (let i = 0; i < 5; i++) px(c, 'sand3', x0 + 8 + i * 8, by - 5 + (i % 2));
+      px(c, 'moss', x0 + 12, by - 7); px(c, 'moss', x0 + 30, by - 6); px(c, 'stone3', x0 + 6, by - 2);
+      if (st >= 1) {
+        for (let yy = by - 17; yy < by - 2; yy++) { px(c, 'wood3', x0 + 4, yy); px(c, 'wood3', x0 + 7, yy); }
+        for (let yy = by - 15; yy < by - 2; yy += 3) rect(c, 'wood3', x0 + 4, yy, 4, 1);
+        rect(c, 'ink', x0 + 38, by - 22, 3, 3); px(c, 'lantern', x0 + 39, by - 21); glow(lights, x0 + 39, by - 21, 12);
+      }
+      if (st >= 2) { rect(c, 'ink', x0 + 24, by - 13, 6, 11); rect(c, 'teal', x0 + 25, by - 12, 4, 10); px(c, 'gold', x0 + 28, by - 7); rect(c, 'lanternhi', x0 + 34, by - 14, 3, 3); glow(lights, x0 + 35, by - 13, 10); }
+      if (st >= 3) {
+        rect(c, 'ink', x0 + 14, by - 26, 4, 8); rect(c, 'stone', x0 + 15, by - 25, 2, 7);
+        for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1; px(c, i % 2 ? 'fog' : 'fog2', x0 + 16 + Math.round(Math.sin(ph * 6 + i) * 2), by - 28 - Math.round(ph * 12)); }
+        rect(c, 'ink', x0 + 30, by - 39, 1, 21); const w = Math.round(Math.sin(t * 3) * 1);
+        rect(c, 'ember', x0 + 31, by - 38, 6, 2); rect(c, 'gold', x0 + 31, by - 36 + w, 6, 2);
+      }
+    },
+    wishtree(c, x0, y0, l, t, lights) { // a huge old tree hung with ribbons: 1 many more ribbons; 2 lanterns; 3 a ring bench
+      const cx = x0 + 16, by = y0 + 30, st = l.stage || 0;
+      rect(c, 'ink', cx - 6, by - 22, 12, 22); rect(c, 'wood', cx - 5, by - 22, 10, 22); rect(c, 'wood2', cx + 1, by - 22, 4, 22); rect(c, 'wood4', cx - 2, by - 14, 2, 4);
+      for (const [dx, k] of [[-9, -1], [9, 1]]) for (let i = 0; i < 8; i++) px(c, 'wood2', cx + k * 4 + Math.round(dx * i / 8), by - 20 - i);
+      rect(c, 'ink', cx - 9, by - 2, 18, 2); rect(c, 'wood', cx - 8, by - 2, 4, 1); rect(c, 'wood', cx + 5, by - 2, 4, 1);
+      blob(c, 'pine', cx, by - 34, 20, 12); blob(c, 'moss2', cx - 2, by - 37, 16, 9, null); blob(c, 'moss', cx - 5, by - 40, 9, 5, null);
+      for (let i = 0; i < 10; i++) px(c, 'grass', cx - 14 + i * 3, by - 41 + (i % 3) * 3);
+      const COLS = ['ember', 'gold', 'rose', 'sea3', 'white', 'plum', 'teal', 'cream'];
+      const n = st >= 1 ? 12 : 5;
+      for (let i = 0; i < n; i++) {
+        const rx = cx - 17 + Math.floor(C.h2(i, l.tileX, 61) * 34), ry = by - 26 + Math.floor(C.h2(i, l.tileY, 62) * 4), len = 3 + (i % 3);
+        for (let k = 0; k < len; k++) px(c, COLS[i % COLS.length], rx + Math.round(Math.sin(t * 2 + i + k * 0.5) * (k / 3)), ry + k);
+      }
+      if (st >= 2) for (let i = 0; i < 4; i++) { const lx = cx - 14 + i * 9, ly = by - 25 + (i % 2) * 2; px(c, 'ink', lx + 1, ly - 1); rect(c, 'lantern', lx, ly, 3, 3); px(c, 'lanternhi', lx + 1, ly + 1); glow(lights, lx + 1, ly + 1, 12); }
+      if (st >= 3) { rect(c, 'ink', cx - 13, by - 5, 26, 4); rect(c, 'wood3', cx - 12, by - 4, 24, 1); rect(c, 'wood', cx - 12, by - 3, 24, 1); for (const x of [cx - 11, cx + 10]) rect(c, 'wood2', x, by - 2, 1, 2); }
+    },
+    oven(c, x0, y0, l, t, lights) { // a stone bread oven: 1 a fire and smoke; 2 a table with loaves; 3 a roof over it
+      const cx = x0 + 14, by = y0 + 30, st = l.stage || 0;
+      rect(c, 'ink', cx - 13, by - 8, 26, 8); rect(c, 'stone', cx - 12, by - 7, 24, 7); rect(c, 'stone2', cx - 12, by - 4, 24, 1);
+      for (let yy = -11; yy <= 0; yy++) { const hw = Math.round(12 * Math.sqrt(1 - (yy / 12) ** 2)); rect(c, 'ink', cx - hw - 1, by - 8 + yy, hw * 2 + 3, 1); rect(c, yy < -8 ? 'stone3' : 'sand2', cx - hw, by - 8 + yy, hw * 2 + 1, 1); }
+      for (let i = 0; i < 6; i++) px(c, 'sand3', cx - 8 + i * 3, by - 14 + (i % 2) * 3);
+      for (let yy = 0; yy < 7; yy++) { const hw = Math.round(4 * Math.sqrt(1 - ((7 - yy) / 8) ** 2)) + 1; rect(c, 'ink', cx - hw, by - 15 + yy, hw * 2, 1); }
+      rect(c, 'ink', cx + 5, by - 24, 4, 6); rect(c, 'stone2', cx + 6, by - 23, 2, 5);
+      if (st >= 1) {
+        const f = Math.floor(t * 8) % 3;
+        rect(c, 'ember', cx - 3, by - 11, 6, 3); rect(c, f ? 'lantern' : 'lanternhi', cx - 2, by - 12 + (f % 2), 4, 2); glow(lights, cx, by - 11, 16);
+        for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1; px(c, i % 2 ? 'fog' : 'fog2', cx + 7 + Math.round(Math.sin(ph * 6 + i) * 2), by - 26 - Math.round(ph * 14)); }
+      }
+      if (st >= 2) { const tx = x0 + 22; rect(c, 'ink', tx - 1, by - 8, 10, 3); rect(c, 'wood3', tx, by - 7, 8, 1); rect(c, 'wood2', tx, by - 5, 1, 5); rect(c, 'wood2', tx + 7, by - 5, 1, 5); for (const bx of [tx + 1, tx + 4]) { rect(c, 'ink', bx - 1, by - 11, 4, 3); rect(c, 'wood3', bx, by - 10, 2, 2); px(c, 'sand', bx, by - 10); } }
+      if (st >= 3) { for (const px0 of [cx - 15, cx + 15]) rect(c, 'wood2', px0, by - 26, 1, 26); for (let r = 0; r < 5; r++) rect(c, 'ink', cx - 18 + r, by - 27 - r, 36 - r * 2, 1), rect(c, 'ember2', cx - 17 + r, by - 27 - r, Math.max(0, 34 - r * 2), 1); }
+    },
+    lookout(c, x0, y0, l, t, lights) { // a wooden lookout tower on four legs: 1 a roof; 2 a lantern; 3 a flag and someone keeping watch
+      const cx = x0 + 16, by = y0 + 30, st = l.stage || 0, top = by - 36;
+      for (const [a, b] of [[cx - 12, cx - 8], [cx + 12, cx + 8]]) for (let yy = 0; yy <= 36; yy++) { const x = Math.round(a + (b - a) * (yy / 36)); rect(c, 'ink', x - 1, by - yy, 3, 1); px(c, 'wood', x, by - yy); }
+      for (const yy of [by - 10, by - 22]) { const hw = Math.round(11 - ((by - yy) / 36) * 4); rect(c, 'wood2', cx - hw, yy, hw * 2, 1); for (let i = 0; i < hw * 2; i++) px(c, 'wood2', cx - hw + i, yy - 10 + Math.round((i / (hw * 2)) * 10)); }
+      for (let yy = by - 34; yy < by; yy += 3) rect(c, 'wood3', cx - 1, yy, 3, 1);
+      rect(c, 'ink', cx - 12, top - 1, 24, 4); rect(c, 'wood3', cx - 11, top, 22, 1); rect(c, 'wood', cx - 11, top + 1, 22, 1);
+      for (let x = cx - 11; x <= cx + 10; x += 3) rect(c, 'wood2', x, top - 6, 1, 5); rect(c, 'ink', cx - 12, top - 7, 24, 2); rect(c, 'wood3', cx - 11, top - 7, 22, 1);
+      if (st >= 3) { rect(c, 'ink', cx + 2, top - 13, 5, 7); rect(c, 'sea2', cx + 3, top - 9, 3, 3); rect(c, 'skin2', cx + 3, top - 12, 3, 3); rect(c, 'ink', cx - 2, top - 11, 5, 1); }
+      if (st >= 1) { for (const px0 of [cx - 11, cx + 10]) rect(c, 'wood2', px0, top - 18, 1, 12); for (let r = 0; r < 6; r++) rect(c, 'ink', cx - 14 + r, top - 19 - r, 28 - r * 2, 1), rect(c, 'ember', cx - 13 + r, top - 19 - r, Math.max(0, 26 - r * 2), 1); }
+      if (st >= 2) { rect(c, 'lantern', cx - 9, top - 16, 2, 3); glow(lights, cx - 8, top - 15, 16); }
+      if (st >= 3) { rect(c, 'ink', cx, top - 34, 1, 10); const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'gold', cx + 1, top - 33, 5, 2); rect(c, 'ember', cx + 1, top - 31 + w, 5, 1); }
+    },
+    apiary(c, x0, y0, l, t, lights) { // straw beehives on a bench: 1 more hives; 2 a honey stall; 3 flowers all round
+      const by = y0 + 14, st = l.stage || 0;
+      rect(c, 'ink', x0 + 1, by - 5, 46, 3); rect(c, 'wood3', x0 + 2, by - 4, 44, 1);
+      for (const x of [x0 + 3, x0 + 23, x0 + 44]) rect(c, 'wood2', x, by - 2, 1, 2);
+      const hives = st >= 1 ? [6, 15, 24, 33] : [9, 21, 33], R = st >= 1 ? 3 : 4;
+      for (const hx of hives) {
+        const x = x0 + hx;
+        for (let r = 0; r < 8; r++) { const hw = Math.round(R * Math.sqrt(1 - ((7 - r) / 8) ** 2)); rect(c, 'ink', x - hw - 1, by - 13 + r, hw * 2 + 3, 1); rect(c, r % 2 ? 'gold2' : 'gold', x - hw, by - 13 + r, hw * 2 + 1, 1); }
+        rect(c, 'ink', x, by - 7, 1, 2);
+      }
+      for (let i = 0; i < 5; i++) { const bt = t * 2.5 + i * 1.7; px(c, 'ink', x0 + 24 + Math.round(Math.sin(bt) * 20), by - 16 + Math.round(Math.cos(bt * 1.4) * 4)); }
+      if (st >= 2) { const sx = x0 + 40; for (let k = 0; k < 3; k++) { rect(c, 'ink', sx + k * 3 - 1 - 2, by - 10, 3, 4); px(c, 'gold', sx + k * 3 - 2, by - 9); px(c, 'lantern', sx + k * 3 - 2, by - 8); } }
+      if (st >= 3) for (let i = 0; i < 12; i++) { const fx = x0 + 1 + i * 4, fy = by + 1 + (i % 2); px(c, 'moss2', fx, fy + 1); px(c, ['rose', 'white', 'plum', 'gold'][i % 4], fx, fy); }
+    },
+    maze(c, x0, y0, l, t, lights) { // a hedge maze: 0 young low hedges; 1 grown; 2 a gold statue in the middle; 3 lanterns at the way in
+      const st = l.stage || 0, N = 5, S = 9, mx = x0 + 1, my = y0 + 3, k = st >= 1 ? ['pine', 'moss2'] : ['moss2', 'moss'], th = st >= 1 ? 3 : 2;
+      rect(c, 'sand', mx, my, N * S + 1, N * S + 1);
+      const hw = (x, y, w) => { rect(c, 'ink', x - 1, y - th, w + 2, th + 2); rect(c, k[0], x, y - th + 1, w, th); rect(c, k[1], x, y - th + 1, w, 1); };
+      const vw = (x, y, h) => { rect(c, 'ink', x - 1, y - th, 4, h + th + 1); rect(c, k[0], x, y - th + 1, 2, h + th - 1); };
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const north = j > 0 && (i === N - 1 || C.h2(i + l.tileX * 3, j + l.tileY * 5, 71) < 0.5);
+        if (j > 0 && !north) hw(mx + i * S, my + j * S, S);
+        if (i < N - 1 && (j === 0 || north)) vw(mx + (i + 1) * S - 1, my + j * S, S);
+      }
+      hw(mx, my, N * S + 1); vw(mx - 1, my, N * S); vw(mx + N * S - 1, my, N * S);
+      const gate = mx + 2 * S;
+      hw(mx, my + N * S, 2 * S); hw(gate + S, my + N * S, 2 * S + 1);
+      if (st >= 2) { const sx = mx + 2 * S + 4, sy = my + 3 * S - 1; rect(c, 'ink', sx - 2, sy - 9, 5, 10); rect(c, 'gold', sx - 1, sy - 8, 3, 6); rect(c, 'gold2', sx, sy - 8, 1, 6); rect(c, 'stone', sx - 2, sy - 2, 5, 2); }
+      if (st >= 3) for (const lx of [gate - 2, gate + S + 1]) { rect(c, 'ink', lx, my + N * S - 10, 1, 12); rect(c, 'lantern', lx - 1, my + N * S - 12, 3, 3); glow(lights, lx, my + N * S - 11, 12); }
+    },
+    sundial(c, x0, y0, l, t, lights) { // a stone sundial whose shadow turns: 1 a ring of flowers; 2 a gold dial
+      const cx = x0 + 8, by = y0 + 15, st = l.stage || 0;
+      rect(c, 'ink', cx - 4, by - 9, 8, 9); rect(c, 'stone', cx - 3, by - 8, 6, 8); rect(c, 'stone3', cx - 3, by - 8, 2, 8); rect(c, 'ink', cx - 5, by - 1, 10, 1);
+      rect(c, 'ink', cx - 7, by - 13, 14, 5); rect(c, st >= 2 ? 'gold' : 'stone3', cx - 6, by - 12, 12, 3);
+      const a = t * 0.4; for (let r = 1; r <= 5; r++) px(c, 'stone2', cx + Math.round(Math.cos(a) * r), by - 11 + Math.round(Math.sin(a) * r * 0.3));
+      rect(c, 'ink', cx - 1, by - 16, 1, 4); px(c, 'ink', cx, by - 14);
+      if (st >= 1) for (let i = 0; i < 8; i++) { const fa = (i / 8) * Math.PI * 2, fx = cx + Math.round(Math.cos(fa) * 7), fy = by - 1 + Math.round(Math.sin(fa) * 2); px(c, 'moss2', fx, fy + 1); px(c, ['rose', 'gold', 'white', 'plum'][i % 4], fx, fy); }
+    },
+    totem(c, x0, y0, l, t, lights) { // a carved pole of faces with wings on top: 1 painted; 2 eyes that glow at night; 3 ribbons
+      const cx = x0 + 8, by = y0 + 15, st = l.stage || 0;
+      const P = st >= 1 ? [['ember', 'ember2'], ['teal', 'teal2'], ['gold', 'gold2']] : [['wood3', 'wood'], ['wood', 'wood2'], ['wood3', 'wood']];
+      for (let k = 0; k < 3; k++) {
+        const y = by - 10 - k * 10, [a, b] = P[k];
+        rect(c, 'ink', cx - 5, y - 1, 10, 11); rect(c, a, cx - 4, y, 8, 10); rect(c, b, cx + 2, y, 2, 10);
+        rect(c, st >= 2 ? 'lanternhi' : 'ink', cx - 3, y + 3, 2, 2); rect(c, st >= 2 ? 'lanternhi' : 'ink', cx + 1, y + 3, 2, 2);
+        rect(c, 'ink', cx - 2, y + 7, 4, 1); if (k === 1) rect(c, 'ink', cx - 1, y + 5, 2, 2);
+      }
+      if (st >= 2) glow(lights, cx, by - 22, 14);
+      const wy = by - 34;
+      rect(c, 'ink', cx - 12, wy - 1, 24, 4); rect(c, st >= 1 ? 'sea3' : 'wood3', cx - 11, wy, 22, 2); px(c, 'ink', cx - 12, wy - 2); px(c, 'ink', cx + 11, wy - 2);
+      rect(c, 'ink', cx - 3, wy - 5, 6, 5); rect(c, st >= 1 ? 'ember' : 'wood', cx - 2, wy - 4, 4, 4);
+      if (st >= 3) for (let i = 0; i < 2; i++) { const s = i ? 1 : -1; for (let k = 0; k < 7; k++) px(c, i ? 'rose' : 'gold', cx + s * (12 + Math.round(Math.sin(t * 3 + k * 0.6) * 1)), wy + 2 + k); }
+    },
   };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];

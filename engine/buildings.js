@@ -542,48 +542,124 @@
     return { k: opts[Math.floor(r() * opts.length)], x, y, r };
   }
   // Fenced gardens (village upgrade 'fences', laid out in draw.js). Each one is picked from the home's
-  // plot so it always looks the same: a fence (brown or white pickets, woven wattle, a low stone wall or
-  // a hedge, sometimes with an open gate) and what grows inside (mixed flowers, rows of tulips,
-  // vegetables, pumpkins, sunflowers, a beehive, or herbs round a birdbath). Drawn in two parts so
-  // people and plants sort right: 'back' (back fence and the bed) and 'front' (sides and front fence).
-  const GARDEN_FENCES = ['picket', 'white', 'wattle', 'stone', 'hedge'];
+  // plot so it always looks the same. The fence (2026-11-10: 16 kinds, each area favours its own):
+  // brown, white or painted pickets (tall or short, flat or pointed, close or wide), split rails, a
+  // lattice, solid planks, an iron railing, rope on posts, driftwood, stacked logs, woven wattle, a
+  // mortared or a dry-stone wall, a hedge (sometimes in flower) or a low pebble border; most have a
+  // gate (open or shut). What grows inside: mixed flowers, rows of tulips, vegetables, pumpkins,
+  // sunflowers, a beehive, or herbs round a birdbath. Drawn in two parts so people and plants sort
+  // right: 'back' (back fence and the bed) and 'front' (sides, front fence and gate).
+  const GARDEN_FENCES = ['picket', 'white', 'painted', 'rail', 'lattice', 'plank', 'iron', 'rope', 'driftwood', 'log', 'wattle', 'stone', 'drystone', 'hedge', 'flowerhedge', 'pebble'];
+  const FENCE_BY = {
+    harbour: ['rope', 'driftwood', 'white', 'picket', 'painted', 'stone', 'pebble'],
+    shipyard: ['plank', 'rail', 'picket', 'rope', 'wattle', 'log'],
+    market: ['white', 'painted', 'iron', 'picket', 'hedge', 'lattice', 'flowerhedge'],
+    farms: ['rail', 'wattle', 'hedge', 'picket', 'drystone', 'lattice', 'flowerhedge'],
+    lighthouse: ['stone', 'drystone', 'white', 'hedge', 'iron', 'painted'],
+    cliffs: ['drystone', 'stone', 'wattle', 'rail', 'pebble'],
+    forest: ['log', 'wattle', 'rail', 'hedge', 'plank', 'lattice'],
+    fogbeach: ['driftwood', 'rope', 'pebble', 'drystone'],
+  };
+  const FENCE_PAINT = [['sea2', 'sea'], ['teal', 'teal2'], ['ember', 'ember2'], ['moss', 'moss2'], ['gold', 'gold2'], ['rose', 'rose2'], ['sea3', 'sea2'], ['plum', 'plum2']];
   const GARDEN_BEDS = ['flowers', 'tulips', 'veg', 'pumpkins', 'sunflowers', 'beehive', 'herbs'];
   function gardenLook(pen, district) {
     const r = C.rng(C.hashStr('garden|' + pen.hx + ',' + pen.hy));
-    const fence = GARDEN_FENCES[Math.floor(r() * GARDEN_FENCES.length)];
+    const own = FENCE_BY[district] || GARDEN_FENCES;
+    // one in four ignores the area, so every part of the village has a few surprises
+    const pool = r() < 0.25 ? GARDEN_FENCES : own;
+    const fence = pool[Math.floor(r() * pool.length)];
     const beds = district === 'farms' ? ['veg', 'veg', 'pumpkins', 'sunflowers', 'beehive'] : pen.veg ? ['veg', 'pumpkins', 'herbs', 'flowers'] : GARDEN_BEDS;
-    return { fence, bed: beds[Math.floor(r() * beds.length)], gate: r() < 0.5, open: r() < 0.5, hue: Math.floor(r() * 5), seed: Math.floor(r() * 1e9) };
+    return {
+      fence, bed: beds[Math.floor(r() * beds.length)], gate: fence !== 'pebble' && r() < 0.65, open: r() < 0.45, hue: Math.floor(r() * 5), seed: Math.floor(r() * 1e9),
+      paint: FENCE_PAINT[Math.floor(r() * FENCE_PAINT.length)], tall: r() < 0.4, pointed: r() < 0.5, gap: r() < 0.35 ? 2 : 3,
+    };
   }
   function drawGarden(c, pen, district, t, part) {
     const { x0, x1, yf } = pen, yb = pen.yb + 3, L = gardenLook(pen, district);
-    const W = x1 - x0, mid = (x0 + x1) >> 1;
-    const WHITE = L.fence === 'white';
+    const W = x1 - x0, mid = (x0 + x1) >> 1, F = L.fence;
+    const h2 = (x, y, s) => C.h2(x, y, s + pen.hx * 7 + pen.hy * 13);
     // a fence run along y (its foot), from a to b
     const run = (y, a, b) => {
       if (b < a) return;
-      if (L.fence === 'picket' || WHITE) {
-        const pk = WHITE ? 'cream' : 'wood3', sh = WHITE ? 'fog' : 'wood';
-        for (let x = a; x <= b; x += 3) { rect(c, 'ink', x - 1, y - 5, 3, 6); rect(c, pk, x, y - 5, 1, 5); px(c, sh, x, y - 1); }
-        rect(c, WHITE ? 'fog' : 'wood2', a, y - 3, b - a + 1, 1);
-      } else if (L.fence === 'wattle') {
-        rect(c, 'ink', a, y - 4, b - a + 1, 5);
+      const len = b - a + 1;
+      if (F === 'picket' || F === 'white' || F === 'painted') {
+        const [pk, sh] = F === 'white' ? ['cream', 'fog'] : F === 'painted' ? L.paint : ['wood3', 'wood'];
+        const h = L.tall ? 6 : 5;
+        for (let x = a; x <= b; x += L.gap) {
+          rect(c, 'ink', x - 1, y - h, 3, h + 1); rect(c, pk, x, y - h, 1, h); px(c, sh, x, y - 1);
+          if (L.pointed) px(c, 'ink', x, y - h - 1);
+        }
+        rect(c, F === 'white' ? 'fog' : sh, a, y - 3, len, 1);
+        if (L.tall) rect(c, F === 'white' ? 'fog' : sh, a, y - 5, len, 1);
+      } else if (F === 'rail') { // split rails between posts
+        for (const ry of [y - 5, y - 2]) { rect(c, 'ink', a, ry - 1, len, 3); rect(c, 'wood3', a, ry, len, 1); }
+        for (let x = a; x <= b; x += 7) { rect(c, 'ink', x - 1, y - 7, 3, 8); rect(c, 'wood', x, y - 7, 1, 7); px(c, 'wood3', x, y - 7); }
+        rect(c, 'ink', b - 1, y - 7, 3, 8); rect(c, 'wood', b, y - 7, 1, 7);
+      } else if (F === 'lattice') { // criss-cross slats between a top and a bottom rail
+        const k = L.pointed ? 'cream' : 'wood3';
+        rect(c, 'ink', a, y - 7, len, 8);
+        for (let x = a; x <= b; x++) for (let yy = 1; yy <= 4; yy++) if ((x - a + yy) % 4 === 0 || (x - a - yy + 40) % 4 === 0) px(c, k, x, y - 1 - yy);
+        rect(c, k, a, y - 6, len, 1); rect(c, k, a, y - 1, len, 1);
+        for (let x = a; x <= b; x += 8) { rect(c, 'ink', x - 1, y - 8, 3, 9); rect(c, 'wood', x, y - 7, 1, 7); }
+      } else if (F === 'plank') { // solid boards, a little uneven on top
+        for (let x = a; x <= b; x++) {
+          const h = (L.tall ? 5 : 4) + (Math.floor((x - a) / 3) % 2 === 0 ? 0 : -1) - (h2(Math.floor((x - a) / 3), 1, 5) < 0.2 ? 1 : 0);
+          rect(c, 'ink', x, y - h - 1, 1, h + 2);
+          if ((x - a) % 3 !== 2) rect(c, (x - a) % 3 === 0 ? 'wood3' : 'wood', x, y - h, 1, h);
+        }
+        rect(c, 'wood2', a, y - 3, len, 1);
+      } else if (F === 'iron') { // black railing with spear tips and gold knobs on the posts
+        rect(c, 'ink', a, y - 6, len, 1); rect(c, 'ink', a, y - 2, len, 1);
+        for (let x = a; x <= b; x += 2) { rect(c, 'ink', x, y - 7, 1, 8); px(c, 'stone2', x, y - 7); }
+        for (let x = a; x <= b; x += 8) { rect(c, 'ink', x - 1, y - 8, 3, 9); rect(c, 'stone2', x, y - 7, 1, 7); px(c, 'gold', x, y - 9); }
+      } else if (F === 'rope') { // short posts with a sagging rope (and now and then a float)
+        for (let x = a; x <= b; x++) { const p = (x - a) % 7; px(c, 'sand2', x, y - 5 + Math.round(Math.sin((p / 7) * Math.PI) * 2)); }
+        for (let x = a; x <= b; x += 7) { rect(c, 'ink', x - 1, y - 6, 3, 7); rect(c, 'wood', x, y - 6, 1, 6); px(c, 'wood3', x, y - 6); }
+        if (len > 14 && L.pointed) { const fx = a + 10; rect(c, 'ink', fx - 1, y - 5, 4, 4); rect(c, 'ember', fx, y - 4, 2, 2); px(c, 'white', fx, y - 4); }
+      } else if (F === 'driftwood') { // grey, uneven boards with a rail
+        for (let x = a; x <= b; x += 2) {
+          const h = 3 + Math.floor(h2(x, y, 77) * 4), k = ['stone3', 'fog', 'wood3', 'stone3'][Math.floor(h2(x, y, 78) * 4)];
+          rect(c, 'ink', x - 1, y - h - 1, 3, h + 2); rect(c, k, x, y - h, 1, h);
+        }
+        rect(c, 'stone2', a, y - 2, len, 1);
+      } else if (F === 'log') { // two logs on top of each other, posts at the ends
+        rect(c, 'ink', a, y - 7, len, 8);
+        for (const ly of [y - 6, y - 3]) { rect(c, 'wood', a, ly, len, 2); rect(c, 'wood3', a, ly, len, 1); }
+        for (let x = a + 3; x < b; x += 5) px(c, 'wood2', x, y - 5 + ((x >> 2) % 2) * 3);
+        for (const x of [a, b]) { rect(c, 'ink', x - 1, y - 9, 3, 10); rect(c, 'wood2', x, y - 8, 1, 8); }
+      } else if (F === 'wattle') {
+        rect(c, 'ink', a, y - 4, len, 5);
         for (let i = 0; i < 3; i++) for (let x = a; x <= b; x++) px(c, (x + i * 2) % 4 < 2 ? 'wood3' : 'wood', x, y - 3 + i);
         for (let x = a; x <= b; x += 6) { rect(c, 'ink', x, y - 6, 1, 2); }
-      } else if (L.fence === 'stone') {
+      } else if (F === 'stone') {
         for (let x = a, i = 0; x <= b; x += 4, i++) {
           const w = Math.min(4, b - x + 1), k = i % 3 === 1 ? 'stone2' : 'stone';
           rect(c, 'ink', x, y - 3, w, 4); rect(c, k, x + 1, y - 3, w - 2, 2); px(c, 'stone3', x + 1, y - 3); px(c, 'stone2', x + 1, y - 1);
         }
-      } else { // hedge: dark green, round on top
+      } else if (F === 'drystone') { // stacked field stones of all sizes, moss on some
+        rect(c, 'ink', a, y - 4, len, 5);
+        for (let x = a, i = 0; x <= b; i++) {
+          const w = 2 + Math.floor(h2(x, i, 31) * 3), hh = 2 + Math.floor(h2(x, i, 32) * 3), k = ['stone', 'stone3', 'stone2', 'stone'][Math.floor(h2(x, i, 33) * 4)];
+          const ww = Math.min(w, b - x + 1);
+          rect(c, 'ink', x, y - hh - 1, ww, hh + 2); if (ww > 1) rect(c, k, x, y - hh, ww - 1, hh);
+          if (h2(x, i, 34) < 0.3) px(c, 'moss', x, y - hh);
+          x += w;
+        }
+      } else if (F === 'pebble') { // a low border of white stones
+        for (let x = a; x <= b; x += 3) { rect(c, 'ink', x - 1, y - 2, 4, 3); rect(c, ['white', 'stone3', 'cream'][Math.floor(h2(x, y, 41) * 3)], x, y - 1, 2, 1); }
+      } else { // hedge: dark green, round on top (in flower: dots of colour)
         for (let x = a; x <= b; x++) {
-          const hh = 4 + (Math.floor((x - a) / 3) % 2);
+          const hh = 4 + (Math.floor((x - a) / 3) % 2) + (L.tall ? 1 : 0);
           rect(c, 'ink', x, y - hh - 1, 1, hh + 2); rect(c, 'pine', x, y - hh, 1, hh); px(c, 'pine2', x, y - 1); if ((x + y) % 3 === 0) px(c, 'moss2', x, y - hh);
+          if (F === 'flowerhedge' && (x * 7 + y) % 4 === 0) px(c, ['rose', 'white', 'gold', 'plum'][(L.hue + x) % 4], x, y - hh + 1 + ((x >> 1) % 2));
         }
       }
     };
     // the sides are seen from above, so they stay thin
     const side = (x) => {
-      const k = L.fence === 'hedge' ? 'pine' : L.fence === 'stone' ? 'stone' : WHITE ? 'fog' : 'wood2';
+      if (F === 'pebble') { for (let y = yb; y < yf - 1; y += 3) { px(c, 'ink', x, y); px(c, 'stone3', x, y + 1); } return; }
+      const k = F === 'hedge' || F === 'flowerhedge' ? 'pine' : F === 'stone' || F === 'drystone' ? 'stone' : F === 'white' ? 'fog' : F === 'painted' ? L.paint[1]
+        : F === 'iron' ? 'stone2' : F === 'rope' ? 'sand2' : F === 'driftwood' ? 'stone3' : F === 'log' ? 'wood' : 'wood2';
       rect(c, 'ink', x - 1, yb, 3, yf - yb - 1); rect(c, k, x, yb, 1, yf - yb - 1);
     };
     if (part === 'back') {
@@ -633,7 +709,22 @@
       return;
     }
     side(x0); side(x1);
-    run(yf, x0, x1);
+    if (!L.gate || W < 16) { run(yf, x0, x1); return; }
+    // a gate in the middle of the front: two posts and a leaf, shut or swung open into the garden
+    const gw = 5, gx = mid - 2;
+    run(yf, x0, gx - 2); run(yf, gx + gw + 1, x1);
+    const stony = F === 'stone' || F === 'drystone';
+    for (const p of [gx - 1, gx + gw]) {
+      rect(c, 'ink', p - 1, yf - 8, 3, 9); rect(c, stony ? 'stone' : F === 'iron' ? 'stone2' : 'wood', p, yf - 7, 1, 7);
+      px(c, stony ? 'stone3' : F === 'iron' ? 'gold' : 'wood3', p, yf - 8);
+    }
+    const leaf = F === 'iron' ? 'stone2' : F === 'white' ? 'cream' : F === 'painted' ? L.paint[0] : 'wood3';
+    if (L.open) { rect(c, 'ink', gx, yf - 9, 2, 7); rect(c, leaf, gx, yf - 8, 1, 5); }
+    else {
+      rect(c, 'ink', gx, yf - 6, gw, 6);
+      rect(c, leaf, gx, yf - 5, gw, 1); rect(c, leaf, gx, yf - 2, gw, 1);
+      for (let i = 0; i < gw; i++) px(c, leaf, gx + i, yf - 2 - Math.round((i * 3) / (gw - 1)));
+    }
   }
   function drawYard(c, tx, ty, district, t) {
     const { k, x, y, r } = yardOf(tx, ty, district);

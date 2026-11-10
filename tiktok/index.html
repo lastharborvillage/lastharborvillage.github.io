@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TikTok sign-in · Last Harbor</title><style>:root{--bg:#10141f;--fg:#e8e2d0;--mut:#a9a391;--acc:#f0a640;--panel:#181d2b}body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:760px;margin:0 auto;padding:40px 16px 64px}h1{font-size:30px;margin:0 0 4px}h2{font-size:19px;margin:28px 0 6px;color:var(--acc)}p,li{color:var(--mut)}a{color:var(--acc)}code{background:var(--panel);padding:2px 6px;border-radius:4px;word-break:break-all}</style>
+<style>.box{background:var(--panel);border-radius:10px;padding:16px;margin:18px 0}button{font:inherit;background:var(--acc);color:#10141f;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer}</style></head>
+<body><main>
+<h1>TikTok sign-in</h1>
+<div id="out"><p>No sign-in code in this address.</p></div>
+<p>This page only shows the address; nothing is sent anywhere. <a href="/privacy.html">Privacy Policy</a></p>
+<script>
+  // TikTok sends the sign-in back here with ?code=...&state=... in the address. Show it so it can be copied
+  // to the server (node scripts/tiktok/auth.mjs "<address>"). The page sends nothing anywhere.
+  (function () {
+    var q = new URLSearchParams(location.search), out = document.getElementById('out');
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    if (q.get('error')) { out.innerHTML = '<p>TikTok said: <b>' + esc(q.get('error')) + '</b> ' + esc(q.get('error_description') || '') + '</p>'; return; }
+    if (!q.get('code')) return;
+    out.innerHTML = '<p>Signed in. Copy this whole address and send it to Claude (it works for a few minutes only):</p><div class="box"><code id="addr">' + esc(location.href) + '</code></div><button type="button" id="copy">Copy address</button>';
+    document.getElementById('copy').onclick = function () {
+      var b = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(location.href) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Select the text above and copy it'; });
+    };
+  })();
+</script>
+</main></body></html>

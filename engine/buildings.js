@@ -310,7 +310,8 @@
       if (P.doorType === 'arch') { px(c, 'ink', dx0, dy0); px(c, 'ink', dx0 + dw - 1, dy0); rect(c, 'ink', dx0 + 1, dy0 - 2, dw - 2, 1); rect(c, P.doorFam[0], dx0 + 1, dy0 - 1, dw - 2, 1); }
     }
     rect(c, 'stone', dx0 - 1, wb, dw + 2, 1);
-    if (!P.stilts) { rect(c, 'sand2', dx0, wb + 1, dw, by + 10 - wb); px(c, 'sand3', dx0 + 1, wb + 3); }
+    // a doorstep; the path itself is drawn on the ground (draw.js door paths, 2026-11-10: was a straight sand strip)
+    if (!P.stilts) { rect(c, 'ink', dx0 - 1, wb + 1, dw + 2, 2); rect(c, 'stone', dx0, wb + 1, dw, 1); }
 
     // windows: avoid the door; upper floor gets a row too
     const rows = P.storeys === 3 ? [wy + 3, wy + 13, wy + 23] : P.storeys === 2 ? [wy + 3, wy + 14] : [wy + 4];

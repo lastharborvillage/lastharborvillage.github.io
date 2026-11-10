@@ -3,7 +3,7 @@
 // near (0, 0); the coast runs east-west; the sea and the fog wall are north (negative y).
 (function () {
   const LH = (globalThis.LH = globalThis.LH || {});
-  const { smooth, h2 } = LH.core;
+  const { smooth, h2, vnoise } = LH.core;
 
   const T = 16; // tile size in native pixels
   const FOG_Y = -15; // tile row where the fog wall starts
@@ -80,15 +80,23 @@
   }
   const fieldKind = (x, y) => { const f = fieldAt(x, y); return f ? f.crop + '-' + f.dir : 'plowed-h'; };
 
+  // Which district's land (biome) a tile looks like: the nearest district, but measured from a point
+  // pushed around by smooth noise, so the borders between forest, hills and beach wander instead of
+  // running straight (2026-11-10). Only for how the land looks; homes use their own district.
+  function biomeAt(x, y, districts = DISTRICTS) {
+    const n = (s) => (vnoise(x / 7, y / 7, s) - 0.5) * 9 + (vnoise(x / 2.5, y / 2.5, s + 5) - 0.5) * 2.5;
+    return districtAt(x + n(301), y + n(302), districts);
+  }
   // Ground type of a land/sea tile.
   function ground(x, y, districts = DISTRICTS) {
     const c = coastY(x);
     if (y < c) return c - y <= 2 ? 'shallow' : 'sea';
     const d = y - c;
-    const dist = districtAt(x, y, districts);
-    if (dist === 'fogbeach' && d <= 4) return 'sand';
-    if (dist === 'cliffs' && d <= 1 && x < -14) return 'rock';
-    if (d <= 1) return 'sand';
+    const dist = biomeAt(x, y, districts);
+    // the beach is sand all along (the rocky strip by the cliffs is gone, 2026-11-10) and its inland
+    // edge wanders: one row deeper here and there, wider on Fog Beach
+    const beach = dist === 'fogbeach' ? 3 + Math.floor(vnoise(x / 4, 7, 311) * 2.99) : 1 + (vnoise(x / 3.5, 3, 312) > 0.62 ? 1 : 0);
+    if (d <= 1 || (d <= beach && !isRoad(x, y))) return 'sand';
     if (inRect(x, y, [-7, 0, 7, 3])) return 'boards';
     if (inRect(x, y, [8, 0, 23, 3])) return 'yard';
     if (inRect(x, y, [-3, 12, 4, 15])) return 'cobble'; // drawn with a rounded edge (draw.js landTile)
@@ -111,6 +119,9 @@
   // Does the front path of the home at hx,hy run on to its right-hand neighbour? Not always (about 1 in
   // 3 rows break), so the lanes are not one long straight line per row (2026-11-10).
   const linksRight = (hx, hy) => h2(hx, hy, 555) >= 0.33;
+  // May a home's front path run along tile tx,ty? Not on a road or right beside one (it would run
+  // alongside the road as a second, overlapping lane); those homes' door paths go to the road instead.
+  const frontPathOK = (tx, ty) => !isRoad(tx, ty) && !isRoad(tx, ty - 1) && !isRoad(tx, ty + 1);
   const isRoad = (x, y) => (y === 5 && x >= -42 && x <= 34) || (x === 2 && y >= 4 && y <= 40);
   // Plots are 4x4 tiles: the 2x2 house, its front path row, and room for a side yard and a back
   // garden. Every other row shifts two tiles (a brick pattern).
@@ -537,5 +548,5 @@
     return p;
   }
 
-  LH.map = { linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

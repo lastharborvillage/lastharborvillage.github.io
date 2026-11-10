@@ -1232,7 +1232,7 @@
     if (g !== 'grass' && g !== 'darkgrass' && g !== 'rockgrass') return null;
     if (ty < map.coastY(tx) + 3) return null;
     if (map.RESERVED.some((r) => tx >= r[0] - 1 && tx <= r[2] + 1 && ty >= r[1] - 1 && ty <= r[3] + 1)) return null;
-    const dist = map.districtAt(tx, ty, districts);
+    const dist = map.biomeAt(tx, ty, districts);
     const dens = dist === 'forest' ? 0.5 : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.1;
     if (C.h2(tx, ty, 11) >= dens) return null;
     const kind = dist === 'forest' || dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
@@ -1266,16 +1266,19 @@
     for (const v of worldIndex(world).housed) {
       const L = map.homeLayout(v.home), hx = v.home.tileX, hy = v.home.tileY;
       const x = (hx + 1) * T + L.dx + L.door * 8, y0 = hy * T + 30 + L.dy;
-      const sp = { x, y0 };
-      for (const tx of new Set([Math.floor((x - 3) / T), Math.floor((x + 3) / T)])) { put(tx, hy + 1, sp); put(tx, hy + 2, sp); }
+      const sp = { x, y0, s: C.h2(hx, hy, 91) * 6.28 };
+      // where the door path ends: the lane in front, or the road one row further down when no lane
+      // may run in front (map.frontPathOK)
+      const dt = Math.floor(x / T), toRoad = !map.frontPathOK(dt, hy + 2) && map.isRoad(dt, hy + 3);
+      for (const tx of new Set([Math.floor((x - 5) / T), dt, Math.floor((x + 5) / T)])) { put(tx, hy + 1, sp); put(tx, hy + 2, sp); if (toRoad) put(tx, hy + 3, sp); }
     }
     spurCache.set(world.villagers, m);
     return m;
   }
   const isRoadLane = (g) => g === 'path' || g === 'road';
   // centre line of a horizontal lane in tile row ty at world x (and of a vertical one in column tx at y)
-  const laneMidY = (wx, ty, road) => ty * T + 8 + (road ? 1.6 : 2.3) * Math.sin(wx * 0.09 + ty * 1.7) + (road ? 0.6 : 1) * Math.sin(wx * 0.27 + ty * 0.6);
-  const laneMidX = (wy, tx, road) => tx * T + 8 + (road ? 1.6 : 2.3) * Math.sin(wy * 0.09 + tx * 1.3) + (road ? 0.6 : 1) * Math.sin(wy * 0.23 + tx * 0.8);
+  const laneMidY = (wx, ty, road) => ty * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wx * 0.09 + ty * 1.7) + (road ? 0.6 : 1) * Math.sin(wx * 0.27 + ty * 0.6);
+  const laneMidX = (wy, tx, road) => tx * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wy * 0.09 + tx * 1.3) + (road ? 0.6 : 1) * Math.sin(wy * 0.23 + tx * 0.8);
   const laneHalf = (w, k, road) => (road ? 5.2 : 3.6) + (road ? 0.8 : 0.9) * Math.sin(w * 0.15 + k * 2.1);
   const spurTile = (world, g, base, tx, ty) => laneTile(world, g, base, tx, ty, null);
   function laneTile(world, g, base, tx, ty, gAt) {
@@ -1292,6 +1295,7 @@
     cv = canvas(T, T);
     const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
     const horiz = nL || nR || !(nU || nD), vert = nU || nD;
+    const strip = g.startsWith('footpath') || g.startsWith('stonepath');
     for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
       const wx = tx * T + lx + 0.5, wy = ty * T + ly + 0.5;
       let d = -Infinity; // how far inside the lane this pixel is (px), > 0 = on the lane
@@ -1311,18 +1315,102 @@
         if (!nD && wy > cy) dd = Math.min(dd, hw - (wy - cy));
         d = Math.max(d, dd);
       }
-      for (const sp of spurs) { // a door's own path, from the house front down to the lane
+      for (const sp of spurs) { // a door's own path, from the house front down to the lane, wandering
         const end = only ? Infinity : laneMidY(sp.x, ty, road);
         if (wy < sp.y0 - 1 || wy > end) continue;
-        d = Math.max(d, 2.4 + 0.5 * Math.sin(wy * 0.4 + sp.x) - Math.abs(wx - sp.x));
+        const k = wy - sp.y0, cx = sp.x + 2.2 * Math.sin(k * 0.22 + sp.s) * Math.min(1, k / 6);
+        d = Math.max(d, 2.3 + 0.6 * Math.sin(wy * 0.37 + sp.s) - Math.abs(wx - cx));
       }
       const rag = (C.h2(Math.floor(wx), Math.floor(wy), 47) - 0.5) * 1.4;
       const on = d + rag > 0;
-      const i = (ly * T + lx) * 4, src = on ? P : G;
-      o[i] = src[i]; o[i + 1] = src[i + 1]; o[i + 2] = src[i + 2]; o[i + 3] = 255;
+      // footpath and flagstone tiles only hold the path in their middle rows (7-11): sample those, so
+      // a lane that wanders up or down, or a door path, is path all the way
+      const i = (ly * T + lx) * 4, j = strip ? ((7 + (((ly - 7) % 5) + 5) % 5) * T + lx) * 4 : i;
+      if (on) { o[i] = P[j]; o[i + 1] = P[j + 1]; o[i + 2] = P[j + 2]; } else { o[i] = G[i]; o[i + 1] = G[i + 1]; o[i + 2] = G[i + 2]; }
+      o[i + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
     laneCache.set(key, cv);
+    return cv;
+  }
+
+  // Soft borders between kinds of land (2026-11-10): where grass, forest grass, rocky grass and sand
+  // meet, each tile lets the other kind creep in for a few pixels in ragged clumps, so areas run into
+  // each other instead of meeting on a straight tile edge. Composed once per tile and cached.
+  const BLEND = ['grass', 'darkgrass', 'rockgrass', 'sand', 'field'];
+  const tileVariant = (g, x, y) => g === 'field' ? map.fieldKind(x, y) : Math.floor(C.h2(x, y, 1) * 4);
+  const blendCache = new Map();
+  function blendTile(g, tx, ty, gAt) {
+    const nb = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([sx, sy]) => { const n = gAt(tx + sx, ty + sy); return BLEND.includes(n) && n !== g ? n : null; });
+    if (!nb.some(Boolean)) return null;
+    const variant = tileVariant(g, tx, ty);
+    const key = tx + ',' + ty + '|' + g + '|' + variant + '|' + nb.join(',');
+    let cv = blendCache.get(key);
+    if (cv) return cv;
+    const own = tilePixels(g, variant);
+    const other = nb.map((n, i) => n && tilePixels(n, tileVariant(n, tx + [0, 0, -1, 1][i], ty + [-1, 1, 0, 0][i])));
+    cv = canvas(T, T);
+    const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
+    const reach = (n) => (n === 'sand' || g === 'sand' ? 7 : 9);
+    for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
+      const wx = tx * T + lx, wy = ty * T + ly;
+      let src = own;
+      const z = C.vnoise(wx / 2.6, wy / 2.6, 71) * 0.75 + C.h2(wx, wy, 72) * 0.25;
+      let best = 0;
+      nb.forEach((n, i) => {
+        if (!n) return;
+        const dist = [ly, T - 1 - ly, lx, T - 1 - lx][i] + 0.5;
+        const pull = 0.55 - dist / reach(n);
+        if (pull > best && z < pull) { best = pull; src = other[i]; }
+      });
+      const k = (ly * T + lx) * 4;
+      o[k] = src[k]; o[k + 1] = src[k + 1]; o[k + 2] = src[k + 2]; o[k + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    blendCache.set(key, cv);
+    return cv;
+  }
+
+  // A ragged coastline (2026-11-10): on a water tile next to the beach the sand creeps in for a few
+  // pixels in uneven clumps (rounder in the inside corners), with a line of foam along it, so the coast
+  // is no longer a staircase of tiles. Drawn over the water; cached per tile.
+  const shoreCache = new Map();
+  function shoreTile(tx, ty, gAt) {
+    const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+    const sand = dirs.map(([sx, sy]) => gAt(tx + sx, ty + sy) === 'sand');
+    if (!sand.some(Boolean)) return null;
+    const key = tx + ',' + ty + '|' + sand.map((b) => +b).join('');
+    if (shoreCache.has(key)) return shoreCache.get(key);
+    const S = tilePixels('sand', Math.floor(C.h2(tx, ty, 1) * 4));
+    const on = new Uint8Array(T * T);
+    for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
+      const wx = tx * T + lx, wy = ty * T + ly;
+      const z = C.vnoise(wx / 3.2, wy / 3.2, 81) * 0.8 + C.h2(wx, wy, 82) * 0.2;
+      let pull = -1;
+      dirs.forEach(([sx, sy], i) => {
+        if (!sand[i]) return;
+        const ex = sx < 0 ? lx + 0.5 : sx > 0 ? T - 0.5 - lx : 0, ey = sy < 0 ? ly + 0.5 : sy > 0 ? T - 0.5 - ly : 0;
+        const dist = sx && sy ? Math.hypot(ex, ey) : ex + ey;
+        pull = Math.max(pull, (sx && sy ? 0.42 : 0.6) - dist / 10);
+      });
+      // inside corners (sand on two sides) fill in further, so the coast rounds off
+      if ((sand[0] || sand[1]) && (sand[2] || sand[3])) pull += 0.12;
+      if (z < pull) on[ly * T + lx] = 1;
+    }
+    let cv = null;
+    if (on.some(Boolean)) {
+      cv = canvas(T, T);
+      const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
+      const FOAM = [236, 244, 240];
+      for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
+        const i = ly * T + lx, k = i * 4;
+        if (on[i]) { o[k] = S[k]; o[k + 1] = S[k + 1]; o[k + 2] = S[k + 2]; o[k + 3] = 255; continue; }
+        const near = (lx > 0 && on[i - 1]) || (lx < T - 1 && on[i + 1]) || (ly > 0 && on[i - T]) || (ly < T - 1 && on[i + T]);
+        if (near) { o[k] = FOAM[0]; o[k + 1] = FOAM[1]; o[k + 2] = FOAM[2]; o[k + 3] = 150; }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    shoreCache.set(key, cv);
     return cv;
   }
 
@@ -1335,8 +1423,10 @@
     for (const v of housed) {
       const hx = v.home.tileX, hy = v.home.tileY;
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
-      mark(paths, hx, hy + 2); mark(paths, hx + 1, hy + 2);
-      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
+      const fp = (x) => { if (map.frontPathOK(x, hy + 2)) mark(paths, x, hy + 2); };
+      fp(hx); fp(hx + 1);
+      { const L = map.homeLayout(v.home); fp(Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T)); } // the lane always passes the door
+      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { fp(hx + 2); fp(hx + 3); }
     }
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
     for (const p of world.props || []) if (p.by != null) mark(busy, Math.floor(p.x), Math.floor(p.y));
@@ -1381,7 +1471,7 @@
         let p = pieces.get(k);
         if (p) return p;
         const cv = canvas(N * T, N * T), g2 = cv.getContext('2d'), water = [];
-        for (let ty = cy * N; ty < (cy + 1) * N; ty++) for (let tx = cx * N; tx < (cx + 1) * N; tx++) if (!landTile(g2, gAt, tx, ty, cx * N * T, cy * N * T)) water.push([tx, ty]);
+        for (let ty = cy * N; ty < (cy + 1) * N; ty++) for (let tx = cx * N; tx < (cx + 1) * N; tx++) if (!landTile(g2, gAt, tx, ty, cx * N * T, cy * N * T)) { water.push([tx, ty]); const sh = shoreTile(tx, ty, gAt); if (sh) g2.drawImage(sh, tx * T - cx * N * T, ty * T - cy * N * T); }
         p = { canvas: cv, water };
         pieces.set(k, p);
         return p;
@@ -1460,14 +1550,16 @@
     const plot = (hx, hy, home) => {
       for (let dx = -1; dx < 4; dx++) for (let dy = -1; dy < 4; dy++) mark(busy, hx + dx, hy + dy);
       if (!home) return;
-      mark(paths, hx, hy + 2); mark(paths, hx + 1, hy + 2);
-      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { mark(paths, hx + 2, hy + 2); mark(paths, hx + 3, hy + 2); }
+      const fp = (x) => { if (map.frontPathOK(x, hy + 2)) mark(paths, x, hy + 2); };
+      fp(hx); fp(hx + 1);
+      { const L = map.homeLayout(home.home); fp(Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T)); } // the lane always passes the door
+      if (occupied.has((hx + 4) + ',' + hy) && map.linksRight(hx, hy)) { fp(hx + 2); fp(hx + 3); }
       yards.push([hx, hy]);
     };
     for (const v of housed) {
       const hx = v.home.tileX, hy = v.home.tileY;
       if (hx < tx0 - 5 || hx > tx1 + 2 || hy < ty0 - 3 || hy > ty1 + 2) continue;
-      plot(hx, hy, true);
+      plot(hx, hy, v);
       homes.push(v);
     }
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
@@ -1511,11 +1603,13 @@
         // winding lanes (laneTile): a lane tile, or a grass tile a door path crosses
         const isLane = LANES.includes(g);
         const base = isLane ? (g.endsWith('-dark') ? 'darkgrass' : 'grass') : g;
-        const below = gAt(tx, ty + 1);
-        const spurType = isLane ? g : LANES.includes(below) ? below : 'footpath';
+        const below = [gAt(tx, ty + 1), gAt(tx - 1, ty + 1), gAt(tx + 1, ty + 1), gAt(tx, ty + 2)].find((q) => LANES.includes(q) && !isRoadLane(q));
+        const spurType = isLane ? g : below || (has('stonepaths', tx, ty) ? 'stonepath' : 'footpath');
         g2.drawImage(isLane ? laneTile(world, g, base, tx, ty, gAt) : spurTile(world, spurType, base, tx, ty), tx * T - ox, ty * T - oy);
         return true;
       }
+      const soft = BLEND.includes(g) && blendTile(g, tx, ty, gAt);
+      if (soft) { g2.drawImage(soft, tx * T - ox, ty * T - oy); return true; }
       g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
       if (g === 'cobble') {
         // the market square is a rounded patch, not a rectangle (2026-11-10): grass outside a soft,
@@ -1557,7 +1651,7 @@
       }
     } else {
       const groundAt = makeGroundAt(paths, busy);
-      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (!landTile(c, groundAt, tx, ty, 0, 0)) drawWater(c, tx, ty, t);
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) if (!landTile(c, groundAt, tx, ty, 0, 0)) { drawWater(c, tx, ty, t); const sh = shoreTile(tx, ty, groundAt); if (sh) c.drawImage(sh, tx * T, ty * T); }
     }
 
     // objects, painted back to front

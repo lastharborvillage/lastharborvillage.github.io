@@ -690,5 +690,25 @@
     const s = m === 12 || m <= 2 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn';
     return SEASON_LOOKS.includes(s) ? s : null;
   }
-  LH.map = { seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+
+  // Boats and buoys float (2026-11-11: Slaxx's rowboat had been put on the grass). A free water spot
+  // 1-3 tiles off the shore, nearest to column ax, clear of the docks and of other objects.
+  const WATER_PROPS = ['rowboat', 'buoy'];
+  function waterSpot(world, ax) {
+    const docks = (world.props || []).filter((p) => p.type === 'dock');
+    const taken = (world.props || []).filter((p) => p.type !== 'dock').map((p) => [p.x, p.y]);
+    const cand = [];
+    for (let dx = -12; dx <= 12; dx++) for (const dy of [2, 3, 1]) cand.push([Math.round(ax) + dx, dy, Math.abs(dx) * 3 + dy]);
+    cand.sort((a, b) => a[2] - b[2]);
+    for (const [x, d] of cand) {
+      const y = coastY(x) - d;
+      if (isLand(x, y) || isLand(x - 1, y) || isLand(x + 1, y) || y <= FOG_Y + 1) continue;
+      if (docks.some((k) => Math.abs(k.x + 0.5 - (x + 0.5)) < 2)) continue;
+      if (taken.some(([tx, ty]) => Math.abs(tx - (x + 0.5)) < 2.5 && Math.abs(ty - (y + 0.6)) < 2)) continue;
+      return [x + 0.5, y + 0.6];
+    }
+    return null;
+  }
+
+  LH.map = { WATER_PROPS, waterSpot, seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

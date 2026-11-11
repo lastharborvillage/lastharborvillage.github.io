@@ -6,7 +6,8 @@
   const T = LH.map.T;
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const VILLAGES = ['instagram', 'youtube'];
+  let VILLAGES = ['instagram', 'youtube']; // data/index.json: since the merge (2026-11-11) one village
+  let REDIRECT = {}; // old links of a village that moved in: { youtube: { village, ids: { oldId: newId } } }
   const STAGE_NAMES = { none: 'Nothing yet', keel: 'Keel', ribs: 'Ribs', hull: 'Hull', deck: 'Deck', mast: 'Mast', sails: 'Sails', flag: 'Flag' };
   const cache = {};
   let D = null; // current village data
@@ -370,7 +371,7 @@
   function watchButton(a, day) {
     const e = day && (D.episodes || []).find((q) => q.day === day);
     a.hidden = !e;
-    if (e) { a.href = e.url; a.textContent = 'Watch day ' + day; }
+    if (e) { a.href = e.url; a.textContent = 'Watch day ' + day + (e.also ? ' (Instagram)' : ''); }
   }
   function openVillager(id) {
     const p = findPerson(id);
@@ -599,8 +600,13 @@
 
   function renderJoin() {
     $('join-follow').replaceChildren(document.createTextNode('Follow '));
-    const a = el('a', null, D.follow.label); a.href = D.follow.url; a.target = '_blank'; a.rel = 'noopener';
-    $('join-follow').appendChild(a);
+    const fl = D.follows || [D.follow];
+    fl.forEach((f, i) => {
+      if (i) $('join-follow').appendChild(document.createTextNode(i === fl.length - 1 ? ' or subscribe to ' : ', '));
+      const a = el('a', null, f.label); a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
+      $('join-follow').appendChild(a);
+    });
+    if (D.merged && $('foot-villages')) $('foot-villages').textContent = 'One village, built by Instagram and YouTube together' + (D.platforms ? ' (' + Object.entries(D.platforms).map(([p, n]) => n + ' from ' + (p === 'youtube' ? 'YouTube' : p === 'instagram' ? 'Instagram' : p)).join(', ') + ')' : '') + '. Every villager is a real public comment.';
     $('join-follow').appendChild(document.createTextNode(' so you see each new day. A new day comes out every day.'));
     const latest = $('join-latest');
     latest.href = D.latestUrl || D.follow.url;
@@ -635,12 +641,19 @@
 
   function fromHash() {
     const [v, id] = location.hash.replace(/^#/, '').split('/');
+    if (!VILLAGES.includes(v) && REDIRECT[v]) return { v: REDIRECT[v].village, id: id && REDIRECT[v].ids[id] };
     return VILLAGES.includes(v) ? { v, id } : null;
   }
   window.addEventListener('hashchange', () => { const h = fromHash(); if (h && (h.v !== village || h.id)) load(h.v, h.id); });
 
-  const start = fromHash();
-  load(start ? start.v : 'instagram', start && start.id).then(() => requestAnimationFrame(loop));
+  fetch('data/index.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((ix) => {
+    if (ix && ix.villages && ix.villages.length) VILLAGES = ix.villages;
+    if (ix && ix.redirect) REDIRECT = ix.redirect;
+    // one village: no village tabs
+    if (VILLAGES.length < 2) for (const n of document.querySelectorAll('.tabs')) n.hidden = true;
+    const start = fromHash();
+    return load(start ? start.v : VILLAGES[0], start && start.id);
+  }).then(() => requestAnimationFrame(loop));
   // fonts arrive a moment later; name tags and portraits use them
   document.fonts && document.fonts.ready.then(() => { if (D) { renderRegister(false); } });
 })();

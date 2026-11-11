@@ -1223,7 +1223,9 @@
   // One follower's tent (base centre x, y). k picks the cloth colour and details; every 9th tent has a
   // small campfire in front that glows at night.
   const TENT_CLOTH = [['cream', 'sand2'], ['ember', 'ember2'], ['sea2', 'sea'], ['moss', 'moss2'], ['gold', 'gold2'], ['teal', 'teal2'], ['plum', 'plum2'], ['wood3', 'wood'], ['rose', 'rose2'], ['white', 'stone3']];
-  function drawTent(c, x, y, k, t, lights) {
+  // lit (world.story.tentLights, 2026-11-11, a viewer's idea): a small lantern on a pole beside every tent
+  // without a campfire, glowing at dusk and night
+  function drawTent(c, x, y, k, t, lights, lit) {
     const [a, b] = TENT_CLOTH[C.hashStr('tent' + k) % TENT_CLOTH.length];
     x = Math.round(x); y = Math.round(y);
     for (let r = 0; r < 8; r++) {
@@ -1239,6 +1241,11 @@
       rect(c, 'wood2', x + 6, y - 1, 4, 1);
       px(c, f ? 'lantern' : 'gold', x + 7, y - 2); px(c, f ? 'gold' : 'lantern', x + 8, y - 3 + f);
       if (lights) lights.push({ x: x + 8, y: y - 2, r: 10, kind: 'lamp' });
+    } else if (lit) {
+      const lx = x + (k % 2 ? 7 : -7), sw = Math.round(Math.sin(t * 1.7 + k) * 0.4);
+      rect(c, 'wood2', lx, y - 9, 1, 9);
+      rect(c, 'ink', lx - 1 + sw, y - 12, 3, 3); px(c, Math.floor(t * 3 + k) % 7 ? 'lantern' : 'lanternhi', lx + sw, y - 11);
+      if (lights) lights.push({ x: lx + 0.5, y: y - 11, r: 9, kind: 'lamp' });
     }
   }
 
@@ -1928,10 +1935,11 @@
     }
     // the followers' camp on the beach: one tent per follower (see map.camp)
     const followers = o.followers != null ? o.followers : (world.story && world.story.followers) || 0;
+    const tentLit = !!(world.story && world.story.tentLights);
     for (const [cx, cy, k] of map.camp(map.tentsFor(world, followers))) {
       const x = cx * T, y = cy * T;
       if (x < bx0 - 40 || x > bx0 + bw + 40 || y < by0 - 40 || y > by0 + bh + 40) continue;
-      add(y, () => drawTent(c, x, y, k, t, lights));
+      add(y, () => drawTent(c, x, y, k, t, lights, tentLit));
     }
     // trees (zoomed far out on the website they come from the cached pieces instead: drawn once, no sway)
     const treesCached = o.fast && z <= 2;

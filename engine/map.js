@@ -147,12 +147,16 @@
   const PATRON_HOME_KINDS = ['manor', 'castle'];
 
   // Small fixed offsets per plot so houses do not line up perfectly; door -1 left, 0 centre, 1 right.
+  const CENTRE_DOOR = ['watchtower', 'wizardtower', 'mushroom', 'castle'];
   function homeLayout(h) {
     const r = LH.core.rng(LH.core.hashStr('plot|' + h.tileX + ',' + h.tileY));
     // dy -8..+1 (2026-11-10, was -2..2): homes sit at different depths in their plot, so a row of
     // houses no longer stands on one line (never further forward: the lane runs in front)
     const dx = Math.round(r() * 12 - 6), dy = Math.round(r() * 9 - 8);
-    const door = h.kind === 'watchtower' ? 1 : [-1, 0, 0, 1][Math.floor(r() * 4)];
+    // homes drawn as one shape (towers, mushroom, castle) have their door in the middle: their path starts
+    // there too (2026-11-11: watchtowers had door 1 and the path ran 11 px right of the drawn door)
+    const pick = h.kind === 'watchtower' ? 1 : [-1, 0, 0, 1][Math.floor(r() * 4)]; // keeps r() in step for the seed
+    const door = CENTRE_DOOR.includes(h.kind) ? 0 : pick;
     return { dx, dy, door, seed: Math.floor(r() * 1e9) };
   }
   const slotCache = new Map();
@@ -353,7 +357,7 @@
   const SHARE_PLANKS = 5;
   const planksFor = (world) => world.villagers.length + ((world.ship && world.ship.founderPlanks) || 0) + ((world.ship && world.ship.keptPlanks) || 0) + ((world.ship && world.ship.sharePlanks) || 0);
 
-  // Founders: the first FOUNDER_LIMIT villagers of a village (v0001-v0100) get a gold plaque by their door,
+  // Founders: the first FOUNDER_LIMIT villagers of a village (v0001-v0100) get a founder stone by their door,
   // forever. Ids are never reused, so a spot never comes back.
   const FOUNDER_LIMIT = 100;
   const idNum = (id) => parseInt(String(id).replace(/\D/g, ''), 10) || 0;
@@ -677,5 +681,14 @@
     return p;
   }
 
-  LH.map = { commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  // Seasons (2026-11-11): by the episode's real date (meteorological: winter Dec-Feb, spring Mar-May,
+  // summer Jun-Aug, autumn Sep-Nov). Only autumn has a look so far; the others come later (reminders).
+  const SEASON_LOOKS = ['autumn'];
+  function seasonFor(date) {
+    const m = +String(date || '').slice(5, 7);
+    if (!m) return null;
+    const s = m === 12 || m <= 2 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn';
+    return SEASON_LOOKS.includes(s) ? s : null;
+  }
+  LH.map = { seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

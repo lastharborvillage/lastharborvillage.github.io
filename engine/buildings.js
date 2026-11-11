@@ -260,14 +260,19 @@
   };
 
   // ---------------------------------------------------------------- buildings
+  // A founder's plaque: a small gold plate with a star, on the wall beside the door ((x, y) top-left, 5x4).
+  function founderPlaque(c, x, y, t, k) {
+    const glint = Math.floor(t * 1.5 + (k || 0) / 7) % 6 === 0;
+    rect(c, 'ink', x, y, 5, 4); rect(c, 'gold2', x + 1, y + 1, 3, 2); px(c, 'gold', x + 1, y + 1);
+    px(c, glint ? 'white' : 'lanternhi', x + 2, y + 1); px(c, 'lanternhi', x + 2, y + 2);
+  }
   // Draws a building whose 2x2 plot has its top-left at (x, y) world px. L = lights list.
   function drawBuilding(c, x, y, P, t, Lights, lay = { dx: 0, dy: 0, door: 0 }) {
     const cx = x + 16 + lay.dx;
     const by = y + 30 + lay.dy;
-    if (P.tower) return drawTower(c, cx, by, P, t, Lights);
-    if (P.shape === 'wizard') return drawWizardTower(c, cx, by, P, t, Lights);
-    if (P.shape === 'mushroom') return drawMushroom(c, cx, by, P, t, Lights);
-    if (P.shape === 'castle') return drawCastle(c, cx, by, P, t, Lights);
+    // one-shape homes: their door is centred on cx (map.homeLayout gives them door 0); plaque right of it
+    const one = P.tower ? [drawTower, 3] : P.shape === 'wizard' ? [drawWizardTower, 3] : P.shape === 'mushroom' ? [drawMushroom, 3] : P.shape === 'castle' ? [drawCastle, 5] : null;
+    if (one) { one[0](c, cx, by, P, t, Lights); if (P.founder) founderPlaque(c, cx + one[1], by - 9, t, x); return; }
     const lift = P.stilts ? 5 : 0;
     const wallH = P.storeys === 3 ? 33 : P.storeys === 2 ? 25 : 17;
     const roofH = (P.storeys === 3 ? 10 : P.storeys === 2 ? 11 : 18) - lift;
@@ -309,6 +314,8 @@
       rect(c, P.doorFam[0], dx0, dy0, dw, dh); rect(c, P.doorFam[1], dx0 + 3, dy0, 1, dh); px(c, 'gold', dx0 + 4, dy0 + 5);
       if (P.doorType === 'arch') { px(c, 'ink', dx0, dy0); px(c, 'ink', dx0 + dw - 1, dy0); rect(c, 'ink', dx0 + 1, dy0 - 2, dw - 2, 1); rect(c, P.doorFam[0], dx0 + 1, dy0 - 1, dw - 2, 1); }
     }
+    const plq = P.founder ? (dx0 + dw + 7 <= wx + w ? dx0 + dw + 2 : dx0 - 7) : null;
+    if (plq != null) founderPlaque(c, plq, dy0 + 1, t, x);
     rect(c, 'stone', dx0 - 1, wb, dw + 2, 1);
     // a doorstep; the path itself is drawn on the ground (draw.js door paths, 2026-11-10: was a straight sand strip)
     if (!P.stilts) { rect(c, 'ink', dx0 - 1, wb + 1, dw + 2, 2); rect(c, 'stone', dx0, wb + 1, dw, 1); }
@@ -321,6 +328,7 @@
       for (let i = 0; i < n; i++) {
         const xx = Math.round(wx + 4 + i * (w - 13) / (n - 1));
         if (lower && xx + 5 + (P.shutters ? 2 : 0) > dx0 - 2 && xx - (P.shutters ? 2 : 0) < dx0 + dw + 2) continue;
+        if (lower && plq != null && xx + 5 + (P.shutters ? 2 : 0) > plq - 1 && xx - (P.shutters ? 2 : 0) < plq + 6) continue;
         if (lower && P.awning && Math.abs(xx + 2 - (dx0 + dw / 2)) < 9) continue;
         windowAt(c, xx, ry, P, Lights);
       }
@@ -429,7 +437,7 @@
 
   // The guard's watchtower: a narrow stone tower with a wooden lookout and a flag.
   function drawTower(c, cx, by, P, t, Lights) {
-    const x = cx - 10, w = 14, h = 28;
+    const x = cx - 7, w = 14, h = 28; // door (x+4..x+10) centred on cx, where the path starts
     c.globalAlpha = 0.25; rect(c, 'ink', x, by, w + 4, 2); c.globalAlpha = 1;
     rect(c, 'ink', x - 1, by - h, w + 2, h + 1); rect(c, 'stone3', x, by - h, w, h);
     wallPattern(c, { ...P, wall: 'bricks', wallCol: 'stone3' }, x, by - h, w, h);
@@ -459,6 +467,9 @@
     if (st >= 4) { P.bunting = true; if (!P.awning) P.awning = LH.fam('yellow'); }
     // floors asked for (home.floors 2-3, a villager's own request): taller, never lower
     if (h.floors && h.floors > P.storeys) P.storeys = Math.min(3, h.floors);
+    // a founder (one of the village's first 100) has a small gold plaque with a star on the wall beside the
+    // door (2026-11-11, was a gold sign on a post in the yard)
+    P.founder = LH.map.isFounder(v);
     drawBuilding(c, h.tileX * T, h.tileY * T, P, t, Lights, lay);
     // a patron's home has a little gold pennant by the door (only when "patron": true; not live yet)
     if (v.patron === true) {
@@ -466,14 +477,6 @@
       const fx = Math.round(hx - 12), fy = Math.round(hy - 2), wv = Math.floor(t * 3) % 2;
       rect(c, 'ink', fx - 1, fy - 17, 3, 17); rect(c, 'wood2', fx, fy - 16, 1, 16);
       rect(c, 'gold', fx + 1, fy - 16 + wv, 5, 2); rect(c, 'gold2', fx + 1, fy - 14 + wv, 4, 1); px(c, 'lanternhi', fx, fy - 18);
-    }
-    // a founder (one of the village's first 100) has a gold plaque on a post by the door, with a star
-    if (LH.map.isFounder(v)) {
-      const [hx, hy] = LH.map.homeSpot(v);
-      const fx = Math.round(hx + 9), fy = Math.round(hy - 1), glint = Math.floor(t * 1.5 + (v.home.tileX || 0)) % 6 === 0;
-      rect(c, 'ink', fx, fy - 9, 2, 9); rect(c, 'wood2', fx, fy - 8, 1, 8);
-      rect(c, 'ink', fx - 3, fy - 14, 8, 7); rect(c, 'gold2', fx - 2, fy - 13, 6, 5); rect(c, 'gold', fx - 2, fy - 13, 5, 4);
-      px(c, glint ? 'white' : 'lanternhi', fx, fy - 12); px(c, 'lanternhi', fx - 1, fy - 11); px(c, 'lanternhi', fx + 1, fy - 11);
     }
   }
 

@@ -523,30 +523,144 @@
   }
 
   // ---------------------------------------------------------------- trees and props
+  // Bushes (2026-11-11, user: a little variety on the map, spread very thin): shrub (round, green), berry
+  // (with red or blue berries), flower (in bloom), fern (forest floor), heather (low, purple; the coast),
+  // gorse (spiky, yellow flowers; the coast). Autumn turns the shrubs and berry bushes warmer.
+  function drawBush(c, x, y, kind, seed, t) {
+    const m = (n) => ((seed % n) + n) % n; // seeds can be negative (tiles left of 0)
+    c.globalAlpha = 0.22; rect(c, 'ink', x - 5, y - 1, 10, 2); c.globalAlpha = 1;
+    const autumn = SEASON === 'autumn';
+    if (kind === 'fern') {
+      const k = autumn && m(2) ? ['lantern2', 'gold2'] : ['moss', 'moss2'];
+      for (const [dx, h, s2] of [[-4, 5, -1], [-2, 7, -1], [0, 8, 0], [2, 7, 1], [4, 5, 1]]) for (let i = 0; i < h; i++) px(c, i % 2 ? k[1] : k[0], x + dx + Math.round(s2 * i / 3), y - i);
+      return;
+    }
+    if (kind === 'heather') {
+      for (let i = -4; i <= 4; i++) { const h = 3 - Math.floor(Math.abs(i) / 2); rect(c, 'ink', x + i, y - h - 1, 1, h + 1); rect(c, i % 2 ? 'plum' : 'moss2', x + i, y - h, 1, h); if (!autumn && m(3) === ((-i % 3) + 3) % 3) px(c, 'rose', x + i, y - h); }
+      return;
+    }
+    if (kind === 'gorse') {
+      leafy(c, [[x, y - 4, 5, 3.5]], ['moss', 'moss2', 'pine'], seed, 0.05);
+      for (let i = 0; i < (autumn ? 2 : 6); i++) px(c, 'gold', x - 4 + Math.floor(C.h2(seed, i, 31) * 9), y - 7 + Math.floor(C.h2(i, seed, 32) * 5));
+      return;
+    }
+    const cols = autumn && kind !== 'flower' ? [['gold', 'lantern', 'lantern2'], ['lantern', 'ember', 'ember2'], ['moss', 'moss2', 'pine']][m(3)] : ['moss', 'moss2', 'pine'];
+    leafy(c, [[x - 2, y - 4, 4, 3.5], [x + 2, y - 4, 4, 3.5], [x, y - 6, 3.5, 3]], cols, seed, 0.05);
+    if (kind === 'berry') { const b = m(2) ? 'ember' : 'sea2'; for (let i = 0; i < 4; i++) px(c, b, x - 4 + Math.floor(C.h2(seed, i, 33) * 9), y - 7 + Math.floor(C.h2(i, seed, 34) * 5)); }
+    if (kind === 'flower' && !autumn) { const f = ['rose', 'white', 'gold', 'plum'][m(4)]; for (let i = 0; i < 5; i++) px(c, f, x - 4 + Math.floor(C.h2(seed, i, 35) * 9), y - 8 + Math.floor(C.h2(i, seed, 36) * 6)); }
+  }
+
+  // Trees (2026-11-11, user: more kinds of trees). kind: pine, spruce (tall, slim, dark), windswept
+  // (a pine bent by the sea wind), round (a leafy tree; every third one has fruit), oak (big and wide),
+  // birch (white bark, small light crown), maple (a lobed crown), poplar (tall and narrow), willow
+  // (drooping), dead (bare branches). The leaf colours come from leafCols, so seasons can change them.
+  const LEAVES = {
+    round: ['grass', 'moss', 'moss2'], oak: ['moss', 'moss2', 'pine'], birch: ['moss', 'moss', 'moss2'],
+    maple: ['grass', 'moss', 'moss2'], poplar: ['moss', 'moss2', 'pine'], willow: ['grass', 'moss', 'moss2'],
+  };
+  // Seasons (2026-11-11): world.story.season (set by apply.mjs from the episode's date: map.seasonFor) or
+  // the render option o.season. Autumn: the leafy trees turn gold, orange, red or brown (each tree its own
+  // colour; a few stay green), leaves lie under them and blow across the screen. The pines stay green.
+  let SEASON = null;
+  const AUTUMN = {
+    maple: [['ember', 'ember', 'ember2'], ['lantern', 'ember', 'ember2']],
+    birch: [['gold', 'gold', 'gold2'], ['gold', 'gold2', 'lantern2']],
+    oak: [['lantern', 'wood3', 'wood'], ['gold2', 'lantern2', 'wood'], ['lantern', 'lantern2', 'wood'], ['moss', 'moss2', 'pine']],
+    poplar: [['gold', 'gold2', 'lantern2']],
+    willow: [['gold', 'grass', 'moss'], ['gold', 'gold2', 'moss2']],
+    round: [['gold', 'lantern', 'lantern2'], ['lantern', 'ember', 'ember2'], ['gold', 'gold2', 'lantern2'], ['lantern', 'lantern2', 'ember2'], ['grass', 'moss', 'moss2']],
+  };
+  const DECIDUOUS = new Set(['round', 'oak', 'birch', 'maple', 'poplar', 'willow']);
+  const leafCols = (kind, seed = 0) => {
+    if (SEASON === 'autumn' && AUTUMN[kind]) { const a = AUTUMN[kind]; return a[(((seed * 7) % a.length) + a.length) % a.length]; }
+    return LEAVES[kind] || LEAVES.round;
+  };
+  // a crown of leaves made of one or more overlapping ellipses [cx, cy, rx, ry], drawn as ONE shape:
+  // one dark outline round the whole, lit at the top-left, shaded at the bottom-right, the edge a little
+  // bumpy (lumpy) so it is never a perfect disc
+  function leafy(c, parts, cols, seed, lumpy = 0.12) {
+    const [hi, mid, lo] = cols;
+    const inside = (x, y) => parts.some(([cx, cy, rx, ry], i) => {
+      const dx = x - cx, dy = y - cy, a = Math.atan2(dy, dx);
+      return Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry)) <= 1 + lumpy * Math.sin(a * 5 + seed + i * 2);
+    });
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [cx, cy, rx, ry] of parts) { x0 = Math.min(x0, cx - rx - 2); x1 = Math.max(x1, cx + rx + 2); y0 = Math.min(y0, cy - ry - 2); y1 = Math.max(y1, cy + ry + 2); }
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, sx = (x1 - x0) / 2, sy = (y1 - y0) / 2;
+    for (let y = Math.round(y0); y <= y1; y++) for (let x = Math.round(x0); x <= x1; x++) {
+      if (!inside(x, y)) continue;
+      const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      const lit = (x - mx) / sx + (y - my) / sy;
+      px(c, edge ? 'ink' : lit < -0.55 ? hi : lit > 0.6 ? lo : mid, x, y);
+    }
+    // a few lighter leaf clumps on the lit side
+    for (let i = 0; i < 4; i++) { const r = C.h2(seed, i, 77), q = C.h2(i, seed, 78); const x = Math.round(mx - sx * 0.6 + r * sx * 0.9), y = Math.round(my - sy * 0.6 + q * sy * 0.9); if (inside(x, y) && inside(x + 1, y)) { px(c, hi, x, y); px(c, hi, x + 1, y); } }
+  }
+  const crown = (c, cx, cy, rx, ry, cols, seed, lumpy) => leafy(c, [[cx, cy, rx, ry]], cols, seed, lumpy);
   function drawTree(c, x, y, kind, seed, t) {
     // x,y = trunk base
-    c.globalAlpha = 0.25; rect(c, 'ink', x - 6, y - 1, 12, 2); c.globalAlpha = 1;
+    const wide = kind === 'oak' || kind === 'willow' ? 9 : kind === 'poplar' || kind === 'birch' ? 4 : 6;
+    c.globalAlpha = 0.25; rect(c, 'ink', x - wide, y - 1, wide * 2, 2); c.globalAlpha = 1;
     const sway = Math.round(Math.sin(t * 0.8 + seed) * 0.6);
-    if (kind === 'pine') {
+    if (SEASON === 'autumn' && DECIDUOUS.has(kind)) { // leaves on the ground
+      const lc = leafCols(kind, seed);
+      for (let i = 0; i < 7; i++) px(c, lc[i % 2], x - wide - 2 + Math.floor(C.h2(seed, i, 41) * (wide * 2 + 4)), y - 1 + Math.floor(C.h2(i, seed, 42) * 4));
+    }
+    if (kind === 'pine' || kind === 'spruce') {
+      const tall = kind === 'spruce';
       rect(c, 'ink', x - 2, y - 5, 4, 5); rect(c, 'wood2', x - 1, y - 5, 2, 5);
-      const tiers = [[7, 0], [6, 6], [4, 11], [2, 15]];
+      const tiers = tall ? [[5, 0], [5, 5], [4, 10], [3, 15], [2, 19], [1, 22]] : [[7, 0], [6, 6], [4, 11], [2, 15]];
       for (const [w, dy] of tiers) {
         const yy = y - 6 - dy;
         for (let r = 0; r < 7; r++) {
           const half = Math.max(0, w - Math.floor(r * w / 7));
           rect(c, 'ink', x - half - 1 + (r < 3 ? sway : 0), yy - r, half * 2 + 2, 1);
-          rect(c, r < 2 ? 'pine2' : 'pine', x - half + (r < 3 ? sway : 0), yy - r, half * 2, 1);
+          rect(c, r < 2 ? 'pine2' : tall && r > 4 ? 'pine2' : 'pine', x - half + (r < 3 ? sway : 0), yy - r, half * 2, 1);
         }
-        px(c, 'moss2', x - 2, yy - 3);
+        px(c, tall ? 'pine' : 'moss2', x - 2, yy - 3);
       }
-    } else {
+    } else if (kind === 'windswept') { // a sea pine, bent inland by the wind, its crown in flat clouds
+      const lean = seed % 2 ? 1 : -1;
+      for (let i = 0; i < 13; i++) { const xx = x + Math.round(lean * (i * i) / 36); rect(c, 'ink', xx - 2, y - i - 1, 4, 1); rect(c, i % 4 === 0 ? 'wood' : 'wood2', xx - 1, y - i - 1, 2, 1); }
+      const tx = x + lean * 5 + sway, ty = y - 15;
+      leafy(c, [[tx, ty + 1, 8, 3.2], [tx + lean * 4, ty - 4, 6.5, 3], [tx + lean * 7, ty - 8, 4, 2.6]], ['moss2', 'pine', 'pine2'], seed, 0.04);
+    } else if (kind === 'dead') { // a bare, grey old tree
+      rect(c, 'ink', x - 2, y - 16, 4, 16); rect(c, 'stone2', x - 1, y - 16, 2, 16); px(c, 'stone', x - 1, y - 10);
+      for (const [dx, h, s] of [[-1, 11, -1], [1, 14, 1], [0, 16, -1]]) for (let i = 0; i < 6; i++) px(c, i < 5 ? 'stone2' : 'ink', x + dx + s * i, y - h - Math.round(i * 0.7));
+      for (let i = 0; i < 4; i++) px(c, 'stone2', x + 4 + i, y - 18 - i);
+    } else if (kind === 'birch') { // white bark with black marks, a small light crown
+      rect(c, 'ink', x - 2, y - 14, 4, 14); rect(c, 'white', x - 1, y - 14, 2, 14);
+      for (let i = 2; i < 14; i += 4) px(c, 'ink', x - 1 + (i % 8 ? 1 : 0), y - i);
+      leafy(c, [[x + sway, y - 19, 6, 8], [x + sway + 3, y - 15, 4.5, 4.5]], leafCols('birch', seed), seed, 0.06);
+    } else if (kind === 'poplar') { // tall and narrow
+      rect(c, 'ink', x - 2, y - 6, 4, 6); rect(c, 'wood', x - 1, y - 6, 2, 6);
+      crown(c, x + sway, y - 19, 4, 13, leafCols('poplar', seed), seed, 0.03);
+    } else if (kind === 'oak') { // big, wide, with a thick trunk
+      rect(c, 'ink', x - 3, y - 9, 6, 9); rect(c, 'wood', x - 2, y - 9, 4, 9); rect(c, 'wood2', x + 1, y - 9, 1, 9);
+      px(c, 'wood2', x - 4, y - 1); px(c, 'wood2', x + 3, y - 1);
+      leafy(c, [[x + sway, y - 16, 12, 7], [x - 5 + sway, y - 21, 7, 5], [x + 5 + sway, y - 20, 6, 5]], leafCols('oak', seed), seed, 0.06);
+      if (seed % 4 === 1) for (const [dx, dy] of [[-6, -15], [4, -13], [7, -19]]) px(c, 'wood3', x + dx + sway, y + dy); // acorns
+    } else if (kind === 'maple') { // three round lobes
+      rect(c, 'ink', x - 2, y - 8, 4, 8); rect(c, 'wood', x - 1, y - 8, 2, 8);
+      const cols = leafCols('maple', seed);
+      leafy(c, [[x - 5 + sway, y - 13, 5, 4], [x + 5 + sway, y - 13, 5, 4], [x + sway, y - 18, 6, 5]], cols, seed, 0.04);
+    } else if (kind === 'willow') { // a round top with long hanging strands
+      rect(c, 'ink', x - 2, y - 10, 4, 10); rect(c, 'wood2', x - 1, y - 10, 2, 10);
+      const [hi, mid, lo] = leafCols('willow', seed);
+      crown(c, x + sway, y - 17, 10, 6, [hi, mid, lo], seed, 0.04);
+      for (let i = -9; i <= 9; i += 2) {
+        const len = 8 + ((i * 7 + seed) % 4 + 4) % 4, s2 = Math.round(Math.sin(t * 1.1 + i + seed) * 0.7);
+        for (let k = 0; k < len; k++) px(c, k === len - 1 ? 'ink' : k % 3 === 0 ? lo : mid, x + i + sway + (k > len / 2 ? s2 : 0), y - 13 + k);
+      }
+    } else { // round (the old leafy tree; every third one has fruit)
       rect(c, 'ink', x - 2, y - 7, 4, 7); rect(c, 'wood', x - 1, y - 7, 2, 7);
       const cx = x + sway, cy = y - 14;
       const R = 8;
+      const [hi, mid, lo] = leafCols('round', seed);
       for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) {
         const d = Math.sqrt(xx * xx + yy * yy * 1.15);
         if (d > R) continue;
-        const name = d > R - 1 ? 'ink' : (xx + yy < -4 ? 'grass' : xx + yy > 5 ? 'moss2' : 'moss');
+        const name = d > R - 1 ? 'ink' : (xx + yy < -4 ? hi : xx + yy > 5 ? lo : mid);
         px(c, name, cx + xx, cy + yy);
       }
       if (seed % 3 === 0) { px(c, 'ember', cx - 3, cy + 1); px(c, 'ember', cx + 2, cy - 3); px(c, 'ember', cx + 4, cy + 3); }
@@ -1105,8 +1219,9 @@
       rect(c, 'ink', cx - 6, by - 22, 12, 22); rect(c, 'wood', cx - 5, by - 22, 10, 22); rect(c, 'wood2', cx + 1, by - 22, 4, 22); rect(c, 'wood4', cx - 2, by - 14, 2, 4);
       for (const [dx, k] of [[-9, -1], [9, 1]]) for (let i = 0; i < 8; i++) px(c, 'wood2', cx + k * 4 + Math.round(dx * i / 8), by - 20 - i);
       rect(c, 'ink', cx - 9, by - 2, 18, 2); rect(c, 'wood', cx - 8, by - 2, 4, 1); rect(c, 'wood', cx + 5, by - 2, 4, 1);
-      blob(c, 'pine', cx, by - 34, 20, 12); blob(c, 'moss2', cx - 2, by - 37, 16, 9, null); blob(c, 'moss', cx - 5, by - 40, 9, 5, null);
-      for (let i = 0; i < 10; i++) px(c, 'grass', cx - 14 + i * 3, by - 41 + (i % 3) * 3);
+      const WT = SEASON === 'autumn' ? ['ember2', 'lantern2', 'lantern', 'gold'] : ['pine', 'moss2', 'moss', 'grass'];
+      blob(c, WT[0], cx, by - 34, 20, 12); blob(c, WT[1], cx - 2, by - 37, 16, 9, null); blob(c, WT[2], cx - 5, by - 40, 9, 5, null);
+      for (let i = 0; i < 10; i++) px(c, WT[3], cx - 14 + i * 3, by - 41 + (i % 3) * 3);
       const COLS = ['ember', 'gold', 'rose', 'sea3', 'white', 'plum', 'teal', 'cream'];
       const n = st >= 1 ? 12 : 5;
       for (let i = 0; i < n; i++) {
@@ -1220,32 +1335,92 @@
     rect(c, 'ink', x - 3, y - 4, 7, 4); rect(c, 'wood', x - 2, y - 3, 5, 3); rect(c, 'wood3', x - 2, y - 4, 5, 1); px(c, 'wood2', x, y - 4);
   }
 
-  // One follower's tent (base centre x, y). k picks the cloth colour and details; every 9th tent has a
-  // small campfire in front that glows at night.
+  // One follower's tent (base centre x, y). k picks the shape, the cloth colour and details; every 9th
+  // tent has a small campfire in front that glows at night. Shapes (2026-11-11): classic A-frame, dome,
+  // bell tent with a pennant, and a lean-to tarp over a bedroll.
   const TENT_CLOTH = [['cream', 'sand2'], ['ember', 'ember2'], ['sea2', 'sea'], ['moss', 'moss2'], ['gold', 'gold2'], ['teal', 'teal2'], ['plum', 'plum2'], ['wood3', 'wood'], ['rose', 'rose2'], ['white', 'stone3']];
-  // lit (world.story.tentLights, 2026-11-11, a viewer's idea): a small lantern on a pole beside every tent
-  // without a campfire, glowing at dusk and night
+  const TENT_SHAPES = ['aframe', 'aframe', 'aframe', 'aframe', 'dome', 'dome', 'bell', 'bell', 'leanto', 'leanto'];
+  // lit (world.story.tentLights, 2026-11-11, a viewer's idea): every tent without a campfire has a light,
+  // kept low and varied so the beach does not turn into a row of poles: most glow from inside (a warm
+  // door), some have a small lantern on the sand by the door, a few hang one from the ridge.
   function drawTent(c, x, y, k, t, lights, lit) {
     const [a, b] = TENT_CLOTH[C.hashStr('tent' + k) % TENT_CLOTH.length];
+    const shape = TENT_SHAPES[C.hashStr('tentshape' + k) % TENT_SHAPES.length];
+    const side = C.hashStr('tentside' + k) % 2 ? 1 : -1;
     x = Math.round(x); y = Math.round(y);
-    for (let r = 0; r < 8; r++) {
-      const half = Math.floor(r * 0.75) + 1;
-      rect(c, 'ink', x - half - 1, y - 8 + r, half * 2 + 3, 1);
-      rect(c, a, x - half, y - 8 + r, half, 1);
-      rect(c, b, x + 1, y - 8 + r, half, 1);
+    let door = [x - 1, y - 4, 3, 4], ridge = [x, y - 9]; // door rect, the top point a lantern can hang from
+    if (shape === 'aframe') {
+      for (let r = 0; r < 8; r++) {
+        const half = Math.floor(r * 0.75) + 1;
+        rect(c, 'ink', x - half - 1, y - 8 + r, half * 2 + 3, 1);
+        rect(c, a, x - half, y - 8 + r, half, 1);
+        rect(c, b, x + 1, y - 8 + r, half, 1);
+      }
+      px(c, 'wood2', x, y - 9);
+    } else if (shape === 'dome') {
+      const R = 7, H = 7;
+      for (let r = 0; r < H; r++) {
+        const half = Math.round(R * Math.sqrt(1 - Math.pow((H - r - 0.5) / H, 2)));
+        rect(c, 'ink', x - half - 1, y - H + r, half * 2 + 3, 1);
+        rect(c, a, x - half, y - H + r, half + 1, 1);
+        rect(c, b, x + 1, y - H + r, half, 1);
+      }
+      rect(c, 'ink', x - 3, y - H - 1, 7, 1); // top edge
+      for (let r = 1; r < H - 1; r++) px(c, b, x - 3 + Math.round(r * 0.3), y - H + r); // seam
+      door = [x - 1, y - 3, 3, 3]; ridge = [x, y - H - 1];
+    } else if (shape === 'bell') {
+      // cone roof on a short straight wall, a pole through the top with a little pennant
+      for (let r = 0; r < 5; r++) {
+        const half = r + 2;
+        rect(c, 'ink', x - half - 1, y - 9 + r, half * 2 + 3, 1);
+        rect(c, a, x - half, y - 9 + r, half, 1);
+        rect(c, b, x + 1, y - 9 + r, half, 1);
+      }
+      rect(c, 'ink', x - 7, y - 4, 15, 4);
+      rect(c, b, x - 6, y - 4, 13, 4); rect(c, a, x - 6, y - 4, 6, 1);
+      rect(c, 'ink', x - 7, y - 4, 15, 1); rect(c, a, x - 6, y - 4, 13, 1);
+      rect(c, 'wood2', x, y - 12, 1, 3);
+      const fl = Math.floor(t * 2 + k) % 2;
+      const pen = C.hashStr('tentpen' + k) % 2 ? 'ember' : 'gold';
+      px(c, pen, x + 1, y - 12); px(c, pen, x + 2, y - 12 + fl); px(c, pen, x + 1, y - 11);
+      ridge = [x - side * 4, y - 6];
+    } else { // lean-to: a wide tarp sloping from a stick down to the sand, a bedroll in its shade
+      const L = 12, x0 = x - side * 6;
+      for (let i = 1; i < L; i++) { const xx = x0 + side * i; rect(c, 'ink', xx, y - 8 + Math.round(i * 6 / L) + 3, 1, Math.max(0, 5 - Math.round(i * 6 / L))); } // shade under the tarp
+      const bx = x0 + side * 3 - (side > 0 ? 0 : 5);
+      rect(c, 'ink', bx - 1, y - 3, 7, 3); rect(c, 'cream', bx, y - 2, 5, 2); rect(c, b, bx + (side > 0 ? 2 : 0), y - 2, 3, 2); // bedroll + blanket
+      rect(c, 'ink', x0 - 1, y - 10, 3, 10); rect(c, 'wood2', x0, y - 9, 1, 9); // stick
+      for (let i = 0; i <= L; i++) {
+        const xx = x0 + side * i, yy = y - 9 + Math.round(i * 6 / L);
+        px(c, 'ink', xx, yy - 1); px(c, a, xx, yy); px(c, a, xx, yy + 1); px(c, b, xx, yy + 2); px(c, 'ink', xx, yy + 3);
+      }
+      rect(c, 'wood2', x0 + side * (L + 1), y - 1, 1, 2); // peg
+      door = null; ridge = [x0, y - 9];
     }
-    rect(c, 'ink', x - 1, y - 4, 3, 4); // open flap
-    px(c, 'wood2', x, y - 9);
+    if (door) rect(c, 'ink', ...door); // open flap
     if (k % 9 === 4) {
-      const f = Math.floor(t * 8 + k) % 2;
-      rect(c, 'wood2', x + 6, y - 1, 4, 1);
-      px(c, f ? 'lantern' : 'gold', x + 7, y - 2); px(c, f ? 'gold' : 'lantern', x + 8, y - 3 + f);
-      if (lights) lights.push({ x: x + 8, y: y - 2, r: 10, kind: 'lamp' });
-    } else if (lit) {
-      const lx = x + (k % 2 ? 7 : -7), sw = Math.round(Math.sin(t * 1.7 + k) * 0.4);
-      rect(c, 'wood2', lx, y - 9, 1, 9);
-      rect(c, 'ink', lx - 1 + sw, y - 12, 3, 3); px(c, Math.floor(t * 3 + k) % 7 ? 'lantern' : 'lanternhi', lx + sw, y - 11);
-      if (lights) lights.push({ x: lx + 0.5, y: y - 11, r: 9, kind: 'lamp' });
+      const f = Math.floor(t * 8 + k) % 2, fx = x + 7 * side;
+      rect(c, 'wood2', fx - 1, y - 1, 4, 1);
+      px(c, f ? 'lantern' : 'gold', fx, y - 2); px(c, f ? 'gold' : 'lantern', fx + 1, y - 3 + f);
+      if (lights) lights.push({ x: fx + 1, y: y - 2, r: 10, kind: 'lamp' });
+      return;
+    }
+    if (!lit) return;
+    const how = C.hashStr('tentlight' + k) % 10;
+    const flick = Math.floor(t * 3 + k) % 7 ? 'lantern' : 'lanternhi';
+    if (door && how < 5) { // glow from inside: a warm door
+      const [dx, dy, dw, dh] = door;
+      rect(c, 'gold', dx, dy + 1, dw, dh - 1); px(c, flick, dx + 1, dy + dh - 1);
+      if (lights) lights.push({ x: dx + 1.5, y: dy + dh - 1, r: 6, kind: 'lamp' });
+    } else if (how < 8 || !door) { // a small lantern on the sand beside the door
+      const lx = x + side * (shape === 'leanto' ? 4 : 6);
+      rect(c, 'ink', lx - 1, y - 3, 3, 3); px(c, flick, lx, y - 2);
+      if (lights) lights.push({ x: lx + 0.5, y: y - 2, r: 7, kind: 'lamp' });
+    } else { // hung from the ridge on a short cord
+      const [rx, ry] = ridge, sw = Math.round(Math.sin(t * 1.7 + k) * 0.4);
+      px(c, 'wood2', rx + side, ry + 1);
+      rect(c, 'ink', rx + side * 2 - 1 + sw, ry + 2, 3, 3); px(c, flick, rx + side * 2 + sw, ry + 3);
+      if (lights) lights.push({ x: rx + side * 2 + 0.5, y: ry + 3, r: 7, kind: 'lamp' });
     }
   }
 
@@ -1417,8 +1592,24 @@
     // the forest; each tree sits anywhere in its tile, and the forest mixes in some round trees
     const n = C.vnoise(tx / 6, ty / 6, 14) * 0.7 + C.vnoise(tx / 2.2, ty / 2.2, 15) * 0.3;
     const dens = dist === 'forest' ? Math.max(0, Math.min(0.85, (n - 0.18) * 1.25)) : dist === 'cliffs' || dist === 'lighthouse' ? 0.06 : 0.04 + Math.max(0, n - 0.55) * 0.5;
-    if (C.h2(tx, ty, 11) >= dens) return null;
-    const kind = dist === 'forest' ? (C.h2(tx, ty, 12) < 0.82 || n > 0.7 ? 'pine' : 'round') : dist === 'cliffs' || dist === 'fogbeach' || C.h2(tx, ty, 12) < 0.3 ? 'pine' : 'round';
+    if (C.h2(tx, ty, 11) >= dens) {
+      // bushes (2026-11-11, user: a little variety, spread very thin): where no tree stands
+      const bd = dist === 'forest' ? 0.035 : dist === 'cliffs' || dist === 'fogbeach' ? 0.03 : 0.016;
+      if (C.h2(tx, ty, 21) >= bd || cleared.has(tx + ',' + ty)) return null;
+      const r = C.h2(tx, ty, 22);
+      const bush = dist === 'forest' ? (r < 0.6 ? 'fern' : r < 0.85 ? 'shrub' : 'berry')
+        : dist === 'cliffs' || dist === 'fogbeach' ? (r < 0.5 ? 'heather' : r < 0.8 ? 'gorse' : 'shrub')
+        : r < 0.4 ? 'shrub' : r < 0.6 ? 'berry' : r < 0.85 ? 'flower' : 'fern';
+      return { x: tx * T + 8 + Math.round((C.h2(tx, ty, 23) - 0.5) * 10), y: ty * T + 10 + Math.round(C.h2(tx, ty, 24) * 6), bush };
+    }
+    // the kind of tree (2026-11-11, user: more kinds): each area has its own mix
+    const r = C.h2(tx, ty, 12);
+    const pick = (mix) => { let acc = 0; for (const [k, w] of mix) { acc += w; if (r < acc) return k; } return mix[mix.length - 1][0]; };
+    const kind = dist === 'forest' ? (n > 0.7 ? (r < 0.75 ? 'pine' : 'spruce') : pick([['pine', 0.5], ['spruce', 0.2], ['birch', 0.1], ['oak', 0.1], ['round', 0.1]]))
+      : dist === 'cliffs' ? pick([['windswept', 0.5], ['pine', 0.3], ['dead', 0.08], ['birch', 0.12]])
+      : dist === 'fogbeach' ? pick([['windswept', 0.45], ['pine', 0.35], ['dead', 0.2]])
+      : dist === 'farms' ? pick([['oak', 0.3], ['round', 0.3], ['poplar', 0.2], ['maple', 0.1], ['willow', 0.1]])
+      : pick([['round', 0.3], ['oak', 0.17], ['birch', 0.15], ['maple', 0.15], ['pine', 0.15], ['poplar', 0.05], ['willow', 0.03]]);
     const x = tx * T + 8 + Math.round((C.h2(tx, ty, 13) - 0.5) * 12), y = ty * T + 10 + Math.round(C.h2(tx, ty, 16) * 8);
     return cleared.has(tx + ',' + ty) ? { x, y, stump: true } : { x, y, kind };
   }
@@ -1641,7 +1832,7 @@
           const tr = treeAt(tx, ty, busy, cleared, districts);
           if (!tr) continue;
           if (!cv) { cv = canvas(N * T, N * T + TREE_PAD); g2 = cv.getContext('2d'); g2.translate(-cx * N * T, -cy * N * T + TREE_PAD); }
-          if (tr.stump) drawStump(g2, tr.x, tr.y); else drawTree(g2, tr.x, tr.y, tr.kind, tx * 31 + ty, 0);
+          if (tr.stump) drawStump(g2, tr.x, tr.y); else if (tr.bush) drawBush(g2, tr.x, tr.y, tr.bush, tx * 31 + ty, 0); else drawTree(g2, tr.x, tr.y, tr.kind, tx * 31 + ty, 0);
         }
         treePieces.set(k, cv);
         return cv;
@@ -1695,6 +1886,7 @@
   function renderWorld(ctx, o) {
     const W = ctx.canvas.width, H = ctx.canvas.height;
     const { world, cam, t } = o;
+    SEASON = o.season || (world.story && world.story.season) || null;
     const tod = LH.TOD[o.tod || 'day'];
     const z = cam.z;
     const vw = W / z, vh = H / z;
@@ -1953,6 +2145,7 @@
       const tr = treeAt(tx, ty, busy, cleared, districts);
       if (!tr) continue;
       if (tr.stump) add(tr.y, () => drawStump(c, tr.x, tr.y));
+      else if (tr.bush) add(tr.y, () => drawBush(c, tr.x, tr.y, tr.bush, tx * 31 + ty, t));
       else add(tr.y, () => drawTree(c, tr.x, tr.y, tr.kind, tx * 31 + ty, t));
     }
     for (const l of world.landmarks || []) {
@@ -2012,6 +2205,19 @@
       drawGull(c, Math.round(gx), Math.round(gy), Math.floor(t * 3 + i) % 2);
     }
 
+    // autumn: leaves blowing across the screen (a few, drifting down and sideways, turning)
+    if (SEASON === 'autumn' && !o.fast) {
+      const LC = ['gold', 'lantern', 'ember', 'gold2', 'lantern2'];
+      const n = Math.round((bw * bh) / 4500);
+      for (let i = 0; i < n; i++) {
+        const sp = 9 + C.h2(i, 3, 91) * 10, ph = C.h2(i, 5, 92);
+        const lx = bx0 + ((((C.h2(i, 1, 93) * bw + t * sp) % bw) + bw) % bw);
+        const ly = by0 + ((((C.h2(i, 2, 94) * bh + t * sp * 0.6 + Math.sin(t * 1.3 + i) * 6) % bh) + bh) % bh);
+        const k = LC[i % LC.length], flip = Math.floor(t * 4 + ph * 8) % 2;
+        rect(c, k, lx, ly, flip ? 2 : 1, flip ? 1 : 2); px(c, i % 3 ? 'wood2' : k, lx + 1, ly + 1);
+      }
+    }
+
     // fog wall
     c.setTransform(1, 0, 0, 1, 0, 0);
     drawFog(c, bx0, by0, bw, bh, t, o.fast);
@@ -2068,5 +2274,5 @@
     return { actors, toScreen };
   }
 
-  LH.draw = { villagerSprite, petSprite, drawVillager, renderWorld, gridToCanvas, composeGrid };
+  LH.draw = { villagerSprite, petSprite, drawVillager, renderWorld, gridToCanvas, composeGrid, drawTree };
 })();

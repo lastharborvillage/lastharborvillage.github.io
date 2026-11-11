@@ -1011,11 +1011,24 @@
         const hw = Math.round(12 * Math.sqrt(1 - (yy / 9) ** 2));
         rect(c, 'ink', cx - hw - 1, by - 21 + yy, hw * 2 + 3, 1); rect(c, 'stone3', cx - hw, by - 21 + yy, hw * 2 + 1, 1); rect(c, 'stone', cx + Math.round(hw * 0.4), by - 21 + yy, Math.max(0, hw - Math.round(hw * 0.4)), 1);
       }
-      rect(c, st >= 1 ? 'lanternhi' : 'ink', cx - 1, by - 30, 3, 9);
-      if (st >= 1) glow(lights, cx, by - 26, 14);
-      const len = st >= 2 ? 14 : 9;
-      for (let i = 0; i < len; i++) { rect(c, 'ink', cx - 3 - i, by - 28 - i, 4, 3); }
-      for (let i = 0; i < len; i++) { rect(c, i % 4 === 0 ? 'gold2' : 'gold', cx - 2 - i, by - 27 - i, 2, 1); }
+      // the dome's slit (warm light inside from stage 1)
+      rect(c, 'ink', cx - 3, by - 30, 6, 10); rect(c, st >= 1 ? 'lantern' : 'night', cx - 2, by - 29, 4, 9);
+      if (st >= 1) { rect(c, 'lanternhi', cx - 1, by - 27, 2, 5); glow(lights, cx, by - 26, 14); }
+      // a brass telescope (2026-11-11, user: the old one was a thin stick): a fat tube widening towards
+      // the lens, two dark bands, a glass lens at the end and a little eyepiece at the back
+      // drawn pixel by pixel as one straight tube: u along it (0 eyepiece .. L lens), v across it
+      const L = st >= 2 ? 19 : 15, ox = cx + 2, oy = by - 24, dx = -Math.cos(0.75), dy = -Math.sin(0.75);
+      const rad = (u) => 1.6 + (u / L) * 1.6; // widens towards the lens
+      const cell = (x, y) => { const rx = x + 0.5 - ox, ry = y + 0.5 - oy; return [rx * dx + ry * dy, -rx * dy + ry * dx]; };
+      for (let y = oy - L - 5; y <= oy + 5; y++) for (let x = ox - L - 5; x <= ox + 5; x++) {
+        const [u, v] = cell(x, y), r = rad(Math.max(0, Math.min(L, u)));
+        if (u < -1 || u > L + 1 || Math.abs(v) > r + 1) continue;
+        if (u < 0 || u > L || Math.abs(v) > r) { px(c, 'ink', x, y); continue; }
+        const band = (u > 3 && u < 4.4) || (u > L - 4 && u < L - 2.6);
+        const col = u > L - 1.2 ? (v < -r + 1.3 && u > L - 1 ? 'white' : 'sea2') // the lens
+          : band ? 'wood2' : v < -r + 1 ? 'lanternhi' : v > r - 1 ? 'gold2' : 'gold';
+        px(c, col, x, y);
+      }
       rect(c, 'ink', cx - 3, by - 9, 6, 9); rect(c, 'wood2', cx - 2, by - 8, 4, 8);
       if (st >= 3) for (let i = 0; i < 4; i++) px(c, Math.sin(t * 3 + i * 2) > 0 ? 'white' : 'lanternhi', cx - 20 - i * 6, by - 48 - (i % 2) * 5);
     },

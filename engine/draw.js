@@ -682,6 +682,13 @@
       for (let i = 0; i < 9; i++) px(c, 'wood', x - 5 + i, y - 10 + i);
     },
     rowboat(c, x, y, o, t) {
+      // on land (the story pulled it up the beach): no bobbing, no water around it (2026-11-11)
+      if (map.isLand(Math.floor(x / T), Math.floor(y / T))) {
+        c.globalAlpha = 0.25; rect(c, 'ink', x - 10, y, 20, 2); c.globalAlpha = 1;
+        rect(c, 'ink', x - 10, y - 7, 20, 7); rect(c, 'wood', x - 9, y - 6, 18, 5); rect(c, 'wood3', x - 9, y - 6, 18, 1);
+        rect(c, 'wood2', x - 7, y - 5, 14, 2); rect(c, 'wood3', x - 1, y - 5, 2, 2);
+        return;
+      }
       const b = Math.round(Math.sin(t * 1.6 + x) * 1);
       rect(c, 'sea', x - 11, y - 1, 22, 2);
       rect(c, 'ink', x - 10, y - 7 + b, 20, 7); rect(c, 'wood', x - 9, y - 6 + b, 18, 5); rect(c, 'wood3', x - 9, y - 6 + b, 18, 1);
@@ -689,6 +696,10 @@
       rect(c, 'foam', x - 12, y + b, 3, 1); rect(c, 'foam', x + 9, y - b, 3, 1);
     },
     buoy(c, x, y, o, t) {
+      if (map.isLand(Math.floor(x / T), Math.floor(y / T))) { // on land: still, no foam
+        rect(c, 'ink', x - 3, y - 7, 6, 7); rect(c, 'ember', x - 2, y - 6, 4, 5); rect(c, 'white', x - 2, y - 4, 4, 1);
+        return;
+      }
       const b = Math.round(Math.sin(t * 2 + x) * 1);
       rect(c, 'ink', x - 3, y - 7 + b, 6, 7); rect(c, 'ember', x - 2, y - 6 + b, 4, 5); rect(c, 'white', x - 2, y - 4 + b, 4, 1);
       rect(c, 'foam', x - 4, y + b, 8, 1);
@@ -1800,7 +1811,7 @@
     }
     for (const k of map.homePaths(world)) paths.add(k); // the footpath network (map.homePaths)
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
-    for (const p of world.props || []) if (p.by != null) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 0; dy++) mark(busy, Math.floor(p.x) + dx, Math.floor(p.y) + dy); // a tile around it too (2026-11-11: a tree overlapped a rowboat)
+    for (const p of world.props || []) if (p.by != null) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) mark(busy, Math.floor(p.x) + dx, Math.floor(p.y) + dy); // a tile around it too (2026-11-11: a tree overlapped a rowboat)
     const cleared = new Set();
     for (const l of world.landmarks || []) {
       const s = map.LANDMARKS[l.type];
@@ -1933,7 +1944,7 @@
     for (const k of map.homePaths(world)) paths.add(k); // the footpath network (map.homePaths)
     for (const b of world.buildings || []) for (let dx = -1; dx < (b.w || 2) + 1; dx++) for (let dy = -1; dy < (b.h || 2) + 1; dy++) mark(busy, b.tileX + dx, b.tileY + dy);
     // no tree grows on an object a viewer placed
-    for (const p of world.props || []) if (p.by != null) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 0; dy++) mark(busy, Math.floor(p.x) + dx, Math.floor(p.y) + dy); // a tile around it too (2026-11-11: a tree overlapped a rowboat)
+    for (const p of world.props || []) if (p.by != null) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) mark(busy, Math.floor(p.x) + dx, Math.floor(p.y) + dy); // a tile around it too (2026-11-11: a tree overlapped a rowboat)
     // landmarks keep trees off their footprint (and a tile around it); a clearing turns the trees in
     // its circle into stumps
     const cleared = new Set();

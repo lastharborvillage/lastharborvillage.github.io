@@ -491,7 +491,10 @@
       rect(c, 'ink', x - 8, y - 9, 16, 10); rect(c, 'stone', x - 7, y - 8, 14, 8); for (let i = 0; i < 3; i++) rect(c, 'stone2', x - 7 + (i % 2) * 3, y - 6 + i * 2, 14, 1);
       rect(c, 'ink', x - 6, y - 10, 12, 3); rect(c, 'sea', x - 5, y - 9, 10, 1);
       rect(c, 'wood2', x - 7, y - 20, 1, 11); rect(c, 'wood2', x + 6, y - 20, 1, 11);
-      for (let i = 0; i < 4; i++) { rect(c, 'ink', x - 9 + i, y - 24 + i, 18 - i * 2, 1); rect(c, 'ember', x - 8 + i, y - 23 + i, 16 - i * 2, 1); }
+      // roof: narrow at the top, wide at the eaves (2026-11-11: it was drawn upside down)
+      rect(c, 'ink', x - 3, y - 26, 6, 1);
+      for (let i = 0; i < 5; i++) { const w = 4 + i * 4; rect(c, 'ink', x - w / 2 - 1, y - 25 + i, w + 2, 1); rect(c, i === 4 ? 'ember2' : 'ember', x - w / 2, y - 25 + i, w, 1); }
+      rect(c, 'ink', x - 11, y - 20, 22, 1);
       rect(c, 'wood', x - 1, y - 18, 2, 4);
     } else if (k === 'garden') {
       rect(c, 'ink', x - 14, y - 16, 28, 17); rect(c, 'wood', x - 13, y - 15, 26, 15);

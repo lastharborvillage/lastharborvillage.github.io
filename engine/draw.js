@@ -1339,7 +1339,7 @@
   // tent has a small campfire in front that glows at night. Shapes (2026-11-11): classic A-frame, dome,
   // bell tent with a pennant, and a lean-to tarp over a bedroll.
   const TENT_CLOTH = [['cream', 'sand2'], ['ember', 'ember2'], ['sea2', 'sea'], ['moss', 'moss2'], ['gold', 'gold2'], ['teal', 'teal2'], ['plum', 'plum2'], ['wood3', 'wood'], ['rose', 'rose2'], ['white', 'stone3']];
-  const TENT_SHAPES = ['aframe', 'aframe', 'aframe', 'aframe', 'dome', 'dome', 'bell', 'bell', 'leanto', 'leanto'];
+  const TENT_SHAPES = ['aframe', 'aframe', 'aframe', 'aframe', 'dome', 'dome', 'bell', 'bell', 'aframe', 'dome']; // lean-to removed 2026-11-11 (user didn't like it)
   // lit (world.story.tentLights, 2026-11-11, a viewer's idea): every tent without a campfire has a light,
   // kept low and varied so the beach does not turn into a row of poles: most glow from inside (a warm
   // door), some have a small lantern on the sand by the door, a few hang one from the ridge.
@@ -1606,8 +1606,8 @@
     const r = C.h2(tx, ty, 12);
     const pick = (mix) => { let acc = 0; for (const [k, w] of mix) { acc += w; if (r < acc) return k; } return mix[mix.length - 1][0]; };
     const kind = dist === 'forest' ? (n > 0.7 ? (r < 0.75 ? 'pine' : 'spruce') : pick([['pine', 0.5], ['spruce', 0.2], ['birch', 0.1], ['oak', 0.1], ['round', 0.1]]))
-      : dist === 'cliffs' ? pick([['windswept', 0.5], ['pine', 0.3], ['dead', 0.08], ['birch', 0.12]])
-      : dist === 'fogbeach' ? pick([['windswept', 0.45], ['pine', 0.35], ['dead', 0.2]])
+      : dist === 'cliffs' ? pick([['spruce', 0.5], ['pine', 0.3], ['dead', 0.08], ['birch', 0.12]])
+      : dist === 'fogbeach' ? pick([['spruce', 0.45], ['pine', 0.35], ['dead', 0.2]])
       : dist === 'farms' ? pick([['oak', 0.3], ['round', 0.3], ['poplar', 0.2], ['maple', 0.1], ['willow', 0.1]])
       : pick([['round', 0.3], ['oak', 0.17], ['birch', 0.15], ['maple', 0.15], ['pine', 0.15], ['poplar', 0.05], ['willow', 0.03]]);
     const x = tx * T + 8 + Math.round((C.h2(tx, ty, 13) - 0.5) * 12), y = ty * T + 10 + Math.round(C.h2(tx, ty, 16) * 8);

@@ -426,13 +426,13 @@
     g.fillRect(0, 960, 1080, 8);
     g.textBaseline = 'top';
     g.fillStyle = LH.PAL.cream;
-    g.font = '700 72px "Pixelify Sans"';
+    g.font = '700 72px "LH Digits", "Pixelify Sans"';
     g.fillText(p.displayName || '', 60, 1000);
     g.fillStyle = LH.PAL.lanternhi;
     g.font = '400 30px Silkscreen';
     g.fillText((p.job || '').toUpperCase(), 60, 1090);
     g.fillStyle = LH.PAL.cream;
-    g.font = '400 36px "Pixelify Sans"';
+    g.font = '400 36px "LH Digits", "Pixelify Sans"';
     const words = String(p.trait || '').split(' ');
     let line = '', y = 1145;
     for (const w of words) {

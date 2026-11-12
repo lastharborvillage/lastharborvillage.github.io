@@ -214,15 +214,16 @@
   };
   function sites(districtId, districts = DISTRICTS) {
     const d = districts[districtId];
-    if (!d) return [];
-    const key = d.center.join(',');
+    return d ? sitesNear(d.center) : [];
+  }
+  function sitesNear(c) {
+    const key = c.join(',');
     let list = siteCache.get(key);
     if (!list) {
       if (!siteList) {
         siteList = [];
         for (let y = -24; y <= 300; y++) for (let x = -240; x <= 240; x++) if (siteOK(x, y)) siteList.push({ x, y });
       }
-      const c = d.center;
       list = siteList.map((q) => ({ x: q.x, y: q.y, d: Math.hypot((q.x + 1 - c[0]) * 1.5, q.y + 1 - c[1]) + h2(q.x, q.y, 401) * 3.2 }));
       list.sort((p, q) => p.d - q.d || p.y - q.y || p.x - q.x);
       siteCache.set(key, list);
@@ -230,6 +231,31 @@
     return list;
   }
   const coreTiles = (x, y) => footprint(x, y, 4, 3);
+
+  // Solitary homes (2026-11-12, user: a viewer asked to live alone). A villager with
+  // "home": { "solitary": true, "near": "forest-southeast" | [x, y] } gets a home out in the wild, on
+  // the free site nearest that spot whose whole private ring (SOLITARY_RING tiles round the core) is
+  // empty: no home, building, landmark, object, road or reserved area. The ring stays theirs forever:
+  // new homes, landmarks and objects never go in it, so as the village grows it flows round the ring
+  // and the solitary home keeps its patch of wild land (trees and all), with one footpath out.
+  const SOLITARY_RING = 7;
+  const SOLITARY_PLACES = {
+    'forest-southeast': [46, 46], 'forest-south': [18, 52], 'lighthouse-east': [50, 24],
+    'fogbeach-inland': [-48, 26], 'farms-southwest': [-34, 44], 'far-south': [4, 70],
+  };
+  const solitaryAnchor = (h) => Array.isArray(h.near) ? h.near : SOLITARY_PLACES[h.near] || SOLITARY_PLACES['forest-southeast'];
+  // all tiles of a solitary home's ring (its core included)
+  const solitaryRing = (h) => footprint(h.tileX - SOLITARY_RING, h.tileY - SOLITARY_RING, 4 + 2 * SOLITARY_RING, 3 + 2 * SOLITARY_RING);
+  const ringCache = new WeakMap();
+  function solitaryTiles(world) {
+    let set = ringCache.get(world.villagers);
+    if (!set) {
+      set = new Set();
+      for (const v of world.villagers) if (v.home && v.home.solitary && v.home.tileX != null) solitaryRing(v.home).forEach((k) => set.add(k));
+      ringCache.set(world.villagers, set);
+    }
+    return set;
+  }
   function placeAll(world) {
     const ds = world.districts || DISTRICTS;
     const used = new Set(); // tiles no new home's core (or the free ring round it) may touch
@@ -238,12 +264,27 @@
     for (const b of world.buildings || []) add(footprint(b.tileX, b.tileY, b.w || 2, b.h || 2));
     for (const l of world.landmarks || []) add(landmarkTiles(l)); // a cave is never built over
     for (const q of world.props || []) add([Math.floor(q.x) + ',' + Math.floor(q.y)]);
+    for (const v of world.villagers) if (v.home && v.home.solitary && v.home.tileX != null) add(solitaryRing(v.home)); // private land
     const free = (x, y) => { for (let dx = -1; dx <= 4; dx++) for (let dy = -1; dy <= 3; dy++) if (used.has((x + dx) + ',' + (y + dy))) return false; return true; };
     const from = new Map(); // per district: candidates before this index are taken for good
     const placed = [];
     world.villagers.forEach((v, i) => {
       if (v.home && v.home.tileX != null) return;
       v.home = v.home || {};
+      if (v.home.solitary) {
+        const c = solitaryAnchor(v.home), R = SOLITARY_RING;
+        const clear = (x, y) => {
+          for (let tx = x - R; tx < x + 4 + R; tx++) for (let ty = y - R; ty < y + 3 + R; ty++) if (used.has(tx + ',' + ty) || isRoad(tx, ty) || reserved(tx, ty)) return false;
+          return true;
+        };
+        const s = sitesNear(c).find((q) => clear(q.x, q.y));
+        if (!s) throw new Error('no free solitary spot near ' + c.join(','));
+        v.home.tileX = s.x; v.home.tileY = s.y;
+        v.home.district = districtAt(s.x + 1, s.y + 1, ds); // its look (the land there); never locked for them
+        add(solitaryRing(v.home));
+        placed.push(v.id);
+        return;
+      }
       const open = unlocked(world, i + 1);
       if (!v.home.district || !ds[v.home.district] || !open.includes(v.home.district)) v.home.district = 'harbour';
       const list = sites(v.home.district, ds);
@@ -296,13 +337,14 @@
       const prev = new Map(start.map(([x, yy]) => [x + ',' + yy, null]));
       const todo = start.slice();
       let hit = null;
-      for (let i = 0; i < todo.length && !hit && i < 3000; i++) {
+      const far = !!f.v.home.solitary; // a solitary home's one footpath may be long
+      for (let i = 0; i < todo.length && !hit && i < (far ? 60000 : 3000); i++) {
         const [x, yy] = todo[i];
         // try down/up first, so paths head for the lanes and roads between the rows
         for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
           const nx = x + dx, ny = yy + dy, k = nx + ',' + ny;
           if (prev.has(k)) continue;
-          if (Math.abs(nx - f.door) > 14 || Math.abs(ny - y) > 12) continue;
+          if (!far && (Math.abs(nx - f.door) > 14 || Math.abs(ny - y) > 12)) continue;
           if (blocked.has(k) || !isLand(nx, ny) || ny < coastY(nx) + 1) continue;
           prev.set(k, x + ',' + yy);
           if (isNet(nx, ny) || (set.has(k) && !mine.has(k))) { hit = k; break; }
@@ -393,6 +435,7 @@
     // never on a home's yard or front row (homes off the grid are not covered by inPlot)
     const cores = new Set();
     for (const v of world.villagers) if (v.home && v.home.tileX != null) footprint(v.home.tileX, v.home.tileY, 4, 3).forEach((k) => cores.add(k));
+    solitaryTiles(world).forEach((k) => cores.add(k)); // a solitary home's private land
     const cand = [];
     for (let dx = -8; dx <= 8; dx++) for (let dy = -8; dy <= 8; dy++) cand.push([ax + dx, ay + dy, dx * dx + dy * dy]);
     cand.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
@@ -465,6 +508,7 @@
     for (const b of world.buildings || []) take(b.tileX, b.tileY, b.w || 2, b.h || 2, 1);
     for (const p of world.props || []) take(Math.floor(p.x), Math.floor(p.y) - 1, 1, 2, 1); // flags and lamps reach a tile up
     for (const l of world.landmarks || []) { const q = LANDMARKS[l.type]; if (q && q.w) take(l.tileX, l.tileY, q.w, q.h, 1); }
+    solitaryTiles(world).forEach((k) => taken.add(k)); // a solitary home's private land
     // the street lamps (draw.js, upgrade 'lamps'): every 5 tiles on the coast road, and every 4 down the
     // high street; keep clear of them and of the rows just below (a landmark there would hide them)
     for (let x = -42; x <= 34; x++) if (((x % 5) + 5) % 5 === 3) take(x, 5, 1, 3, 0);
@@ -670,11 +714,20 @@
       const h = v.home;
       if (!h || h.tileX == null) { p.push(who + ': has no home tile (run placement)'); return; }
       if (!ds[h.district]) { p.push(who + ': unknown district ' + h.district); return; }
-      if (ds[h.district].unlockAt > i + 1 && !v.founder) p.push(who + ': district ' + h.district + ' was still locked when they joined');
+      if (ds[h.district].unlockAt > i + 1 && !v.founder && !h.solitary) p.push(who + ': district ' + h.district + ' was still locked when they joined');
       if (!isSlot(h.tileX, h.tileY) && !siteOK(h.tileX, h.tileY)) p.push(who + ': home ' + h.tileX + ',' + h.tileY + ' is not a valid house spot'); // old grid plot or a spot off the grid
       if (h.kind && !HOME_KINDS.includes(h.kind)) p.push(who + ': unknown home kind "' + h.kind + '" (' + HOME_KINDS.join(', ') + ')');
       claim(footprint(h.tileX, h.tileY), who);
     });
+    // nothing may stand on a solitary home's private land but that home
+    for (const s of world.villagers.filter((v) => v.home && v.home.solitary && v.home.tileX != null)) {
+      const ring = new Set(solitaryRing(s.home));
+      const hit = (keys) => keys.some((k) => ring.has(k));
+      for (const v of world.villagers) if (v !== s && v.home && v.home.tileX != null && hit(footprint(v.home.tileX, v.home.tileY, 4, 3))) p.push('villager ' + v.id + ' is on the private land of solitary ' + s.id);
+      for (const b of world.buildings || []) if (hit(footprint(b.tileX, b.tileY, b.w || 2, b.h || 2))) p.push('building ' + b.type + ' is on the private land of solitary ' + s.id);
+      for (const l of world.landmarks || []) if (hit(landmarkTiles(l))) p.push('landmark ' + (l.id || l.type) + ' is on the private land of solitary ' + s.id);
+      for (const q of world.props || []) if (ring.has(Math.floor(q.x) + ',' + Math.floor(q.y))) p.push('object ' + (q.type || '?') + ' is on the private land of solitary ' + s.id);
+    }
     const planks = planksFor(world);
     if (!world.ship || world.ship.planks !== planks) p.push('ship.planks is ' + (world.ship && world.ship.planks) + ' but villagers + founder planks = ' + planks);
     else if (world.ship.stage !== shipStage(planks).id) p.push('ship.stage should be ' + shipStage(planks).id);
@@ -710,5 +763,5 @@
     return null;
   }
 
-  LH.map = { WATER_PROPS, waterSpot, seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { SOLITARY_RING, SOLITARY_PLACES, solitaryRing, solitaryTiles, sitesNear, WATER_PROPS, waterSpot, seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

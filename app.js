@@ -390,7 +390,7 @@
     // their Instagram / YouTube handle (the user, 2026-11-13)
     const so = $('v-social');
     so.hidden = !p.social;
-    if (p.social) { so.href = p.social.url; so.textContent = (p.social.platform === 'instagram' ? 'Instagram ' : 'YouTube ') + p.social.handle; so.dataset.platform = p.social.platform; }
+    if (p.social) { so.textContent = (p.social.platform === 'instagram' ? 'Instagram ' : 'YouTube ') + p.social.handle; so.dataset.platform = p.social.platform; }
     $('v-meta').textContent = founder ? 'Founder of Last Harbor' : 'Lives in ' + districtName(p.home && p.home.district) + ' · moved in on day ' + p.dayJoined;
     watchButton($('v-watch'), founder ? null : p.dayJoined);
     $('v-show').hidden = !spotOf(p);

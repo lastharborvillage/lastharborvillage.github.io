@@ -432,58 +432,10 @@
       rect(g, 'stone2', 0, 6, T, 7);
       for (let i = 0; i < 4; i++) { const x = i * 4 + (variant % 2) * 2 - 1; rect(g, 'stone', x + 1, 7, 3, 2); rect(g, 'stone', x, 10, 3, 2); px(g, 'stone3', x + 1, 7); }
       for (let x = 0; x < T; x++) { if (r() < 0.35) px(g, 'moss', x, 6); if (r() < 0.35) px(g, 'moss', x, 12); }
-    } else if (type.startsWith('sp-')) { // the lanes to the doors in other styles (2026-11-13: they all looked the same)
-      const dark = type.endsWith('-dark'), style = type.split('-')[1];
-      rect(g, dark ? 'moss' : 'grass', 0, 0, T, T);
-      if (style === 'step') { // stepping stones in the grass
-        for (let i = 0; i < 3; i++) { const x = i * 5 + 1 + (variant % 2); rect(g, 'stone2', x, 7 + (i % 2), 4, 4); rect(g, 'stone', x, 7 + (i % 2), 3, 3); px(g, 'stone3', x, 7 + (i % 2)); }
-      } else if (style === 'gravel') { // a gravel track
-        rect(g, 'sand2', 0, 6, T, 7);
-        for (let i = 0; i < 18; i++) px(g, ['stone3', 'stone', 'sand3', 'sand'][Math.floor(r() * 4)], Math.floor(r() * T), 6 + Math.floor(r() * 7));
-        for (let x = 0; x < T; x++) { if (r() < 0.4) px(g, dark ? 'moss2' : 'moss', x, 6); if (r() < 0.4) px(g, dark ? 'moss2' : 'moss', x, 12); }
-      } else if (style === 'brick') { // a narrow brick path
-        rect(g, 'stone2', 0, 6, T, 7);
-        for (let row = 0; row < 2; row++) for (let x = -1; x < 5; x++) rect(g, (x + row + variant) % 4 ? 'ember2' : 'ember', x * 4 + row * 2, 7 + row * 3, 3, 2);
-      } else { // slate: long dark slabs
-        rect(g, 'stone2', 0, 6, T, 7);
-        let x = -Math.floor(r() * 4);
-        while (x < T) { const w = 4 + Math.floor(r() * 4); rect(g, r() < 0.3 ? 'stone' : 'stone2', x, 7, w - 1, 5); rect(g, 'stone3', x, 7, w - 1, 1); x += w; }
-        rect(g, 'ink', 0, 12, T, 0);
-      }
     } else if (type === 'road') { // upgrade "cobbles": the main roads are paved
       rect(g, 'stone2', 0, 0, T, T);
       for (let y = 0; y < 4; y++) for (let x = 0; x < 5; x++) { const ox = (y % 2) * 2 - 1; rect(g, (x + y + variant) % 3 ? 'stone' : 'stone3', x * 4 + ox, y * 4, 3, 3); }
       speck('sand2', 3);
-    } else if (type === 'road-flag') { // big worn flagstones (2026-11-13, the user: the paths all looked the same)
-      rect(g, 'stone2', 0, 0, T, T);
-      const rows = [[0, 5], [6, 4], [11, 5]];
-      for (const [y, h] of rows) {
-        let x = -Math.floor(r() * 5);
-        while (x < T) { const w = 5 + Math.floor(r() * 4); rect(g, r() < 0.25 ? 'stone3' : 'stone', x, y, w - 1, h - 1); px(g, 'stone3', x, y); x += w; }
-      }
-      if (variant === 1) { px(g, 'moss', 5, 5); px(g, 'moss', 6, 5); px(g, 'moss2', 11, 10); }
-    } else if (type === 'road-brick') { // warm brick, laid in rows
-      rect(g, 'stone2', 0, 0, T, T);
-      for (let y = 0; y < 5; y++) for (let x = -1; x < 5; x++) {
-        const ox = (y % 2) * 3;
-        rect(g, (x * 3 + y + variant) % 5 ? 'ember2' : 'ember', x * 4 + ox, y * 3 + 1, 3, 2);
-      }
-      speck('stone3', 3); speck('sand2', 2);
-    } else if (type === 'road-river') { // round river pebbles in sand
-      rect(g, 'sand2', 0, 0, T, T);
-      for (let i = 0; i < 14; i++) {
-        const x = Math.floor(r() * 14), y = Math.floor(r() * 14), w = 2 + Math.floor(r() * 2);
-        const col = ['stone', 'stone3', 'stone2', 'sand3'][Math.floor(r() * 4)];
-        rect(g, col, x, y, w, 2); px(g, 'stone3', x, y);
-      }
-    } else if (type === 'road-worn') { // old cobbles, sand and grass coming through the gaps
-      rect(g, 'sand2', 0, 0, T, T);
-      for (let y = 0; y < 4; y++) for (let x = 0; x < 5; x++) {
-        if (r() < 0.22) continue; // a stone missing
-        const ox = (y % 2) * 2 - 1;
-        rect(g, r() < 0.3 ? 'stone3' : 'stone', x * 4 + ox, y * 4, 3, 3);
-      }
-      for (let i = 0; i < 4; i++) { const x = Math.floor(r() * 15), y = Math.floor(r() * 15); px(g, 'moss', x, y); px(g, 'grass', x + 1, y); }
     } else if (type === 'yard') {
       rect(g, 'sand2', 0, 0, T, T); speck('sand3', 6); speck('wood3', 5); speck('sand', 5);
     } else if (type === 'cobble') {
@@ -1763,15 +1715,33 @@
     return m;
   }
   const isRoadLane = (g) => g === 'path' || g === 'road';
-  // which surface a paved road has here: one per stretch of ~7 x 5 tiles, picked from the stretch's position
-  const ROAD_STYLES = ['road', 'road', 'road-flag', 'road-worn', 'road-river', 'road-brick', 'road', 'road-flag', 'road-worn'];
-  // and the flagstone lanes to the doors: one style per stretch too (flagstones stay the most common)
-  const LANE_STYLES = ['flag', 'flag', 'step', 'gravel', 'slate', 'brick', 'flag', 'step', 'gravel'];
-  const laneStyle = (g, tx, ty) => {
-    const st = LANE_STYLES[Math.floor(C.h2(Math.floor((tx + 1) / 6), Math.floor(ty / 4), 733) * LANE_STYLES.length)];
-    return st === 'flag' ? g : 'sp-' + st + (g.endsWith('-dark') ? '-dark' : '');
-  };
-  const roadStyle = (tx, ty) => ROAD_STYLES[Math.floor(C.h2(Math.floor((tx + 3) / 7), Math.floor((ty + 2) / 5), 611) * ROAD_STYLES.length)];
+  // stone paths and paved roads look lived in (the user, 2026-11-13: one style, natural wear instead of
+  // the same tile everywhere). Decided per world pixel, so no two stretches look alike: moss and grass in
+  // the joints, stones missing (bare earth), polished worn patches where people walk most, a bigger slab
+  // here and there, and grass creeping over the edges.
+  const RGB = {};
+  const rgbOf = (n) => RGB[n] || (RGB[n] = [1, 3, 5].map((k) => parseInt(col(n).slice(k, k + 2), 16)));
+  function wearAt(o, i, wx, wy, edge, bandRow, dark) {
+    const X = Math.floor(wx), Y = Math.floor(wy);
+    const same = (n) => { const c = rgbOf(n); return o[i] === c[0] && o[i + 1] === c[1] && o[i + 2] === c[2]; };
+    const wear = C.vnoise(X / 18, Y / 18, 91); // 0..1, how trodden this stretch is
+    // grass creeping over the edge
+    if (edge < 1.3 && C.h2(X, Y, 73) < 0.45) return rgbOf(dark ? 'moss2' : C.h2(X, Y, 74) < 0.5 ? 'moss' : 'grass');
+    // a missing stone: bare earth
+    const cx = Math.floor(X / 4), cy = Math.floor(Y / 4);
+    if (C.h2(cx, cy, 75) < 0.022 + wear * 0.035) return rgbOf(C.h2(X, Y, 76) < 0.25 ? 'sand3' : 'sand2');
+    // a bigger slab now and then (on the door lanes it spans the band; on roads a 7x6 block)
+    const sx = Math.floor(X / 7), sy = bandRow >= 0 ? 0 : Math.floor(Y / 6);
+    if (C.h2(sx, sy + 900, 77) < 0.06) {
+      const lx = ((X % 7) + 7) % 7, ly = bandRow >= 0 ? bandRow - 7 : ((Y % 6) + 6) % 6, h = bandRow >= 0 ? 4 : 5;
+      if (bandRow < 0 || (bandRow >= 7 && bandRow <= 11)) return rgbOf(lx === 6 || ly === h ? 'stone2' : ly === 0 ? 'stone3' : 'stone');
+    }
+    // moss in the joints
+    if (same('stone2') && C.h2(X, Y, 78) < 0.10 + (1 - wear) * 0.18) return rgbOf(dark ? 'moss2' : 'moss');
+    // polished, light stones where it is most trodden
+    if (same('stone') && wear > 0.62 && C.h2(X, Y, 79) < (wear - 0.62) * 2.2) return rgbOf('stone3');
+    return null;
+  }
   // centre line of a horizontal lane in tile row ty at world x (and of a vertical one in column tx at y)
   const laneMidY = (wx, ty, road) => ty * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wx * 0.09 + ty * 1.7) + (road ? 0.6 : 1) * Math.sin(wx * 0.27 + ty * 0.6);
   const laneMidX = (wy, tx, road) => tx * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wy * 0.09 + tx * 1.3) + (road ? 0.6 : 1) * Math.sin(wy * 0.23 + tx * 0.8);
@@ -1787,8 +1757,8 @@
     let cv = laneCache.get(key);
     if (cv) return cv;
     const road = isRoadLane(g);
-    // paved roads change surface from stretch to stretch (2026-11-13): cobbles stay the most common
-    const P = tilePixels(g === 'road' ? roadStyle(tx, ty) : g.startsWith('stonepath') ? laneStyle(g, tx, ty) : g, variant), G = tilePixels(base, variant);
+    const P = tilePixels(g, variant), G = tilePixels(base, variant);
+    const worn = g === 'road' || g.startsWith('stonepath'), dark = g.endsWith('-dark');
     cv = canvas(T, T);
     const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
     const horiz = nL || nR || !(nU || nD), vert = nU || nD;
@@ -1823,7 +1793,10 @@
       // footpath and flagstone tiles only hold the path in their middle rows (7-11): sample those, so
       // a lane that wanders up or down, or a door path, is path all the way
       const i = (ly * T + lx) * 4, j = strip ? ((7 + (((ly - 7) % 5) + 5) % 5) * T + lx) * 4 : i;
-      if (on) { o[i] = P[j]; o[i + 1] = P[j + 1]; o[i + 2] = P[j + 2]; } else { o[i] = G[i]; o[i + 1] = G[i + 1]; o[i + 2] = G[i + 2]; }
+      if (on) {
+        o[i] = P[j]; o[i + 1] = P[j + 1]; o[i + 2] = P[j + 2];
+        if (worn) { const w = wearAt(o, i, wx, wy, d + rag, strip ? 7 + (((ly - 7) % 5) + 5) % 5 : -1, dark); if (w) { o[i] = w[0]; o[i + 1] = w[1]; o[i + 2] = w[2]; } }
+      } else { o[i] = G[i]; o[i + 1] = G[i + 1]; o[i + 2] = G[i + 2]; }
       o[i + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);

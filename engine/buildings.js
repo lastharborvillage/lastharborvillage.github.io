@@ -545,8 +545,16 @@
       forest: ['tree', 'tree', 'woodpile', 'shed', 'bush'],
       fogbeach: ['boat', 'rocks', 'none', 'crates'],
     }[district] || ['tree', 'bush', 'none'];
-    return { k: opts[Math.floor(r() * opts.length)], x, y, r };
+    let k = opts[Math.floor(r() * opts.length)];
+    // only about a third of the homes have a garden at all (the user, 2026-11-13: the gardens cluttered
+    // the map); the others keep a plain side yard instead of a vegetable bed
+    if (k === 'garden' && !gardenHome(tx, ty)) k = 'none';
+    return { k, x, y, r };
   }
+  // the homes that may have a garden (a fenced one once 'fences' is unlocked, or a plain bed): ~1 in 3,
+  // picked evenly per home plot
+  const GARDEN_SHARE = 0.33;
+  function gardenHome(tx, ty) { return C.rng(C.hashStr('gardenhome|' + tx + ',' + ty))() < GARDEN_SHARE; }
   // Fenced gardens (village upgrade 'fences', laid out in draw.js). Each one is picked from the home's
   // plot so it always looks the same. The fence (2026-11-10: 16 kinds, each area favours its own):
   // brown, white or painted pickets (tall or short, flat or pointed, close or wide), split rails, a
@@ -831,5 +839,5 @@
     add(12.7 * T, () => goodsPile(c, 0.6 * T, 12.7 * T));
   }
 
-  LH.bld = { STYLE, TRADE, ICONS, spec, drawBuilding, drawHome, drawCommon, drawYard, yardOf, drawGarden, gardenLook, marketSquare };
+  LH.bld = { STYLE, TRADE, ICONS, spec, drawBuilding, drawHome, drawCommon, drawYard, yardOf, gardenHome, drawGarden, gardenLook, marketSquare };
 })();

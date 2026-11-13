@@ -2052,7 +2052,7 @@
     const lights = [];
     const add = (y, fn) => objs.push({ y, fn });
     for (const v of homes) add((v.home.tileY + 2) * T - 1 + map.homeLayout(v.home).dy, () => LH.bld.drawHome(c, v, districts, t, lights));
-    // garden fences (map.UPGRADES 'fences', rebuilt 2026-11-10): not every home, about one in three, and
+    // garden fences (map.UPGRADES 'fences', rebuilt 2026-11-10): not every home, about one in three (LH.bld.gardenHome, 2026-11-13), and
     // never across a path. A fenced home turns its side yard (right of the house) into a small flower or
     // vegetable bed with a picket fence round it, sized to the gap that is really free there: the house
     // and its neighbour are measured as drawn (roof, annex, signs, plaques), roads and their lamps and
@@ -2090,7 +2090,7 @@
       }
       for (const v of homes) {
         const hx = v.home.tileX, hy = v.home.tileY, id = hx + ',' + hy;
-        if (!first.ids.has(id) && (C.h2(hx, hy, 913) >= 0.35 || !has('fences', hx + 3, hy + 1))) continue;
+        if (!first.ids.has(id) && (!LH.bld.gardenHome(hx, hy) || !has('fences', hx + 3, hy + 1))) continue;
         const pen = penFor(v);
         if (!pen) continue;
         pens.push(pen);

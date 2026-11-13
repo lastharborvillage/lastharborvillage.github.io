@@ -473,7 +473,7 @@
     const box = $('stats');
     box.replaceChildren(...stats.map(([n, l]) => { const d = el('div', 'stat'); d.appendChild(el('b', null, String(n))); d.appendChild(el('span', null, l.toUpperCase())); return d; }));
     $('day-badge').textContent = D.open ? 'Day ' + w.story.day : 'Opening soon';
-    $('village-where').textContent = D.where;
+    if ($('village-where')) $('village-where').textContent = D.where;
     // the card on the map: the day, everyone who lives here, and the next upgrade
     $('map-day').textContent = D.open ? 'DAY ' + w.story.day : 'SOON';
     $('map-live').textContent = Math.max(w.story.followers || 0, w.villagers.length).toLocaleString('en-US'); // followers (most villagers follow too)

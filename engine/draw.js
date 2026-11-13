@@ -490,9 +490,50 @@
       rect(g, 'stone2', 0, 0, T, T);
       for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const ox = (y % 2) * 2; rect(g, 'stone', x * 4 + ox, y * 4, 3, 3); px(g, 'stone3', x * 4 + ox, y * 4); }
     } else if (type === 'boards') {
-      rect(g, 'wood3', 0, 0, T, T);
-      for (let y = 3; y < T; y += 4) rect(g, 'wood', 0, y, T, 1);
-      for (let y = 0; y < 4; y++) { const x = (y * 7 + variant * 3) % 14; rect(g, 'wood', x, y * 4, 1, 3); px(g, 'wood2', x + 1, y * 4 + 1); }
+      // the harbour deck (map.js rect x -7..7, y 0..3), redesigned 2026-11-13 (the user: "still the exact
+      // same as from the start"). variant = "tx,ty": every tile knows where it sits in the deck, so the
+      // deck is drawn as one piece: a dark frame with cut corners, planks of mixed lengths and tones with
+      // staggered joints and nails, and a landing of crosswise boards in the middle under the board.
+      const [tx, ty] = String(variant).split(',').map(Number);
+      const X0 = -7 * T, X1 = 8 * T - 1, Y0 = 0, Y1 = 4 * T - 1;
+      const LX0 = -1 * T + 4, LX1 = 3 * T - 5; // the landing
+      const hh = (a, b, s) => C.h2(a, b, s);
+      for (let ly = 0; ly < T; ly++) for (let lx = 0; lx < T; lx++) {
+        const X = tx * T + lx, Y = ty * T + ly;
+        const dl = X - X0, dr = X1 - X, dt = Y - Y0, db = Y1 - Y;
+        // cut corners: sand shows through
+        if (Math.min(dl, dr) + Math.min(dt, db) < 5) { px(g, hh(X, Y, 5) < 0.3 ? 'sand2' : 'sand', lx, ly); continue; }
+        // the frame: a dark beam round the edge, a shadowed lip along the front
+        if (db < 2) { px(g, db === 0 ? 'ink' : 'wood', lx, ly); continue; }
+        if (dl < 2 || dr < 2 || dt < 1) { px(g, 'wood', lx, ly); continue; }
+        let col;
+        if (X >= LX0 && X <= LX1 && dt >= 3 && db >= 4) {
+          // the landing: boards running front to back, edged by a dark rim
+          if (X - LX0 < 1 || LX1 - X < 1 || dt === 3 || db === 4) col = 'wood';
+          else {
+            const bx = Math.floor((X - LX0 - 1) / 4), gap = (X - LX0 - 1) % 4 === 3;
+            const tone = hh(bx, 77, 9);
+            col = gap ? 'wood' : tone < 0.25 ? 'wood2' : (Y + bx * 5) % 13 === 0 ? 'wood' : 'wood3';
+            if (!gap && (dt === 5 || db === 6) && (X - LX0) % 4 === 2) col = 'wood'; // nails at the board ends
+          }
+        } else {
+          // planks along the deck, 4 px rows, each board 9-20 px long with its own tone
+          const row = Math.floor((Y - 1) / 4), inRow = (Y - 1) % 4;
+          if (inRow === 3) col = 'wood';
+          else {
+            // board joints: walk along the row from the left edge
+            let x = X0 - Math.floor(hh(row, 3, 11) * 12), b = 0, len = 0;
+            while (true) { len = 16 + Math.floor(hh(row, b, 13) * 18); if (x + len > X) break; x += len; b++; }
+            const joint = X === x, tone = hh(row, b, 17);
+            col = joint ? 'wood' : tone < 0.18 ? 'wood2' : tone > 0.9 ? 'sand3' : 'wood3';
+            if (!joint && X === x + 2 && inRow === 1 && hh(row, b, 23) < 0.5) col = 'wood'; // a nail now and then
+            if (!joint && col === 'wood3' && inRow === 1 && hh(Math.floor(X / 3), Y, 19) < 0.06) col = 'wood'; // grain
+          }
+        }
+        px(g, col, lx, ly);
+      }
+      // mooring posts along the front edge
+      for (const ptx of [-6, -2, 4, 7]) if (tx === ptx && ty === 3) { rect(g, 'ink', 5, 9, 5, 6); rect(g, 'wood', 6, 9, 3, 5); rect(g, 'wood3', 6, 9, 3, 1); }
     } else if (type === 'field') {
       // variant "crop-dir" (map.fieldKind). Rows every 4 px so they run on across tiles.
       const [crop, dir] = String(variant).split('-');
@@ -1794,7 +1835,7 @@
   // meet, each tile lets the other kind creep in for a few pixels in ragged clumps, so areas run into
   // each other instead of meeting on a straight tile edge. Composed once per tile and cached.
   const BLEND = ['grass', 'darkgrass', 'rockgrass', 'sand', 'field'];
-  const tileVariant = (g, x, y) => g === 'field' ? map.fieldKind(x, y) : Math.floor(C.h2(x, y, 1) * 4);
+  const tileVariant = (g, x, y) => g === 'field' ? map.fieldKind(x, y) : g === 'boards' ? x + ',' + y : Math.floor(C.h2(x, y, 1) * 4);
   const blendCache = new Map();
   function blendTile(g, tx, ty, gAt) {
     const nb = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([sx, sy]) => { const n = gAt(tx + sx, ty + sy); return BLEND.includes(n) && n !== g ? n : null; });
@@ -2061,7 +2102,7 @@
       }
       const soft = BLEND.includes(g) && blendTile(g, tx, ty, gAt);
       if (soft) { g2.drawImage(soft, tx * T - ox, ty * T - oy); return true; }
-      g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
+      g2.drawImage(tileCanvas(g, g === 'field' ? map.fieldKind(tx, ty) : g === 'boards' ? tx + ',' + ty : Math.floor(C.h2(tx, ty, 1) * 4)), tx * T - ox, ty * T - oy);
       if (g === 'cobble') {
         // the market square is a rounded patch, not a rectangle (2026-11-10): grass outside a soft,
         // slightly ragged oval over the reserved area, with a few loose stones along the edge

@@ -200,6 +200,8 @@ dialog::backdrop { background: rgba(12, 16, 32, 0.6); }
 #v-name { margin-bottom: 2px; }
 .v-job { font: 400 12px var(--label); color: var(--lanternhi); margin-bottom: 8px; }
 .v-trait { font-size: 16px; }
+.v-social { display: inline-block; margin: 6px 0 2px; font: 400 12px var(--label); color: var(--lanternhi); text-decoration: none; border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; }
+.v-social:hover { text-decoration: underline; }
 .v-crew { font: 400 11px var(--label); color: var(--gold); margin-bottom: 4px; }
 .v-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .toast { min-height: 1.4em; margin: 10px 0 0; font-size: 13px; color: var(--grass); }

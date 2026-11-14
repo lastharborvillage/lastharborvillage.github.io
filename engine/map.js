@@ -415,6 +415,7 @@
   // Objects viewers can ask for (each has a drawer in engine/draw.js PROPS). New kinds are added here
   // and in PROPS together.
   const PROP_TYPES = ['sign', 'flag', 'bench', 'lamppost', 'barrel', 'crate', 'netrack', 'plankpile', 'sawhorse', 'rowboat', 'buoy'];
+  PROP_TYPES.push('horse', 'cart', 'shark', 'bunker', 'foodstall'); // added 2026-11-14 (expansion run, viewers' ideas)
   // Is tile (x, y) inside any house plot (house, front path and yard: 2x3 from a plot origin)?
   const inPlot = (x, y) => {
     for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isPlot(ox, oy)) return true;
@@ -484,6 +485,13 @@
     // added 2026-11-10 (by hand, at the user's request: more landmarks)
     bandstand: { w: 2, h: 2 }, hotspring: { w: 3, h: 2 }, wreck: { w: 3, h: 2 }, wishtree: { w: 2, h: 2 }, oven: { w: 2, h: 2 },
     lookout: { w: 2, h: 2 }, apiary: { w: 3, h: 1 }, maze: { w: 3, h: 3 }, sundial: { w: 1, h: 1 }, totem: { w: 1, h: 1 },
+    // added 2026-11-14 by hand (user): Barold's wreck turned shop, stuck on rocks; same footprint as ruins
+    wreckshop: { w: 3, h: 3 },
+    // added 2026-11-14 (idea build): a guild hall with a request board
+    guildhall: { w: 3, h: 2 },
+    // added 2026-11-14 (expansion run, viewers' ideas): town hall, sawmill, fox statue, warrior statue, chicken farm, defences
+    townhall: { w: 3, h: 2 }, sawmill: { w: 3, h: 2 }, foxstatue: { w: 1, h: 1 }, warriorstatue: { w: 1, h: 1 },
+    henhouse: { w: 3, h: 2 }, palisade: { w: 3, h: 1 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.
@@ -747,6 +755,7 @@
   // Boats and buoys float (2026-11-11: Slaxx's rowboat had been put on the grass). A free water spot
   // 1-3 tiles off the shore, nearest to column ax, clear of the docks and of other objects.
   const WATER_PROPS = ['rowboat', 'buoy'];
+  WATER_PROPS.push('shark'); // added 2026-11-14: a shark swims (or pulls a rowboat), off the shore
   function waterSpot(world, ax) {
     const docks = (world.props || []).filter((p) => p.type === 'dock');
     const taken = (world.props || []).filter((p) => p.type !== 'dock').map((p) => [p.x, p.y]);

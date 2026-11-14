@@ -200,6 +200,11 @@
     sign: { title: 'A Sign', kicker: 'Village', text: 'A villager put this sign up.' },
     flag: { title: 'A Flag', kicker: 'Village', text: 'A villager raised this flag.' },
   };
+  PLACE_TEXT.horse = { title: 'A Horse', kicker: 'Village', text: 'A horse of the village, grazing when nobody needs it.' };
+  PLACE_TEXT.cart = { title: 'A Cart', kicker: 'Village', text: 'A wooden cart for carrying things round the village.' };
+  PLACE_TEXT.shark = { title: 'A Shark', kicker: 'Sea', text: 'A fin in the harbour water. It keeps to itself.' };
+  PLACE_TEXT.bunker = { title: 'A Bunker', kicker: 'Village', text: 'A small bunker dug into a grassy mound.' };
+  PLACE_TEXT.foodstall = { title: 'A Food Stall', kicker: 'Village', text: 'Something warm to eat, right off the counter.' };
 
   // Every tappable place with its box in world pixels [x0, y0, x1, y1].
   function places() {
@@ -232,7 +237,14 @@
       push({ id: 'camp', title: 'The Camp', kicker: 'Beach · ' + n.toLocaleString('en-US') + (n === 1 ? ' tent' : ' tents'), text: 'Every follower without a house lives here, in a tent on the beach. ' + (n === 1 ? 'One tent so far.' : n.toLocaleString('en-US') + ' tents so far, and the camp keeps growing along the coast.') + ' Follow, and yours goes up the next day. Comment a name and a job to move from your tent into a house.' }, [Math.min(...xs) - 6, Math.min(...ys) - 10, Math.max(...xs) + 6, Math.max(...ys) + 2]);
     }
     // landmarks: the big changes the story made (a cave, a clearing, ruins...), each with its story
-    const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue', beacon: 'Beacon', windmill: 'Windmill', well: 'Well', festival: 'Festival square', greenhouse: 'Greenhouse', observatory: 'Observatory', fountain: 'Fountain', belltower: 'Bell tower', treehouse: 'Treehouse', balloon: 'Balloon', fishracks: 'Fish racks', orchard: 'Orchard', gate: 'Gate', maypole: 'Maypole', boat: 'Boat', bandstand: 'Bandstand', hotspring: 'Hot spring', wreck: 'Old wreck', wishtree: 'Wishing tree', oven: 'Bread oven', lookout: 'Lookout', apiary: 'Beehives', maze: 'Hedge maze', sundial: 'Sundial', totem: 'Totem pole' };
+    const KIND = { cave: 'Cave', clearing: 'Clearing', ruins: 'Ruins', stones: 'Standing stones', mine: 'Mine', tower: 'Tower', shrine: 'Shrine', pond: 'Pond', garden: 'Garden', campfire: 'Campfire', pit: 'A hole', statue: 'Statue', beacon: 'Beacon', windmill: 'Windmill', well: 'Well', festival: 'Festival square', greenhouse: 'Greenhouse', observatory: 'Observatory', fountain: 'Fountain', belltower: 'Bell tower', treehouse: 'Treehouse', balloon: 'Balloon', fishracks: 'Fish racks', orchard: 'Orchard', gate: 'Gate', maypole: 'Maypole', boat: 'Boat', bandstand: 'Bandstand', hotspring: 'Hot spring', wreck: 'Old wreck', wishtree: 'Wishing tree', oven: 'Bread oven', lookout: 'Lookout', apiary: 'Beehives', maze: 'Hedge maze', sundial: 'Sundial', totem: 'Totem pole', wreckshop: 'Wreck shop' };
+    KIND.guildhall = 'Guild hall';
+    KIND.townhall = 'Town hall';
+    KIND.sawmill = 'Sawmill';
+    KIND.foxstatue = 'Fox statue';
+    KIND.warriorstatue = 'Warrior statue';
+    KIND.henhouse = 'Chicken farm';
+    KIND.palisade = 'Village wall';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;
@@ -244,7 +256,7 @@
       else if (l.type === 'tower') push(info, [x0, y0 + 30 - 56, x0 + s.w * T, y0 + s.h * T]);
       else push(info, [x0, y0 - 14, x0 + s.w * T, y0 + s.h * T + 2]);
     }
-    const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7], sign: [11, 26] };
+    const SIZE = { dock: null, board: [14, 27], lamppost: [4, 26], barrel: [6, 12], crate: [7, 12], rowboat: [12, 9], buoy: [5, 9], netrack: [10, 15], plankpile: [11, 15], sawhorse: [9, 10], bench: [9, 7], sign: [10, 22] };
     for (const p of w.props || []) {
       const base = PLACE_TEXT[p.type];
       if (!base && !p.name) continue;

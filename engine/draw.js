@@ -770,15 +770,47 @@
     },
     // A wooden sign a viewer asked for. o.text is shown on the website; here it is suggested by
     // short pen strokes (pixel text this small would not be readable). o.color tints the board.
+    // Redesigned 2026-11-14 (the user: "they look like big billboards"; they were 21x12 boards on a
+    // 16 px pole, bigger than a villager): now a small board at chest height, in one of three shapes
+    // picked per sign (a two-plank board, an arrow pointing the way, a board hanging from an arm),
+    // with nails, a seam and a tuft of grass at the foot of the post.
     sign(c, x, y, o) {
-      rect(c, 'ink', x - 1, y - 16, 3, 16); rect(c, 'wood2', x, y - 16, 1, 16);
-      const [b1, b2] = o.color ? LH.fam(o.color, 'tan') : ['wood3', 'wood'];
-      rect(c, 'ink', x - 10, y - 25, 21, 12); rect(c, b1, x - 9, y - 24, 19, 10); rect(c, b2, x - 9, y - 16, 19, 2);
       const r = C.rng(C.hashStr(o.text || o.name || 'sign'));
-      for (let row = 0; row < 2; row++) {
-        let xx = x - 7;
-        while (xx < x + 7) { const len = 2 + Math.floor(r() * 4); rect(c, 'wood4', xx, y - 22 + row * 3, Math.min(len, x + 7 - xx), 1); xx += len + 1; }
+      const [b1, b2] = o.color ? LH.fam(o.color, 'tan') : ['wood3', 'wood'];
+      const kind = Math.floor(r() * 3), dir = r() < 0.5 ? -1 : 1;
+      const cells = new Set(), key = (a, b) => a + ',' + b;
+      const fill = (x0, y0, w, h) => { for (let yy = y0; yy < y0 + h; yy++) for (let xx = x0; xx < x0 + w; xx++) cells.add(key(xx, yy)); };
+      let top, x0, x1; // the board's first row and its inner left/right edge (for the pen strokes)
+      if (kind === 2) { // hanging from an arm on a taller post
+        rect(c, 'ink', x - 1, y - 19, 3, 19); rect(c, 'wood2', x, y - 19, 1, 19);
+        const ax = dir > 0 ? x + 1 : x - 9;
+        rect(c, 'ink', ax, y - 20, 9, 3); rect(c, 'wood2', ax, y - 19, 8 + (dir > 0 ? 0 : 1), 1);
+        x0 = dir > 0 ? x + 2 : x - 9; x1 = x0 + 7; top = y - 14;
+        px(c, 'stone2', x0 + 1, y - 16); px(c, 'stone2', x1 - 1, y - 16); px(c, 'stone2', x0 + 1, y - 15); px(c, 'stone2', x1 - 1, y - 15);
+        fill(x0, top, 8, 5); cells.delete(key(x0, top + 4)); cells.delete(key(x1, top + 4));
+      } else {
+        rect(c, 'ink', x - 1, y - 11, 3, 11); rect(c, 'wood2', x, y - 11, 1, 11);
+        top = y - 16; x0 = x - 6; x1 = x + 6;
+        fill(x0, top, 13, 6);
+        if (kind === 1) { // an arrow: one end pointed
+          const tip = dir > 0 ? x1 + 1 : x0 - 1;
+          for (let i = 0; i < 6; i++) { const len = [0, 1, 2, 2, 1, 0][i]; for (let k = 0; k < len; k++) cells.add(key(tip + dir * k, top + i)); }
+          cells.delete(key(dir > 0 ? x0 : x1, top)); cells.delete(key(dir > 0 ? x0 : x1, top + 5));
+        } else { cells.delete(key(x0, top)); cells.delete(key(x1, top)); cells.delete(key(x0, top + 5)); cells.delete(key(x1, top + 5)); }
       }
+      // ink outline round the board, then the wood: a seam between two planks and a darker bottom edge
+      for (const k of cells) { const [a, b] = k.split(',').map(Number); for (const [sx, sy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!cells.has(key(a + sx, b + sy))) px(c, 'ink', a + sx, b + sy); }
+      const rows = kind === 2 ? 5 : 6;
+      for (const k of cells) { const [a, b] = k.split(',').map(Number); const row = b - top; px(c, row === rows - 1 || (kind !== 2 && row === 3) ? b2 : b1, a, b); }
+      // nails and the pen strokes (one or two short lines of "writing")
+      px(c, 'ink', x0 + 1, top + 1); px(c, 'ink', x1 - 1, top + 1);
+      const lines = kind === 2 ? [top + 2] : [top + 1, top + 4];
+      for (const ly of lines) {
+        let xx = x0 + (ly === top + 1 ? 3 : 2); const xe = x1 - (ly === top + 1 ? 3 : 2);
+        while (xx < xe) { const len = 1 + Math.floor(r() * 3); rect(c, 'wood4', xx, ly, Math.min(len, xe - xx), 1); xx += len + 1; }
+      }
+      // grass at the foot of the post
+      px(c, 'moss', x - 2, y - 1); px(c, 'moss2', x - 2, y - 2); px(c, 'moss', x + 2, y - 1); px(c, 'grass', x + 3, y - 2);
     },
     // A flag a viewer asked for: o.color (and o.color2) from the colour families, o.pattern plain,
     // stripes, half, cross or dot. The cloth waves.
@@ -802,6 +834,108 @@
       for (let yy = 0; yy < len; yy += 12) { rect(c, 'ink', x + 1, y - yy - 2, 3, 6); rect(c, 'ink', x + 20, y - yy - 2, 3, 6); rect(c, 'wood2', x + 2, y - yy - 2, 1, 6); rect(c, 'wood2', x + 21, y - yy - 2, 1, 6); }
       rect(c, 'ink', x, y - len, 24, len);
       for (let yy = 0; yy < len - 1; yy += 3) { rect(c, 'wood3', x + 1, y - len + 1 + yy, 22, 2); px(c, 'wood', x + 4 + ((yy * 7) % 15), y - len + 1 + yy); }
+    },
+    // ---- added 2026-11-14 (expansion run, viewers' ideas) ----
+    // A horse, side on, facing east; its tail swishes and now and then it grazes. o.color (coat, a colour
+    // family, default brown), o.color2 (mane and tail), o.saddle (a colour family: a saddle blanket).
+    // o.hitched (set by the cart) keeps its head up.
+    horse(c, x, y, o, t) {
+      const [h1, h2] = o.color ? LH.fam(o.color, 'brown') : ['wood', 'wood2'];
+      const mane = o.color2 ? LH.fam(o.color2, 'dark')[0] : 'wood4';
+      const graze = !o.hitched && Math.floor(t * 0.4 + x * 0.13) % 3 === 0;
+      const sw = Math.round(Math.sin(t * 3 + x) * 1);
+      for (let i = 0; i < 7; i++) px(c, mane, x - 10 + (i > 3 ? sw : 0), y - 13 + i); // the tail
+      for (const lx of [x - 7, x - 4, x + 3, x + 6]) { rect(c, 'ink', lx - 1, y - 8, 3, 8); rect(c, h2, lx, y - 7, 1, 6); }
+      rect(c, 'ink', x - 9, y - 15, 18, 8); rect(c, h1, x - 8, y - 14, 16, 6); rect(c, h2, x - 8, y - 9, 16, 1);
+      if (o.saddle) { rect(c, 'ink', x - 3, y - 16, 7, 4); rect(c, LH.fam(o.saddle, 'red')[0], x - 2, y - 15, 5, 2); }
+      if (graze) {
+        rect(c, 'ink', x + 6, y - 14, 5, 9); rect(c, h1, x + 7, y - 13, 3, 8); rect(c, mane, x + 6, y - 13, 1, 6);
+        rect(c, 'ink', x + 8, y - 6, 7, 5); rect(c, h1, x + 9, y - 5, 5, 3); px(c, h2, x + 13, y - 3); px(c, 'ink', x + 10, y - 5);
+        px(c, 'grass', x + 14, y - 1); px(c, 'moss', x + 12, y);
+      } else {
+        rect(c, 'ink', x + 5, y - 21, 5, 9); rect(c, h1, x + 6, y - 20, 3, 8); rect(c, mane, x + 5, y - 20, 1, 7);
+        rect(c, 'ink', x + 7, y - 23, 8, 5); rect(c, h1, x + 8, y - 22, 6, 3); px(c, h2, x + 13, y - 20); px(c, 'ink', x + 9, y - 22);
+        rect(c, 'ink', x + 7, y - 25, 2, 2);
+      }
+    },
+    // A two-wheeled wooden cart. o.load: hay, logs, barrels or fish (default empty); o.horse: true hitches a
+    // horse in front (o.horseColor, a colour family).
+    cart(c, x, y, o, t) {
+      if (o.horse) PROPS.horse(c, x + 21, y, { color: o.horseColor, hitched: true }, t);
+      rect(c, 'wood2', x + 6, y - 11, 11, 1); rect(c, 'wood2', x + 6, y - 9, 11, 1); // the shafts
+      const load = o.load || '';
+      if (load === 'hay') { blob(c, 'gold', x - 2, y - 16, 8, 4); for (let i = 0; i < 6; i++) px(c, 'gold2', x - 8 + i * 3, y - 17 + (i % 2) * 2); }
+      else if (load === 'logs') for (let i = 0; i < 3; i++) { const ly = y - 19 - (i === 1 ? 2 : 0), lx = x - 9 + i * 5; rect(c, 'ink', lx, ly, 6, 6); rect(c, 'wood3', lx + 1, ly + 1, 4, 4); px(c, 'wood', lx + 2, ly + 2); }
+      else if (load === 'barrels') for (const bx of [x - 6, x + 2]) { rect(c, 'ink', bx - 3, y - 20, 7, 9); rect(c, 'wood', bx - 2, y - 19, 5, 8); rect(c, 'stone2', bx - 2, y - 17, 5, 1); }
+      else if (load === 'fish') for (let i = 0; i < 4; i++) { const fx = x - 8 + i * 4, fy = y - 15 - (i % 2); rect(c, 'ink', fx, fy, 4, 3); px(c, 'fog', fx + 1, fy + 1); px(c, 'fog3', fx + 2, fy + 1); }
+      rect(c, 'ink', x - 11, y - 13, 19, 6); rect(c, 'wood3', x - 10, y - 12, 17, 4); rect(c, 'wood', x - 10, y - 10, 17, 1); rect(c, 'wood2', x - 10, y - 9, 17, 1);
+      for (const sx of [x - 11, x + 6]) rect(c, 'ink', sx, y - 17, 2, 5);
+      const wx = x - 3, wy = y - 5; // the wheel
+      for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; px(c, 'ink', wx + Math.round(Math.cos(a) * 5), wy + Math.round(Math.sin(a) * 5)); px(c, 'wood2', wx + Math.round(Math.cos(a) * 4), wy + Math.round(Math.sin(a) * 4)); }
+      for (let k = 0; k < 4; k++) { const a = (k * Math.PI) / 4 + 0.2; for (let r = -3; r <= 3; r++) px(c, 'wood', wx + Math.round(Math.cos(a) * r), wy + Math.round(Math.sin(a) * r)); }
+      rect(c, 'ink', wx - 1, wy - 1, 3, 3); px(c, 'wood3', wx, wy);
+    },
+    // A shark (a water object, map.WATER_PROPS): a grey fin circling with its shadow under the water.
+    // o.boat: true = tamed, pulling a rowboat on a rope. On land (onLand): a shark in a water tub.
+    shark(c, x, y, o, t) {
+      const fin = (fx, fy) => {
+        px(c, 'ink', fx, fy - 7);
+        for (let r = 0; r < 6; r++) { const w = 1 + Math.floor(r * 0.7); rect(c, 'ink', fx - 1, fy - 6 + r, w + 2, 1); rect(c, r > 3 ? 'stone2' : 'stone', fx, fy - 6 + r, w, 1); }
+        px(c, 'stone3', fx, fy - 5);
+      };
+      if (map.isLand(Math.floor(x / T), Math.floor(y / T))) {
+        rect(c, 'ink', x - 9, y - 8, 18, 8); rect(c, 'wood', x - 8, y - 6, 16, 5); rect(c, 'wood3', x - 8, y - 6, 1, 5); rect(c, 'stone2', x - 8, y - 4, 16, 1);
+        rect(c, 'sea2', x - 8, y - 7, 16, 1);
+        fin(x + Math.round(Math.sin(t * 1.5 + x) * 4), y - 7);
+        return;
+      }
+      if (o.boat) {
+        const b = Math.round(Math.sin(t * 2.2 + x) * 1);
+        PROPS.rowboat(c, x - 10, y, {}, t);
+        for (let i = 0; i <= 8; i++) px(c, 'sand2', x + 1 + i, y - 4 + Math.round(i * 0.3) + (i > 4 ? b : 0)); // the rope
+        c.globalAlpha = 0.35; rect(c, 'night', x + 8, y - 1 + b, 16, 3); c.globalAlpha = 1;
+        fin(x + 13, y + b);
+        for (let i = 0; i < 4; i++) { px(c, 'foam', x + 7 - i * 2, y + 1 + b - (i % 2)); px(c, 'foam2', x + 18 + i, y + b); }
+        return;
+      }
+      const a = t * 0.9 + x, sx = x + Math.round(Math.cos(a) * 8), sy = y + Math.round(Math.sin(a) * 2);
+      c.globalAlpha = 0.35; rect(c, 'night', sx - 8, sy - 1, 16, 3); c.globalAlpha = 1;
+      fin(sx, sy);
+      rect(c, 'foam', sx - 2, sy + 1, 7, 1); px(c, 'foam2', sx - 3, sy); px(c, 'foam2', sx + 5, sy);
+    },
+    // A small bunker: a grassy mound with a stone front, a sturdy door (o.color) and an air pipe.
+    bunker(c, x, y, o) {
+      blob(c, 'moss2', x, y - 6, 12, 6); blob(c, 'moss', x - 2, y - 8, 8, 3, null); blob(c, 'pine', x + 3, y - 2, 8, 2, null);
+      for (let i = 0; i < 6; i++) { px(c, 'grass', x - 9 + i * 4, y - 9 + (i % 3) * 2); px(c, 'grass', x - 9 + i * 4, y - 10 + (i % 3) * 2); }
+      for (const sx of [x - 11, x + 8]) { rect(c, 'ink', sx, y - 4, 5, 4); rect(c, 'sand2', sx + 1, y - 3, 3, 2); } // sandbags
+      rect(c, 'ink', x + 4, y - 15, 3, 7); rect(c, 'stone2', x + 5, y - 14, 1, 6); rect(c, 'ink', x + 3, y - 16, 5, 2); // the air pipe
+      rect(c, 'ink', x - 6, y - 9, 11, 9); rect(c, 'stone', x - 5, y - 8, 9, 8); rect(c, 'stone3', x - 5, y - 8, 9, 1);
+      rect(c, 'ink', x - 3, y - 6, 5, 6); rect(c, o.color ? LH.fam(o.color, 'grey')[0] : 'stone2', x - 2, y - 5, 3, 5); px(c, 'gold', x, y - 3);
+    },
+    // A food stall with a striped awning (o.color, default red) over a counter. o.food: shawarma (default: a
+    // turning spit by a glowing grill), soup (a steaming pot) or fish (fish on a grill).
+    foodstall(c, x, y, o, t, L) {
+      const a1 = o.color ? LH.fam(o.color, 'red')[0] : 'ember';
+      for (const p of [x - 11, x + 9]) { rect(c, 'ink', p, y - 22, 3, 22); rect(c, 'wood2', p + 1, y - 21, 1, 21); }
+      const food = o.food || 'shawarma';
+      if (food === 'soup') {
+        rect(c, 'ink', x - 5, y - 15, 10, 7); rect(c, 'stone2', x - 4, y - 14, 8, 6); rect(c, 'lantern2', x - 4, y - 14, 8, 1);
+        for (let i = 0; i < 3; i++) { const ph = (t * 0.7 + i / 3) % 1; px(c, i % 2 ? 'fog2' : 'fog', x - 2 + i * 2 + Math.round(Math.sin(ph * 6) * 1), y - 16 - Math.round(ph * 6)); }
+      } else if (food === 'fish') {
+        rect(c, 'ink', x - 7, y - 11, 14, 2);
+        for (let i = 0; i < 3; i++) { rect(c, 'ink', x - 6 + i * 4, y - 14, 4, 3); px(c, 'fog', x - 5 + i * 4, y - 13); px(c, 'wood3', x - 4 + i * 4, y - 13); }
+        px(c, Math.floor(t * 8) % 2 ? 'ember' : 'lantern', x - 2, y - 10);
+      } else {
+        rect(c, 'ink', x - 1, y - 21, 2, 3); px(c, 'stone3', x - 1, y - 21);
+        for (let r = 0; r < 8; r++) { const hw = 3 - Math.floor(r / 3); rect(c, 'ink', x - hw - 1, y - 18 + r, hw * 2 + 2, 1); rect(c, (r + Math.floor(t * 4)) % 2 ? 'wood3' : 'lantern2', x - hw, y - 18 + r, hw * 2, 1); }
+        rect(c, 'ink', x + 4, y - 19, 3, 10); rect(c, Math.floor(t * 6) % 2 ? 'ember' : 'lantern', x + 5, y - 18, 1, 8);
+        if (L) L.push({ x: x + 5.5, y: y - 14, r: 10, kind: 'lamp' });
+      }
+      rect(c, 'ink', x - 12, y - 9, 24, 9); rect(c, 'wood', x - 11, y - 8, 22, 8); rect(c, 'wood3', x - 11, y - 8, 22, 1); rect(c, 'wood2', x - 11, y - 4, 22, 1);
+      rect(c, 'cream', x - 9, y - 10, 3, 1); rect(c, 'cream', x + 6, y - 10, 3, 1);
+      rect(c, 'ink', x - 13, y - 27, 26, 6);
+      for (let i = 0; i < 24; i++) rect(c, Math.floor(i / 3) % 2 ? 'white' : a1, x - 12 + i, y - 26, 1, 4);
+      for (let i = 0; i < 8; i++) { rect(c, 'ink', x - 12 + i * 3, y - 21, 3, 2); rect(c, i % 2 ? 'white' : a1, x - 11 + i * 3, y - 21, 1, 1); }
     },
   };
 
@@ -862,6 +996,70 @@
       for (let i = 0; i < 6; i++) px(c, 'moss', x0 + 4 + i * 7, by - 22 + (i % 3) * 4);
       if ((l.stage || 0) >= 1) { rect(c, 'wood2', x0 + 33, by - 34, 1, 16); rect(c, 'wood2', x0 + 43, by - 34, 1, 8); rect(c, 'wood3', x0 + 32, by - 34, 13, 1); }
       if ((l.stage || 0) >= 2) { rect(c, 'lantern', x0 + 22, by - 12, 3, 3); glow(lights, x0 + 23, by - 11); }
+    },
+    // Barold's cargo ship stuck on rocks, turned into a shop (2026-11-14, The Wreck Shop): a tilted hull,
+    // broken mast with a torn sail, a striped awning over a counter cut into the side, a coin sign, nailed-shut
+    // crates and a barrel. 1 a lamp on the awning and a lit counter; 2 a pennant on the mast; 3 bunting to the bow.
+    wreckshop(c, x0, y0, l, t, lights) {
+      const by = y0 + 48, st = l.stage || 0;
+      blob(c, 'sand2', x0 + 24, by - 4, 25, 5, null); // wet sand under it
+      const L = x0 + 1, R = x0 + 44, tops = {}, bots = {};
+      for (let x = L; x <= R; x++) { // the hull, side on, tipped bow-up on the rocks
+        const u = (x - L) / (R - L), top = Math.round(by - 27 - u * 9), base = by - 9 - u * 7;
+        let bot = u > 0.55 ? base - ((u - 0.55) / 0.45) ** 1.6 * (base - top - 1) : base;
+        if (u < 0.08) bot -= (0.08 - u) * 40;
+        bot = Math.round(bot); tops[x] = top; bots[x] = bot;
+        rect(c, 'ink', x, top - 1, 1, bot - top + 3);
+        for (let y = top; y <= bot; y++) {
+          const r = y - top, near = bot - y;
+          rect(c, r < 2 ? 'wood3' : near < 2 ? 'wood4' : r % 4 === 1 ? 'wood2' : 'wood', x, y, 1, 1);
+        }
+        if ((x * 7) % 5 === 0 && bot - top > 4) px(c, 'moss', x, bot - 1); // weed and barnacles on the waterline
+      }
+      rect(c, 'ink', L - 1, tops[L], 1, bots[L] - tops[L] + 1);
+      for (let i = 0; i < 7; i++) px(c, i < 6 ? 'wood2' : 'ink', R + 1 + i, tops[R] - 1 - Math.round(i * 0.6)); // the bowsprit
+      for (const [hx, hy] of [[x0 + 6, by - 21], [x0 + 37, by - 28]]) { rect(c, 'ink', hx, hy, 3, 3); px(c, 'wood3', hx + 1, hy - 1); }
+      rect(c, 'ink', x0 + 9, by - 13, 3, 2); px(c, 'ink', x0 + 10, by - 14); // a hole stove in by the rocks
+      blob(c, 'stone', x0 + 38, by - 9, 8, 6); blob(c, 'stone2', x0 + 46, by - 5, 4, 3); // the rock it is stuck on, under the raised bow
+      blob(c, 'stone2', x0 + 3, by - 4, 4, 3);
+      px(c, 'stone3', x0 + 35, by - 13); px(c, 'stone3', x0 + 36, by - 13); px(c, 'stone3', x0 + 41, by - 11);
+      // the broken mast leaning back, a spar and a torn sail
+      const mb = tops[x0 + 25];
+      for (let i = 0; i < 17; i++) { const mx = x0 + 25 - Math.round(i * 0.2); rect(c, 'ink', mx - 1, mb - 1 - i, 4, 1); rect(c, 'wood2', mx, mb - 1 - i, 2, 1); }
+      const mt = mb - 18;
+      px(c, 'ink', x0 + 21, mt); px(c, 'wood2', x0 + 22, mt + 1); // splintered top
+      rect(c, 'ink', x0 + 15, mt + 3, 14, 3); rect(c, 'wood', x0 + 16, mt + 4, 12, 1);
+      for (let r = 0; r < 8; r++) { const w = 10 - r - (r % 3 === 2 ? 2 : 0); rect(c, 'ink', x0 + 15, mt + 6 + r, w + 2, 1); rect(c, r % 3 ? 'cream' : 'fog2', x0 + 16, mt + 6 + r, w, 1); }
+      // the shop: a hatch cut in the hull side with goods on a shelf and a counter, a striped awning over it
+      rect(c, 'ink', x0 + 15, by - 26, 15, 9); rect(c, 'wood4', x0 + 16, by - 25, 13, 7); rect(c, 'wood2', x0 + 16, by - 22, 13, 1);
+      const goods = ['teal', 'gold', 'rose', 'foam', 'lantern', 'plum'];
+      for (let i = 0; i < 6; i++) rect(c, goods[i], x0 + 17 + i * 2, by - 25 + (i % 2), 1, 3 - (i % 2));
+      rect(c, 'ink', x0 + 14, by - 18, 17, 3); rect(c, 'wood3', x0 + 15, by - 18, 15, 2);
+      px(c, 'fog', x0 + 17, by - 19); px(c, 'fog', x0 + 18, by - 19); px(c, 'fog3', x0 + 19, by - 19); // a fish
+      rect(c, 'teal', x0 + 23, by - 21, 1, 3); px(c, 'teal2', x0 + 23, by - 22); // a bottle
+      rect(c, 'wood4', x0 + 26, by - 20, 2, 2); px(c, 'wood4', x0 + 28, by - 19); px(c, 'ember', x0 + 27, by - 21); // the boot (and its crab)
+      for (let x = x0 + 13; x <= x0 + 31; x++) {
+        const s = Math.floor((x - x0 - 13) / 3) % 2 ? 'cream' : 'ember';
+        rect(c, 'ink', x, by - 31, 1, 5); rect(c, s, x, by - 30, 1, 3);
+        if ((x - x0 - 13) % 3 === 1) { px(c, s, x, by - 27); px(c, 'ink', x, by - 26); }
+      }
+      // the shop sign on a post: a gold coin
+      rect(c, 'ink', x0 + 31, by - 13, 3, 13); rect(c, 'wood2', x0 + 32, by - 13, 1, 12);
+      rect(c, 'ink', x0 + 28, by - 19, 9, 7); rect(c, 'wood3', x0 + 29, by - 18, 7, 5);
+      rect(c, 'gold', x0 + 31, by - 17, 3, 3); px(c, 'gold2', x0 + 33, by - 15);
+      // crates from the hold, nailed shut, and a barrel
+      const crate = (x, y, s) => { rect(c, 'ink', x - 1, y - 1, s + 2, s + 2); rect(c, 'wood', x, y, s, s); rect(c, 'wood3', x, y, s, 1);
+        for (let k = 1; k < s - 1; k++) { px(c, 'wood2', x + k, y + k); px(c, 'wood2', x + s - 1 - k, y + k); }
+        px(c, 'stone3', x, y); px(c, 'stone3', x + s - 1, y); px(c, 'stone3', x, y + s - 1); px(c, 'stone3', x + s - 1, y + s - 1); };
+      crate(x0 + 4, by - 8, 6); crate(x0 + 11, by - 7, 5); crate(x0 + 6, by - 13, 5);
+      rect(c, 'ink', x0 + 20, by - 9, 6, 8); rect(c, 'wood', x0 + 21, by - 8, 4, 6); rect(c, 'wood3', x0 + 21, by - 8, 1, 6);
+      rect(c, 'stone2', x0 + 21, by - 7, 4, 1); rect(c, 'stone2', x0 + 21, by - 4, 4, 1);
+      if (st >= 1) {
+        rect(c, 'ink', x0 + 30, by - 27, 3, 4); rect(c, 'lantern', x0 + 31, by - 26, 1, 2); glow(lights, x0 + 31, by - 25, 12);
+        glow(lights, x0 + 22, by - 22, 9);
+      }
+      if (st >= 2) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', x0 + 21, mt - 2, 1, 3); rect(c, 'ember', x0 + 22, mt - 2, 4, 1); rect(c, 'gold', x0 + 22, mt - 1 + w, 6, 1); }
+      if (st >= 3) for (let i = 0; i <= 11; i++) { const x = x0 + 24 + i * 2, y = mt + 3 + Math.round(i * 1.2 + Math.sin(i / 11 * Math.PI) * 3); px(c, ['rose', 'gold', 'teal'][i % 3], x, y); }
     },
     stones(c, x0, y0, l, t, lights) {
       const cx = x0 + 24, cy = y0 + 30;
@@ -1376,6 +1574,230 @@
       rect(c, 'ink', cx - 3, wy - 5, 6, 5); rect(c, st >= 1 ? 'ember' : 'wood', cx - 2, wy - 4, 4, 4);
       if (st >= 3) for (let i = 0; i < 2; i++) { const s = i ? 1 : -1; for (let k = 0; k < 7; k++) px(c, i ? 'rose' : 'gold', cx + s * (12 + Math.round(Math.sin(t * 3 + k * 0.6) * 1)), wy + 2 + k); }
     },
+    // added 2026-11-14 (idea build, a viewer's idea): a guild hall that takes villagers' requests. A
+    // half-timbered hall with a plum roof, a gold shield sign in the gable and double doors; beside it a
+    // request board under a little roof with paper notes pinned on. 1 lit windows, a door lantern, more
+    // notes; 2 the guild master (grey hair, white beard, plum robe) pinning up a request; 3 the board full
+    // with a gold seal on a finished request and a guild flag on the roof.
+    guildhall(c, x0, y0, l, t, lights) {
+      const by = y0 + 32, st = l.stage || 0, L = x0 + 2, W = 29, cx = L + 14, wt = by - 17;
+      rect(c, 'ink', L - 1, by - 4, W + 2, 4); rect(c, 'stone', L, by - 3, W, 3); rect(c, 'stone3', L, by - 3, W, 1); // stone plinth
+      rect(c, 'ink', L - 1, wt - 1, W + 2, 14); rect(c, 'cream', L, wt, W, 13); // the walls
+      for (const x of [L, L + 7, L + 21, L + W - 1]) rect(c, 'wood2', x, wt, 1, 13); // timber frame
+      rect(c, 'wood2', L, wt, W, 1); rect(c, 'wood2', L, wt + 5, W, 1);
+      for (const wx of [L + 1, L + 22]) { // a window each side, lit from stage 1
+        rect(c, 'ink', wx, wt + 7, 5, 5); rect(c, st >= 1 ? 'lanternhi' : 'night', wx + 1, wt + 8, 3, 3);
+        rect(c, 'wood2', wx + 2, wt + 8, 1, 3); rect(c, 'wood2', wx + 1, wt + 9, 3, 1);
+        if (st >= 1) glow(lights, wx + 2, wt + 9, 10); else px(c, 'fog2', wx + 1, wt + 8);
+      }
+      rect(c, 'ink', cx - 4, by - 15, 9, 11); rect(c, 'wood', cx - 3, by - 14, 7, 10); rect(c, 'wood2', cx, by - 14, 1, 10); // double doors
+      px(c, 'ink', cx - 3, by - 14); px(c, 'ink', cx + 3, by - 14); px(c, 'gold', cx - 1, by - 9); px(c, 'gold', cx + 1, by - 9);
+      for (let r = 0; r < 12; r++) { // the gable roof, plum shingles
+        const hw = Math.max(1, Math.round(17 - r * 1.4)), y = wt - 2 - r;
+        rect(c, 'ink', cx - hw - 1, y, hw * 2 + 3, 1); rect(c, r % 3 === 2 ? 'plum2' : 'plum', cx - hw, y, hw * 2 + 1, 1);
+      }
+      rect(c, 'ink', cx - 1, wt - 14, 3, 1);
+      rect(c, 'ink', cx - 5, wt - 12, 11, 9); rect(c, 'wood3', cx - 4, wt - 11, 9, 7); // the guild sign: a gold shield
+      rect(c, 'gold', cx - 2, wt - 10, 5, 3); rect(c, 'gold', cx - 1, wt - 7, 3, 1); px(c, 'gold', cx, wt - 6);
+      rect(c, 'gold2', cx + 1, wt - 10, 2, 3); px(c, 'gold2', cx + 1, wt - 7); rect(c, 'ember', cx - 2, wt - 10, 5, 1);
+      if (st >= 1) { px(c, 'ink', cx + 5, by - 14); rect(c, 'lantern', cx + 5, by - 13, 2, 3); glow(lights, cx + 6, by - 12, 12); }
+      // the request board: two posts, a little roof, paper notes pinned on
+      const bx = x0 + 37;
+      for (const p of [bx, bx + 9]) { rect(c, 'ink', p - 1, by - 17, 3, 17); rect(c, 'wood2', p, by - 17, 1, 17); }
+      rect(c, 'ink', bx - 2, by - 19, 14, 2); rect(c, 'ember2', bx - 1, by - 18, 12, 1);
+      rect(c, 'ink', bx + 1, by - 21, 8, 2); rect(c, 'ember2', bx + 2, by - 20, 6, 1);
+      rect(c, 'ink', bx - 1, by - 16, 12, 10); rect(c, 'wood3', bx, by - 15, 10, 8); rect(c, 'wood', bx, by - 11, 10, 1);
+      const slots = [[1, 14], [7, 10], [4, 14], [1, 10], [7, 14], [4, 10]], n = st >= 2 ? 6 : st >= 1 ? 5 : 3;
+      for (let i = 0; i < n; i++) {
+        const [dx, dy] = slots[i], nx = bx + dx, ny = by - dy;
+        rect(c, i % 2 ? 'white' : 'cream', nx, ny, 2, 3); px(c, 'stone', nx, ny + 2); px(c, i % 2 ? 'teal' : 'ember', nx, ny);
+      }
+      if (st >= 3) { px(c, 'gold', bx + 5, by - 8); px(c, 'gold2', bx + 4, by - 8); }
+      if (st >= 2) { // the guild master pinning up a request
+        const gx = x0 + 33;
+        rect(c, 'ink', gx - 1, by - 15, 5, 15);
+        rect(c, 'stone3', gx, by - 14, 3, 1); rect(c, 'skin2', gx, by - 13, 3, 1); px(c, 'ink', gx + 2, by - 13); rect(c, 'white', gx, by - 12, 3, 1);
+        rect(c, 'plum', gx, by - 10, 3, 9); rect(c, 'plum2', gx + 2, by - 10, 1, 9); rect(c, 'gold', gx, by - 6, 3, 1);
+        px(c, 'skin2', gx + 3, by - 9); rect(c, 'white', gx + 3, by - 11, 2, 2);
+      }
+      if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 21, 1, 9); rect(c, 'plum', cx + 1, wt - 20, 6, 2); rect(c, 'gold', cx + 1, wt - 18 + w, 6, 1); }
+    },
+    // ---- added 2026-11-14 (expansion run, viewers' ideas) ----
+    // A town hall for the middle of the village: a pale stone hall with tall windows, two white columns by an
+    // oak door, steps, a pediment and a clock tower whose minute hand turns. 1 lit windows and lanterns on the
+    // columns; 2 plum banners on the columns and flower boxes under the windows; 3 a bell in the belfry and a flag.
+    townhall(c, x0, y0, l, t, lights) {
+      const cx = x0 + 24, by = y0 + 30, st = l.stage || 0, L = x0 + 3, W = 42, wt = by - 22;
+      rect(c, 'ink', L - 1, wt - 1, W + 2, 21); rect(c, 'stone3', L, wt, W, 19); // the walls
+      for (let yy = wt + 4; yy < by - 3; yy += 4) rect(c, 'stone', L, yy, W, 1);
+      rect(c, 'stone', L + W - 3, wt, 3, 19);
+      for (const wx of [L + 2, L + 8, L + 31, L + 37]) { // tall windows, lit from stage 1
+        rect(c, 'ink', wx - 1, wt + 4, 5, 9); rect(c, st >= 1 ? 'lanternhi' : 'night', wx, wt + 5, 3, 7); rect(c, 'stone3', wx + 1, wt + 5, 1, 7);
+        if (st >= 1) glow(lights, wx + 1, wt + 8, 9); else px(c, 'fog2', wx, wt + 5);
+        if (st >= 2) { rect(c, 'ink', wx - 1, wt + 13, 5, 2); px(c, 'rose', wx, wt + 13); px(c, 'gold', wx + 2, wt + 13); }
+      }
+      rect(c, 'ink', cx - 11, by - 4, 22, 4); rect(c, 'stone3', cx - 10, by - 3, 20, 1); rect(c, 'stone', cx - 10, by - 2, 20, 1); rect(c, 'stone2', cx - 10, by - 1, 20, 1); // steps
+      rect(c, 'ink', cx - 4, by - 15, 9, 11); rect(c, 'wood', cx - 3, by - 14, 7, 10); rect(c, 'wood2', cx, by - 14, 1, 10); // the door
+      px(c, 'ink', cx - 3, by - 14); px(c, 'ink', cx + 3, by - 14); px(c, 'gold', cx - 1, by - 9); px(c, 'gold', cx + 1, by - 9);
+      for (const p of [cx - 9, cx + 7]) { // two white columns
+        rect(c, 'ink', p - 1, wt, 4, 18); rect(c, 'white', p, wt + 1, 2, 17); rect(c, 'stone3', p + 1, wt + 2, 1, 16);
+        if (st >= 2) { rect(c, 'ink', p - 1, wt + 2, 4, 9); rect(c, 'plum', p, wt + 3, 2, 7); px(c, 'gold', p, wt + 5); px(c, 'gold', p + 1, wt + 5); px(c, 'ink', p, wt + 10); }
+        if (st >= 1) { rect(c, 'ink', p - 1, by - 13, 4, 4); px(c, 'lantern', p, by - 12); px(c, 'lanternhi', p + 1, by - 12); px(c, 'lantern', p, by - 11); px(c, 'lantern', p + 1, by - 11); glow(lights, p + 1, by - 11, 12); }
+      }
+      rect(c, 'ink', L - 3, wt - 3, W + 6, 3); rect(c, 'white', L - 2, wt - 2, W + 4, 1); // the cornice
+      for (let r = 0; r < 7; r++) { const hw = 15 - r * 2; rect(c, 'ink', cx - hw - 1, wt - 4 - r, hw * 2 + 3, 1); rect(c, r === 0 ? 'stone' : 'stone3', cx - hw, wt - 4 - r, hw * 2 + 1, 1); }
+      const tt = wt - 30; // the clock tower
+      rect(c, 'ink', cx - 6, tt, 13, 21); rect(c, 'stone3', cx - 5, tt + 1, 11, 20); rect(c, 'stone', cx + 3, tt + 1, 3, 20);
+      rect(c, 'ink', cx - 3, tt + 2, 7, 5);
+      if (st >= 3) { rect(c, 'gold', cx - 1, tt + 3, 3, 3); px(c, 'gold2', cx + 1, tt + 5); }
+      rect(c, 'ink', cx - 4, tt + 8, 9, 9); rect(c, 'white', cx - 3, tt + 9, 7, 7);
+      px(c, 'ink', cx, tt + 12); px(c, 'ink', cx, tt + 11); px(c, 'ink', cx, tt + 10);
+      const ma = t * 0.6; for (let r = 1; r <= 3; r++) px(c, 'ink', cx + Math.round(Math.cos(ma) * r), tt + 12 + Math.round(Math.sin(ma) * r));
+      for (let r = 0; r < 9; r++) { const hw = Math.max(0, 7 - Math.round(r * 0.85)); rect(c, 'ink', cx - hw - 1, tt - 1 - r, hw * 2 + 3, 1); rect(c, r % 3 === 2 ? 'sea' : 'sea2', cx - hw, tt - 1 - r, hw * 2 + 1, 1); }
+      px(c, 'ink', cx, tt - 10); px(c, 'gold', cx, tt - 11);
+      if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, tt - 20, 1, 9); rect(c, 'ember', cx + 1, tt - 19, 6, 2); rect(c, 'gold', cx + 1, tt - 17 + w, 6, 1); }
+    },
+    // A sawmill by the shore: a water wheel in a mill race beside an open timber shed with a round saw blade
+    // and a log on the bench. 1 the wheel turns, the blade spins and sawdust flies; 2 a stack of fresh planks;
+    // 3 a lantern under the roof and a saw sign on top.
+    sawmill(c, x0, y0, l, t, lights) {
+      const by = y0 + 30, st = l.stage || 0, L = x0 + 18, W = 28, sx = L + 15, sy = by - 10;
+      const wx = x0 + 9, wy = by - 11, a0 = st >= 1 ? t * 1.4 : 0.3;
+      rect(c, 'ink', x0, by - 4, 19, 4); rect(c, 'sea2', x0 + 1, by - 3, 17, 3); rect(c, 'sea3', x0 + 1, by - 3, 17, 1); // the mill race
+      rect(c, 'wood2', wx, wy, L - wx, 1); // the axle
+      for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; px(c, 'ink', wx + Math.round(Math.cos(a) * 9), wy + Math.round(Math.sin(a) * 9)); px(c, 'wood2', wx + Math.round(Math.cos(a) * 8), wy + Math.round(Math.sin(a) * 8)); }
+      for (let k = 0; k < 8; k++) {
+        const a = a0 + (k * Math.PI) / 4, ca = Math.cos(a), sa = Math.sin(a);
+        for (let r = 1; r <= 7; r++) px(c, 'wood', wx + Math.round(ca * r), wy + Math.round(sa * r));
+        rect(c, 'wood3', wx + Math.round(ca * 9) - 1, wy + Math.round(sa * 9) - 1, 2, 2);
+      }
+      rect(c, 'ink', wx - 1, wy - 1, 3, 3); px(c, 'stone3', wx, wy);
+      if (st >= 1) for (let i = 0; i < 3; i++) { const ph = (t * 1.2 + i / 3) % 1; px(c, 'foam', wx - 8 + Math.round(ph * 16), by - 3); }
+      rect(c, 'ink', L - 1, by - 21, W + 2, 21); rect(c, 'wood4', L, by - 20, W, 20); // the open shed, dark inside
+      for (const p of [L, L + W - 2]) { rect(c, 'wood', p, by - 20, 2, 20); rect(c, 'wood2', p + 1, by - 20, 1, 20); }
+      rect(c, 'wood2', L, by - 20, W, 2);
+      for (let r = 0; r < 5; r++) { rect(c, 'ink', L - 3, by - 22 - r, W + 6 - r * 2, 1); rect(c, r % 2 ? 'wood2' : 'wood', L - 2, by - 22 - r, W + 4 - r * 2, 1); }
+      blob(c, 'stone3', sx, sy, 5, 5); px(c, 'stone', sx + 1, sy + 1); px(c, 'stone', sx - 2, sy + 2); // the saw blade
+      const sa0 = st >= 1 ? t * 10 : 0;
+      for (let k = 0; k < 8; k++) { const a = sa0 + (k * Math.PI) / 4; px(c, 'stone2', sx + Math.round(Math.cos(a) * 4), sy + Math.round(Math.sin(a) * 4)); }
+      rect(c, 'ink', sx - 1, sy - 1, 2, 2);
+      rect(c, 'ink', L + 2, by - 10, W - 4, 3); rect(c, 'wood3', L + 3, by - 9, W - 6, 1); // the bench
+      for (const lx of [L + 4, L + W - 5]) rect(c, 'wood2', lx, by - 7, 1, 7);
+      rect(c, 'ink', L + 3, by - 14, 10, 4); rect(c, 'wood', L + 4, by - 13, 8, 2); rect(c, 'wood3', L + 3, by - 13, 1, 2); // the log
+      if (st >= 1) for (let i = 0; i < 5; i++) { const ph = (t * 1.5 + i / 5) % 1; px(c, i % 2 ? 'sand' : 'sand2', sx + 3 + Math.round(ph * 7), sy - 2 - Math.round(Math.sin(ph * 3) * 4) + Math.round(ph * 8)); }
+      if (st >= 2) { rect(c, 'ink', L + 15, by - 5, 12, 5); for (let r = 0; r < 4; r++) rect(c, r % 2 ? 'wood' : 'wood3', L + 16, by - 4 + r, 10, 1); }
+      if (st >= 3) {
+        px(c, 'ink', L + W - 6, by - 18); rect(c, 'ink', L + W - 7, by - 17, 3, 4); px(c, 'lanternhi', L + W - 6, by - 16); px(c, 'lantern', L + W - 6, by - 15); glow(lights, L + W - 6, by - 15, 12);
+        px(c, 'wood2', L + 10, by - 27); px(c, 'wood2', L + 18, by - 27);
+        rect(c, 'ink', L + 8, by - 33, 13, 6); rect(c, 'wood3', L + 9, by - 32, 11, 4); rect(c, 'stone3', L + 11, by - 31, 7, 2);
+        for (let k = 0; k < 4; k++) px(c, 'ink', L + 11 + k * 2, by - 29);
+      }
+    },
+    // A stone fox statue (a kitsune) on a plinth, three tails fanned up behind it. 1 a red bib; 2 a little
+    // stone lantern and offerings; 3 foxfire: three pale flames circling it, glowing at night.
+    foxstatue(c, x0, y0, l, t, lights) {
+      const cx = x0 + 8, by = y0 + 15, st = l.stage || 0;
+      rect(c, 'ink', cx - 6, by - 6, 12, 6); rect(c, 'stone2', cx - 5, by - 5, 10, 4); rect(c, 'stone', cx - 5, by - 5, 10, 1);
+      const tails = [];
+      for (let k = 0; k < 3; k++) for (let i = 0; i < 9; i++) tails.push([cx + 1 + k * 2 + Math.round(Math.sin((i / 8) * Math.PI) * 2), by - 8 - i - k * 2, i]);
+      for (const [x, y] of tails) rect(c, 'ink', x - 1, y - 1, 4, 3);
+      for (const [x, y, i] of tails) rect(c, i >= 7 ? 'white' : 'stone', x, y, 2, 1);
+      rect(c, 'ink', cx - 5, by - 17, 9, 11); rect(c, 'stone', cx - 4, by - 16, 7, 10); rect(c, 'stone3', cx - 3, by - 15, 3, 8); // the body
+      px(c, 'stone3', cx - 3, by - 7); px(c, 'stone3', cx, by - 7);
+      rect(c, 'ink', cx - 5, by - 23, 9, 7); rect(c, 'stone', cx - 4, by - 22, 7, 5); rect(c, 'stone3', cx - 3, by - 19, 5, 2); // the head
+      rect(c, 'ink', cx - 5, by - 26, 3, 3); px(c, 'stone', cx - 4, by - 24); rect(c, 'ink', cx + 1, by - 26, 3, 3); px(c, 'stone', cx + 2, by - 24);
+      px(c, 'ink', cx - 3, by - 21); px(c, 'ink', cx + 1, by - 21); px(c, 'ink', cx - 1, by - 18);
+      if (st >= 1) { rect(c, 'ember', cx - 4, by - 16, 7, 2); rect(c, 'ember', cx - 3, by - 14, 5, 1); px(c, 'ember2', cx - 1, by - 13); }
+      if (st >= 2) {
+        rect(c, 'ink', cx - 12, by - 10, 7, 2); rect(c, 'ink', cx - 11, by - 8, 5, 8); rect(c, 'stone', cx - 10, by - 7, 3, 7); rect(c, 'lanternhi', cx - 10, by - 6, 3, 2); glow(lights, cx - 9, by - 5, 10);
+        px(c, 'rose', cx + 6, by - 1); px(c, 'white', cx + 7, by - 1); px(c, 'gold', cx + 7, by);
+      }
+      if (st >= 3) for (let i = 0; i < 3; i++) {
+        const a = t * 1.2 + i * 2.1, fx = cx - 1 + Math.round(Math.cos(a) * 9), fy = by - 20 + Math.round(Math.sin(a) * 3);
+        rect(c, 'foam', fx, fy, 2, 2); px(c, 'white', fx, fy); glow(lights, fx + 1, fy + 1, 8);
+      }
+    },
+    // A stone warrior statue on a tall plinth: helmet, round shield, sword raised. 1 a red crest and a gold
+    // shield boss; 2 a gold name plaque and flowers at the foot; 3 a gilded sword and two burning torches.
+    warriorstatue(c, x0, y0, l, t, lights) {
+      const cx = x0 + 8, by = y0 + 15, st = l.stage || 0, mt = st >= 3 ? ['gold', 'gold2'] : ['stone3', 'stone'];
+      rect(c, 'ink', cx - 7, by - 8, 14, 8); rect(c, 'stone2', cx - 6, by - 7, 12, 6); rect(c, 'stone', cx - 6, by - 7, 12, 1);
+      if (st >= 2) { rect(c, 'ink', cx - 3, by - 5, 6, 3); rect(c, 'gold', cx - 2, by - 4, 4, 1); for (let i = 0; i < 6; i++) { px(c, 'moss2', cx - 6 + i * 2 + (i > 2 ? 2 : 0), by + 1); px(c, ['rose', 'gold', 'white'][i % 3], cx - 6 + i * 2 + (i > 2 ? 2 : 0), by); } }
+      rect(c, 'ink', cx - 4, by - 17, 8, 9); rect(c, 'stone', cx - 3, by - 16, 6, 8); rect(c, 'ink', cx, by - 13, 1, 5); // legs
+      rect(c, 'ink', cx - 5, by - 27, 10, 11); rect(c, 'stone', cx - 4, by - 26, 8, 9); rect(c, 'stone3', cx - 4, by - 26, 2, 9); rect(c, 'stone2', cx - 4, by - 18, 8, 1); // body
+      rect(c, 'ink', cx - 3, by - 33, 7, 7); rect(c, 'stone', cx - 2, by - 32, 5, 5); rect(c, 'stone3', cx - 2, by - 32, 5, 1); rect(c, 'ink', cx - 1, by - 30, 3, 1); // helmet
+      rect(c, 'ink', cx - 1, by - 36, 3, 3); rect(c, st >= 1 ? 'ember' : 'stone', cx, by - 35, 1, 2);
+      rect(c, 'ink', cx + 4, by - 31, 3, 7); rect(c, 'stone', cx + 5, by - 30, 1, 5); // the raised arm
+      rect(c, 'ink', cx + 4, by - 44, 3, 13); rect(c, mt[0], cx + 5, by - 43, 1, 11); // the sword
+      rect(c, 'ink', cx + 2, by - 33, 7, 2); rect(c, mt[1], cx + 3, by - 33, 5, 1);
+      blob(c, 'stone', cx - 6, by - 21, 3, 4); px(c, st >= 1 ? 'gold' : 'stone3', cx - 6, by - 21); // the shield
+      if (st >= 3) for (const lx of [cx - 11, cx + 10]) {
+        const f = Math.floor(t * 8 + lx) % 2;
+        rect(c, 'ink', lx, by - 12, 2, 12); rect(c, 'ember', lx, by - 15, 2, 3); px(c, f ? 'lantern' : 'lanternhi', lx, by - 16); glow(lights, lx + 1, by - 14, 12);
+      }
+    },
+    // A chicken farm: a red-roofed coop on legs with a ramp, and a dirt run with hens that peck. 1 a lit nest
+    // window and a third hen; 2 chicks and an egg basket; 3 a rooster crowing on the roof.
+    henhouse(c, x0, y0, l, t, lights) {
+      const by = y0 + 30, st = l.stage || 0, hx = x0 + 11;
+      rect(c, 'sand2', x0 + 23, by - 9, 23, 8);
+      for (let i = 0; i < 8; i++) px(c, 'sand3', x0 + 24 + Math.floor(C.h2(i, l.tileX, 81) * 21), by - 8 + (i % 4) * 2);
+      rect(c, 'wood2', x0 + 22, by - 10, 25, 1); // the back rail
+      const hen = (x, y, col, k) => {
+        rect(c, 'ink', x - 3, y - 5, 7, 5); rect(c, col, x - 2, y - 4, 5, 3); rect(c, 'ink', x - 4, y - 7, 2, 3); px(c, col, x - 3, y - 6);
+        const peck = Math.floor(t * 2.5 + k * 1.7) % 3 === 0, hy = peck ? y - 3 : y - 7, hxx = x + 3;
+        rect(c, 'ink', hxx - 1, hy - 1, 4, 4); rect(c, col, hxx, hy, 2, 2); px(c, 'ember', hxx, hy - 1); px(c, 'gold', hxx + 3, hy + 1); px(c, 'ink', hxx + 1, hy);
+        px(c, 'gold', x - 1, y); px(c, 'gold', x + 1, y);
+      };
+      const hens = [[x0 + 28, by - 2, 'white'], [x0 + 38, by - 4, 'wood3']];
+      if (st >= 1) hens.push([x0 + 42, by - 1, 'white']);
+      hens.forEach(([x, y, col], k) => hen(x, y, col, k));
+      if (st >= 2) for (let i = 0; i < 3; i++) { const kx = x0 + 31 + i * 3 + Math.round(Math.sin(t * 3 + i) * 1); rect(c, 'ink', kx - 1, by - 3, 3, 3); px(c, 'gold', kx, by - 2); }
+      for (let x = x0 + 22; x <= x0 + 46; x += 6) rect(c, 'wood2', x, by - 10, 1, 10); // the fence
+      rect(c, 'wood2', x0 + 22, by - 1, 25, 1);
+      for (const lx of [x0 + 4, x0 + 18]) rect(c, 'wood2', lx, by - 8, 1, 8); // the coop on legs
+      rect(c, 'ink', x0 + 2, by - 20, 19, 13); rect(c, 'wood', x0 + 3, by - 19, 17, 11);
+      for (let yy = by - 16; yy < by - 8; yy += 3) rect(c, 'wood2', x0 + 3, yy, 17, 1);
+      rect(c, 'ink', x0 + 13, by - 15, 4, 6);
+      rect(c, 'ink', x0 + 5, by - 17, 4, 4); rect(c, st >= 1 ? 'lanternhi' : 'night', x0 + 6, by - 16, 2, 2); if (st >= 1) glow(lights, x0 + 7, by - 15, 10);
+      for (let i = 0; i < 7; i++) { px(c, 'ink', x0 + 15 + i, by - 7 + i); px(c, 'wood3', x0 + 15 + i, by - 8 + i); } // the ramp
+      for (let r = 0; r < 6; r++) { const hw = 11 - r * 2; rect(c, 'ink', hx - hw - 1, by - 21 - r, hw * 2 + 3, 1); rect(c, r % 2 ? 'ember2' : 'ember', hx - hw, by - 21 - r, hw * 2 + 1, 1); }
+      if (st >= 2) { rect(c, 'ink', x0 + 2, by - 5, 6, 4); rect(c, 'wood3', x0 + 3, by - 4, 4, 2); px(c, 'white', x0 + 4, by - 5); px(c, 'cream', x0 + 5, by - 5); }
+      if (st >= 3) {
+        const rx = hx, ry = by - 27, crow = Math.floor(t * 0.8) % 3 === 0;
+        rect(c, 'ink', rx - 4, ry - 9, 3, 5); px(c, 'pine', rx - 3, ry - 8); px(c, 'teal', rx - 3, ry - 7);
+        rect(c, 'ink', rx - 3, ry - 5, 7, 5); rect(c, 'ember', rx - 2, ry - 4, 5, 3); rect(c, 'gold', rx - 2, ry - 4, 2, 1);
+        rect(c, 'ink', rx + 2, ry - 9, 4, 5); rect(c, 'white', rx + 3, ry - 8, 2, 3); px(c, 'ember', rx + 3, ry - 10); px(c, 'ember', rx + 4, ry - 10);
+        px(c, 'gold', rx + 6, ry - 7); if (crow) px(c, 'gold', rx + 6, ry - 8); px(c, 'ink', rx + 4, ry - 8);
+        px(c, 'gold', rx - 1, ry); px(c, 'gold', rx + 1, ry);
+      }
+    },
+    // Defences: a wall of sharpened stakes lashed with rope. 1 torches at both ends; 2 a small watchtower
+    // behind the east end; 3 red banners on the wall and a guard in the tower.
+    palisade(c, x0, y0, l, t, lights) {
+      const by = y0 + 14, st = l.stage || 0;
+      if (st >= 2) {
+        const tx = x0 + 40;
+        for (const p of [tx - 6, tx + 5]) { rect(c, 'ink', p - 1, by - 38, 3, 30); rect(c, 'wood2', p, by - 38, 1, 30); }
+        rect(c, 'ink', tx - 8, by - 39, 17, 4); rect(c, 'wood3', tx - 7, by - 38, 15, 1); rect(c, 'wood', tx - 7, by - 37, 15, 1);
+        for (let x = tx - 7; x <= tx + 7; x += 2) rect(c, 'wood2', x, by - 44, 1, 5);
+        rect(c, 'ink', tx - 8, by - 45, 17, 2); rect(c, 'wood3', tx - 7, by - 45, 15, 1);
+        for (const p of [tx - 7, tx + 7]) rect(c, 'wood2', p, by - 51, 1, 6);
+        for (let r = 0; r < 6; r++) { rect(c, 'ink', tx - 9 + r, by - 52 - r, 19 - r * 2, 1); rect(c, 'ember2', tx - 8 + r, by - 52 - r, Math.max(0, 17 - r * 2), 1); }
+        if (st >= 3) { rect(c, 'ink', tx - 2, by - 51, 5, 6); rect(c, 'stone3', tx - 1, by - 50, 3, 2); rect(c, 'skin2', tx - 1, by - 48, 3, 2); }
+      }
+      for (let x = x0; x <= x0 + 44; x += 4) { // the stakes
+        const h = 18 + (((x - x0) / 4) % 2) * 2;
+        rect(c, 'ink', x, by - h, 4, h); rect(c, 'wood', x + 1, by - h + 1, 2, h - 1); rect(c, 'wood2', x + 2, by - h + 3, 1, h - 3);
+        rect(c, 'ink', x + 1, by - h - 2, 2, 2); px(c, 'wood3', x + 1, by - h - 1);
+      }
+      rect(c, 'sand2', x0, by - 13, 48, 1); rect(c, 'sand2', x0, by - 5, 48, 1); // the rope lashings
+      if (st >= 1) for (const lx of [x0 + 1, x0 + 45]) {
+        const f = Math.floor(t * 8 + lx) % 2;
+        rect(c, 'ink', lx, by - 26, 2, 6); rect(c, 'ember', lx, by - 29, 2, 3); px(c, f ? 'lantern' : 'lanternhi', lx, by - 30); glow(lights, lx + 1, by - 27, 14);
+      }
+      if (st >= 3) for (const bx of [x0 + 10, x0 + 26]) { rect(c, 'ink', bx, by - 16, 6, 10); rect(c, 'ember', bx + 1, by - 15, 4, 8); rect(c, 'gold', bx + 1, by - 12, 4, 1); px(c, 'ink', bx + 2, by - 7); px(c, 'ink', bx + 3, by - 7); }
+    },
   };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
@@ -1679,6 +2101,9 @@
     return cleared.has(tx + ',' + ty) ? { x, y, stump: true } : { x, y, kind };
   }
   const TREE_PAD = 48; // tree pieces reach this far above their tiles (tall pines)
+  // ...and this far left, right and below (2026-11-14: crowns of trees on a piece's edge were cut off
+  // straight down when zoomed far out on the website; the widest crown reaches ~14 px from the trunk)
+  const TREE_PAD_X = 32, TREE_PAD_B = 8;
 
   // Website ground cache (renderWorld o.fast): the land never changes for a given world, so it is
   // drawn once into 32x32-tile pieces (with every home's paths and plots, not only the ones on
@@ -1746,19 +2171,40 @@
   const laneMidY = (wx, ty, road) => ty * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wx * 0.09 + ty * 1.7) + (road ? 0.6 : 1) * Math.sin(wx * 0.27 + ty * 0.6);
   const laneMidX = (wy, tx, road) => tx * T + 8 + (road ? 1.6 : 2.8) * Math.sin(wy * 0.09 + tx * 1.3) + (road ? 0.6 : 1) * Math.sin(wy * 0.23 + tx * 0.8);
   const laneHalf = (w, k, road) => (road ? 5.2 : 3.6) + (road ? 0.8 : 0.9) * Math.sin(w * 0.15 + k * 2.1);
-  const spurTile = (world, g, base, tx, ty) => laneTile(world, g, base, tx, ty, null);
-  function laneTile(world, g, base, tx, ty, gAt) {
+  // Stone <-> dirt (2026-11-14, user: "they just swap px to px full stop"). The stone paths and paved
+  // roads reach out from the centre in a circle (map.upgradeCovers), but a tile was either all stone or
+  // all dirt, so the edge ran along tile lines. Now every pixel of a lane is stone or dirt by its own
+  // distance to that circle, through a ragged band about seven tiles wide: on the stone side stones go
+  // missing in clumps (bare earth), on the dirt side a few loose stones lie about. The same happens
+  // where a stone lane joins a dirt one (or the other way round), over about a tile either side.
+  const PAVED = { footpath: ['stonepaths', 'stonepath'], 'footpath-dark': ['stonepaths', 'stonepath-dark'], path: ['cobbles', 'road'] };
+  const DIRT = { stonepath: 'footpath', 'stonepath-dark': 'footpath-dark', road: 'path' };
+  const FADE = 4, JOIN = 12; // half the width of the circle's band (tiles), and of a junction's (px)
+  const isStone = (q) => q === 'road' || q === 'cobble' || (q || '').startsWith('stonepath');
+  const upgradeEdge = (reach, wx, wy) => reach - Math.hypot(wx / T - 0.5 - map.UPGRADE_CENTRE[0], (wy / T - 0.5 - map.UPGRADE_CENTRE[1]) * 1.2);
+  const spurTile = (world, g, base, tx, ty, reach) => laneTile(world, g, base, tx, ty, null, reach);
+  function laneTile(world, g, base, tx, ty, gAt, reach) {
     const only = !gAt; // a grass tile that only a door path crosses
     const lane = (x, y) => !only && LANES.includes(gAt(x, y));
     const nL = lane(tx - 1, ty), nR = lane(tx + 1, ty), nU = lane(tx, ty - 1), nD = lane(tx, ty + 1);
     const spurs = doorSpurs(world).get(tx + ',' + ty) || [];
     const variant = Math.floor(C.h2(tx, ty, 1) * 4);
-    const key = tx + ',' + ty + '|' + g + '|' + base + '|' + (+only) + (+nL) + (+nR) + (+nU) + (+nD) + '|' + spurs.map((p) => p.x + ':' + p.y0).join(',');
+    // the stone / dirt pair this lane belongs to, and how far the tile is from the edge of the paving
+    const stoneG = DIRT[g] ? g : PAVED[g] && PAVED[g][1], dirtG = DIRT[g] || (PAVED[g] ? g : null);
+    const rch = stoneG && reach ? reach[(PAVED[dirtG] || [])[0]] || 0 : 0;
+    const radial = stoneG && rch > 0 && Math.abs(upgradeEdge(rch, tx * T + 8, ty * T + 8)) < FADE + 1.2;
+    const mine = isStone(g);
+    // neighbours of the other material: [dx, dy, its type]
+    const joins = only ? [] : [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([sx, sy]) => [sx, sy, gAt(tx + sx, ty + sy)]).filter(([, , q]) => (LANES.includes(q) || q === 'cobble') && isStone(q) !== mine);
+    const fading = !!stoneG && (radial || joins.length > 0);
+    const key = (radial ? 'f' + rch.toFixed(1) + '|' : '') + (joins.length ? 'j' + joins.map((q) => q.join(':')).join(',') + '|' : '') + tx + ',' + ty + '|' + g + '|' + base + '|' + (+only) + (+nL) + (+nR) + (+nU) + (+nD) + '|' + spurs.map((p) => p.x + ':' + p.y0).join(',');
     let cv = laneCache.get(key);
     if (cv) return cv;
     const road = isRoadLane(g);
-    const P = tilePixels(g, variant), G = tilePixels(base, variant);
-    const worn = g === 'road' || g.startsWith('stonepath'), dark = g.endsWith('-dark');
+    const G = tilePixels(base, variant);
+    const PS = fading ? tilePixels(stoneG, variant) : null, PD = fading ? tilePixels(dirtG, variant) : null;
+    const STONE2 = rgbOf('stone2'), dark = g.endsWith('-dark');
+    let P = tilePixels(g, variant), worn = g === 'road' || g.startsWith('stonepath');
     cv = canvas(T, T);
     const ctx = cv.getContext('2d'), img = ctx.createImageData(T, T), o = img.data;
     const horiz = nL || nR || !(nU || nD), vert = nU || nD;
@@ -1793,6 +2239,25 @@
       // footpath and flagstone tiles only hold the path in their middle rows (7-11): sample those, so
       // a lane that wanders up or down, or a door path, is path all the way
       const i = (ly * T + lx) * 4, j = strip ? ((7 + (((ly - 7) % 5) + 5) % 5) * T + lx) * 4 : i;
+      if (on && fading) {
+        // stone or dirt here? p = how sure we are this is paved; whole stones (4x3 cells) drop out
+        // together, in clumps (value noise), so the edge is a scatter, not a line
+        const X = Math.floor(wx), Y = Math.floor(wy);
+        let p = radial ? Math.min(1, Math.max(0, 0.5 + upgradeEdge(rch, wx, wy) / (2 * FADE))) : mine ? 1 : 0;
+        for (const [sx, sy, q] of joins) {
+          // distance to where the other lane comes in through that tile edge
+          const e = sx < 0 ? wx - tx * T : sx > 0 ? (tx + 1) * T - wx : sy < 0 ? wy - ty * T : (ty + 1) * T - wy;
+          const mid = sx ? laneMidY(sx < 0 ? tx * T : (tx + 1) * T, ty, isRoadLane(q)) : laneMidX(sy < 0 ? ty * T : (ty + 1) * T, tx, isRoadLane(q));
+          const along = Math.max(0, Math.abs((sx ? wy : wx) - mid) - (q === 'cobble' ? 99 : 4));
+          const qq = 0.5 + Math.hypot(e, along) / (2 * JOIN);
+          p = mine ? Math.min(p, qq) : Math.max(p, 1 - qq);
+        }
+        let z = C.vnoise(X / 5, Y / 5, 93) * 0.5 + C.h2(Math.floor(X / 4), Math.floor(Y / 3), 94) * 0.5;
+        z = z < 0.5 ? 2 * z * z : 1 - 2 * (1 - z) * (1 - z); // spread evenly over 0..1, so the fade uses the whole band
+        const joint = PS[j] === STONE2[0] && PS[j + 1] === STONE2[1] && PS[j + 2] === STONE2[2];
+        const stone = z < (joint ? p * p : p); // the joints go first, so out in the dirt lie loose stones
+        P = stone ? PS : PD; worn = stone;
+      }
       if (on) {
         o[i] = P[j]; o[i + 1] = P[j + 1]; o[i + 2] = P[j + 2];
         if (worn) { const w = wearAt(o, i, wx, wy, d + rag, strip ? 7 + (((ly - 7) % 5) + 5) % 5 : -1, dark); if (w) { o[i] = w[0]; o[i + 1] = w[1]; o[i + 2] = w[2]; } }
@@ -1927,7 +2392,7 @@
         for (let ty = cy * N; ty < (cy + 1) * N; ty++) for (let tx = cx * N; tx < (cx + 1) * N; tx++) {
           const tr = treeAt(tx, ty, busy, cleared, districts);
           if (!tr) continue;
-          if (!cv) { cv = canvas(N * T, N * T + TREE_PAD); g2 = cv.getContext('2d'); g2.translate(-cx * N * T, -cy * N * T + TREE_PAD); }
+          if (!cv) { cv = canvas(N * T + 2 * TREE_PAD_X, N * T + TREE_PAD + TREE_PAD_B); g2 = cv.getContext('2d'); g2.translate(-cx * N * T + TREE_PAD_X, -cy * N * T + TREE_PAD); }
           if (tr.stump) drawStump(g2, tr.x, tr.y); else if (tr.bush) drawBush(g2, tr.x, tr.y, tr.bush, tx * 31 + ty, 0); else drawTree(g2, tr.x, tr.y, tr.kind, tx * 31 + ty, 0);
         }
         treePieces.set(k, cv);
@@ -1975,6 +2440,25 @@
     ix = { occupied, housed, near };
     indexCache.set(world.villagers, ix);
     return ix;
+  }
+
+  // A change shown while it happens (episode "reveal", 2026-11-14): the thing is built from the ground up.
+  // rv: { p: 0..1 how far the build is, from: the landmark's earlier stage, or null when nothing stood there }
+  // draw(stage) draws it (stage undefined = as it is now). x0..x1 / base: its footprint in world px.
+  function revealDraw(c, rv, x0, x1, base, tall, t, draw) {
+    if (rv.from != null) draw(rv.from);
+    if (!(rv.p > 0)) return;
+    const top = Math.round(base + 10 - rv.p * (tall + 10));
+    c.save();
+    c.beginPath(); c.rect(x0 - 28, top, x1 - x0 + 56, base + 14 - top); c.clip();
+    draw();
+    c.restore();
+    // sawdust along the edge where it is being built
+    const k = Math.floor(t * 14);
+    for (let i = 0; i < 9; i++) {
+      const dx = x0 - 6 + C.h2(i, k, 71) * (x1 - x0 + 12), dy = top - 1 - Math.floor(C.h2(i, k, 72) * 4);
+      px(c, i % 3 ? 'sand' : 'cream', dx, dy);
+    }
   }
 
   // opts: { world, cam: {x, y, z}, t, tod, planks?, hide?: Set of villager ids, cat?: [x, y] }
@@ -2070,7 +2554,7 @@
         const base = isLane ? (g.endsWith('-dark') ? 'darkgrass' : 'grass') : g;
         const below = [gAt(tx, ty + 1), gAt(tx - 1, ty + 1), gAt(tx + 1, ty + 1), gAt(tx, ty + 2)].find((q) => LANES.includes(q) && !isRoadLane(q));
         const spurType = isLane ? g : below || (has('stonepaths', tx, ty) ? 'stonepath' : 'footpath');
-        g2.drawImage(isLane ? laneTile(world, g, base, tx, ty, gAt) : spurTile(world, spurType, base, tx, ty), tx * T - ox, ty * T - oy);
+        g2.drawImage(isLane ? laneTile(world, g, base, tx, ty, gAt, reach) : spurTile(world, spurType, base, tx, ty, reach), tx * T - ox, ty * T - oy);
         return true;
       }
       const soft = BLEND.includes(g) && blendTile(g, tx, ty, gAt);
@@ -2189,7 +2673,9 @@
       if (!fn) throw new Error('unknown prop ' + p.type);
       const x = p.x * T, y = p.y * T;
       if (x < bx0 - 120 || x > bx0 + bw + 120 || y < by0 - 120 || y > by0 + bh + 140) continue;
-      add(p.type === 'dock' ? y - (p.len || 4) * T : y, () => fn(c, x, y, p, t, lights, world));
+      const rvp = o.reveal && o.reveal.props && o.reveal.props.get(p);
+      if (rvp) add(y, () => revealDraw(c, rvp, x - 12, x + 12, y, 36, t, () => fn(c, x, y, p, t, lights, world)));
+      else add(p.type === 'dock' ? y - (p.len || 4) * T : y, () => fn(c, x, y, p, t, lights, world));
     }
     // village upgrades (map.UPGRADES): street lamps and planters along the main roads, but only as far
     // as people live (so they spread as the village grows) (the garden fences are laid out above)
@@ -2233,9 +2719,9 @@
     const treesCached = o.fast && z <= 2;
     if (treesCached) {
       const GC = groundCaches.get(world), CH = 32 * T;
-      for (let cy = Math.floor(ty0 * T / CH); cy <= Math.floor((ty1 + 3) * T / CH); cy++) for (let cx = Math.floor(tx0 * T / CH); cx <= Math.floor((tx1 + 1) * T / CH); cx++) {
+      for (let cy = Math.floor((ty0 * T - TREE_PAD_B) / CH); cy <= Math.floor((ty1 + 3) * T / CH); cy++) for (let cx = Math.floor((tx0 * T - TREE_PAD_X) / CH); cx <= Math.floor(((tx1 + 1) * T + TREE_PAD_X) / CH); cx++) {
         const p = GC.trees(cx, cy, districts);
-        if (p) add(cy * CH - 1e6, () => c.drawImage(p, cx * CH, cy * CH - TREE_PAD)); // under everything else
+        if (p) add(cy * CH - 1e6, () => c.drawImage(p, cx * CH - TREE_PAD_X, cy * CH - TREE_PAD)); // under everything else
       }
     } else for (let ty = ty0; ty <= ty1 + 2; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const tr = treeAt(tx, ty, busy, cleared, districts);
@@ -2249,7 +2735,9 @@
       if (!s) continue;
       const lx = l.tileX * T, ly = (l.tileY + Math.max(1, s.h)) * T;
       if (lx < bx0 - 80 || lx > bx0 + bw + 40 || ly < by0 - 40 || ly > by0 + bh + 80) continue;
-      add(ly - 1, () => drawLandmark(c, l, t, lights));
+      const rvl = o.reveal && o.reveal.landmarks && o.reveal.landmarks[l.id];
+      if (rvl) add(ly - 1, () => revealDraw(c, rvl, lx, lx + Math.max(1, s.w) * T, ly, 104, t, (stage) => drawLandmark(c, stage == null ? l : { ...l, stage }, t, lights)));
+      else add(ly - 1, () => drawLandmark(c, l, t, lights));
     }
     const actors = [];
     const hide = o.hide || new Set();

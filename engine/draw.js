@@ -2607,7 +2607,12 @@
     const objs = [];
     const lights = [];
     const add = (y, fn) => objs.push({ y, fn });
-    for (const v of homes) add((v.home.tileY + 2) * T - 1 + map.homeLayout(v.home).dy, () => LH.bld.drawHome(c, v, districts, t, lights));
+    for (const v of homes) {
+      const hy = (v.home.tileY + 2) * T - 1 + map.homeLayout(v.home).dy;
+      const rvh = o.reveal && o.reveal.homes && o.reveal.homes.get(v.id); // a newcomer's home, built as they arrive (episode format 2)
+      if (rvh) add(hy, () => revealDraw(c, rvh, v.home.tileX * T - 6, (v.home.tileX + 3) * T, hy + 1, 112, t, () => LH.bld.drawHome(c, v, districts, t, lights)));
+      else add(hy, () => LH.bld.drawHome(c, v, districts, t, lights));
+    }
     // garden fences (map.UPGRADES 'fences', rebuilt 2026-11-10): not every home, about one in three (LH.bld.gardenHome, 2026-11-13), and
     // never across a path. A fenced home turns its side yard (right of the house) into a small flower or
     // vegetable bed with a picket fence round it, sized to the gap that is really free there: the house
@@ -2858,5 +2863,5 @@
     return { actors, toScreen };
   }
 
-  LH.draw = { villagerSprite, petSprite, drawVillager, renderWorld, gridToCanvas, composeGrid, drawTree };
+  LH.draw = { villagerSprite, petSprite, drawVillager, renderWorld, gridToCanvas, composeGrid, drawTree, PROPS };
 })();

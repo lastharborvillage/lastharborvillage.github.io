@@ -74,7 +74,9 @@
     return h >= 6 && h < 9 ? 'dawn' : h >= 9 && h < 17 ? 'day' : h >= 17 && h < 20 ? 'dusk' : 'night';
   }
   const TODS = ['day', 'dusk', 'night', 'dawn'];
-  M.tod = brusselsTod();
+  // Presentation only: the map opens at dusk, like the arrival scene on the Harbor, so walking from
+  // one to the other keeps the same light. The button still shows every time of day.
+  M.tod = 'dusk';
   $('map-tod').textContent = M.tod.toUpperCase();
   $('map-tod').addEventListener('click', () => { M.tod = TODS[(TODS.indexOf(M.tod) + 1) % TODS.length]; $('map-tod').textContent = M.tod.toUpperCase(); });
 
@@ -113,7 +115,9 @@
 
   function loop(now) {
     requestAnimationFrame(loop);
-    if (!M.visible || document.hidden) return;
+    if (document.hidden) return;
+    scenesTick(now);
+    if (!M.visible || panel !== 'village') return;
     // full speed while the map is being dragged, zoomed or flying (and a moment after); ~15 fps is
     // plenty for waves and lights when nobody touches it
     const busyNow = M.fly || now - (M.touched || 0) < 600;
@@ -366,15 +370,101 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) audio.pause(); else if (musicOn && !musicBlocked) musicPlay(); });
   musicButton();
 
-  // ---------- tabs: one panel at a time (the map is the first) ----------
-  function showPanel(name) {
+  // ---------- places of the site: one panel at a time (the Harbor is the front door) ----------
+  // Addresses: #harbor #explore #residents #shipyard #chronicles #noticeboard #join. The old ones
+  // (#instagram, #youtube, #instagram/<villager id>) keep working: see fromHash / route below.
+  const ROUTE = { harbor: 'harbor', village: 'explore', villagers: 'residents', ship: 'shipyard', story: 'chronicles', board: 'noticeboard', join: 'join' };
+  const PANEL = Object.fromEntries(Object.entries(ROUTE).map(([k, r]) => [r, k]));
+  const TITLE = { harbor: 'Last Harbor: the last village before the fog', village: 'Explore the village · Last Harbor', villagers: 'The residents · Last Harbor', ship: 'The shipyard · Last Harbor', story: 'The chronicles · Last Harbor', board: 'The noticeboard · Last Harbor', join: 'Join us · Last Harbor' };
+  let panel = 'harbor';
+  function showPanel(name, keepHash) {
+    if (!ROUTE[name]) name = 'harbor';
+    const changed = name !== panel;
+    panel = name;
     for (const p of document.querySelectorAll('.panel')) p.classList.toggle('on', p.dataset.panel === name);
-    for (const b of document.querySelectorAll('.tabbar button')) { if (b.dataset.go === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    for (const b of document.querySelectorAll('.tabbar [data-go], .topnav [data-go]')) { if (b.dataset.go === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     const p = document.querySelector('.panel.on');
-    if (p && name !== 'village') p.scrollTop = 0;
-    if (name === 'village') { M.visible = true; }
+    if (p && name !== 'village' && changed) p.scrollTop = 0;
+    if (name === 'village') { M.visible = true; M.touched = performance.now(); }
+    document.title = TITLE[name];
+    if (!keepHash && location.hash !== '#' + ROUTE[name]) history.pushState(null, '', '#' + ROUTE[name]);
+    for (const s of scenes) s.drawn = false;
   }
   for (const b of document.querySelectorAll('[data-go]')) b.addEventListener('click', (e) => { e.preventDefault(); showPanel(b.dataset.go); });
+  // "walk down to the quay" on the arrival scene: scroll inside the Harbor panel
+  for (const a of document.querySelectorAll('.hero-down')) a.addEventListener('click', (e) => { e.preventDefault(); const t = $('today'); if (t) t.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' }); });
+
+  // ---------- scenes: other views of the same village, drawn by the same engine ----------
+  // The arrival scene on the Harbor, the chart, and the ship on its slipway. Each is the real world
+  // (renderWorld), only the camera differs. Still pictures when the visitor asked for reduced motion.
+  const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const scenes = [];
+  function scene(id, panelName, camFn, o = {}) {
+    const c = $(id);
+    if (!c) return;
+    const s = { c, g: c.getContext('2d'), panelName, camFn, fps: o.fps || 10, once: !!o.once, tod: o.tod || 'dusk', after: o.after, seen: false, last: 0, drawn: false, key: '' };
+    new IntersectionObserver((es) => { s.seen = es[0].isIntersecting; }, { rootMargin: '120px' }).observe(c);
+    scenes.push(s);
+  }
+  function scenesTick(now) {
+    if (!D) return;
+    for (const s of scenes) {
+      if (s.panelName !== panel || !s.seen) continue;
+      const r = dpr();
+      const cw = s.c.clientWidth, ch = s.c.clientHeight;
+      if (!cw || !ch) continue;
+      const key = cw + 'x' + ch + '@' + r;
+      const still = s.once || REDUCED;
+      if (still ? (s.drawn && s.key === key) : now - s.last < 1000 / s.fps) continue;
+      s.last = now; s.drawn = true; s.key = key;
+      const w = Math.round(cw * r), h = Math.round(ch * r);
+      if (s.c.width !== w || s.c.height !== h) { s.c.width = w; s.c.height = h; }
+      const cam = s.camFn(cw, ch);
+      const z = Math.max(1, Math.round(cam.z * r));
+      const cat = D.cat ? [D.cat[0] * T, D.cat[1] * T] : undefined;
+      LH.draw.renderWorld(s.g, { world: D.world, cam: { x: cam.x, y: cam.y, z }, t: still ? 2 : now / 1000, tod: s.tod, cat, fast: true });
+      if (s.after) s.after({ x: cam.x, y: cam.y, z: z / r, w: cw, h: ch });
+    }
+  }
+  const shipAt = () => (D.world.ship && D.world.ship.x != null ? D.world.ship : { x: 144, y: 56 });
+  // arrival: wide screens see the quay from the ship to the lighthouse; phones stand by the ship
+  function heroCam(w, h) {
+    const s = shipAt();
+    if (w < 700) {
+      const z = Math.max(2, Math.floor(w / 190));
+      const free = document.querySelector('.hero-text').getBoundingClientRect().top - $('hero').getBoundingClientRect().top;
+      const target = Math.max(96, Math.min(h * 0.32, free * 0.62)); // where the ship's middle should stand, in px from the top
+      return { x: s.x + 54, y: s.y - 16 + (h / 2 - target) / z, z };
+    }
+    const z = Math.max(2, Math.min(6, Math.floor(Math.min(w / 465, h / 250))));
+    return { x: 242, y: -196 + h / z / 2, z };
+  }
+  const yardCam = (w, h) => { const s = shipAt(); return { x: s.x + 52, y: s.y - 24, z: Math.max(2, Math.min(8, Math.floor(Math.min(w / 150, h / 80)))) }; };
+  const chartCam = (w) => ({ x: OVERVIEW.x, y: OVERVIEW.y + 2 * T, z: w > 1500 ? 2 : 1 });
+  // signposts standing in the arrival scene: real places, placed where the engine drew them
+  const SIGNS = [
+    { go: 'ship', label: 'The shipyard', at: () => { const s = shipAt(); return [s.x + 52, s.y - 40]; } },
+    { go: 'village', label: 'Explore the village', at: () => { const b = (D.world.buildings || []).find((q) => q.type === 'lighthouse'); return b ? [b.tileX * T + T, b.tileY * T + 2 * T - 78] : null; } },
+    { go: 'board', label: 'Noticeboard', at: () => { const b = (D.world.props || []).find((q) => q.type === 'board'); return b ? [b.x * T, b.y * T - 28] : null; } },
+  ];
+  function placeSigns(cam) {
+    const box = $('hero-signs');
+    if (!box.children.length) for (const sg of SIGNS) { const a = el('a', 'signpost'); a.href = '#' + ROUTE[sg.go]; a.appendChild(el('span', null, sg.label)); a.addEventListener('click', (e) => { e.preventDefault(); showPanel(sg.go); }); box.appendChild(a); }
+    const txt = document.querySelector('.hero-text').getBoundingClientRect(), hero = $('hero').getBoundingClientRect();
+    SIGNS.forEach((sg, i) => {
+      const a = box.children[i], p = sg.at();
+      if (!p) { a.hidden = true; return; }
+      const x = (p[0] - cam.x) * cam.z + cam.w / 2, y = (p[1] - cam.y) * cam.z + cam.h / 2;
+      // never over the words, never cut off at an edge
+      const overText = y > txt.top - hero.top - 8 && x > txt.left - hero.left - 70 && x < txt.right - hero.left + 70;
+      a.hidden = x < 78 || x > cam.w - 78 || y < 56 || y > cam.h - 20 || overText;
+      a.style.left = Math.round(x) + 'px'; a.style.top = Math.round(y) + 'px';
+    });
+  }
+  scene('hero-canvas', 'harbor', heroCam, { fps: 10, after: placeSigns });
+  scene('chart-canvas', 'harbor', chartCam, { once: true });
+  scene('slip-canvas', 'harbor', yardCam, { fps: 8 });
+  scene('yard-canvas', 'ship', yardCam, { fps: 10 });
 
   // ---------- villager dialog ----------
   const dlg = $('villager');
@@ -403,15 +493,20 @@
     const so = $('v-social');
     so.hidden = !p.social;
     if (p.social) { so.textContent = (p.social.platform === 'instagram' ? 'Instagram ' : 'YouTube ') + p.social.handle; so.dataset.platform = p.social.platform; }
-    $('v-meta').textContent = founder ? 'Founder of Last Harbor' : 'Lives in ' + districtName(p.home && p.home.district) + ' · moved in on day ' + p.dayJoined;
+    const dn = districtName(p.home && p.home.district);
+    $('v-meta').textContent = founder ? 'Founder of Last Harbor' : (dn === '???' ? 'Moved in on day ' : 'Lives in ' + dn + ' · moved in on day ') + p.dayJoined;
     watchButton($('v-watch'), founder ? null : p.dayJoined);
     $('v-show').hidden = !spotOf(p);
     $('v-save').hidden = !spotOf(p);
+    const days = seenIn(p), seen = $('v-seen');
+    seen.hidden = !days.length;
+    seen.replaceChildren(document.createTextNode('Named in the chronicles: '));
+    for (const e of days) { const a = el('a', null, 'DAY ' + e.day); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; seen.appendChild(a); }
     $('toast').textContent = '';
     if (!dlg.open) dlg.showModal();
     history.replaceState(null, '', '#' + village + '/' + p.id);
   }
-  dlg.addEventListener('close', () => history.replaceState(null, '', '#' + village));
+  dlg.addEventListener('close', () => history.replaceState(null, '', '#' + ROUTE[panel]));
   dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
   const linkFor = (p) => location.href.split('#')[0] + '#' + village + '/' + p.id;
   const toast = (m) => { $('toast').textContent = m; };
@@ -497,12 +592,13 @@
     if (nx && D.open) $('map-next').textContent = (nx.at - w.villagers.length) + ' more for ' + nx.name;
   }
 
+  const matches = (p, q) => fold(p.displayName).includes(q) || fold(p.job).includes(q) || (p.social && fold(p.social.handle).includes(q)) || (p.id === 'cat' && 'the cat'.includes(q));
   function renderSearch() {
-    const q = fold($('search').value.trim());
+    const q = fold($('search').value.trim()).replace(/^@/, '');
     const out = $('results');
     if (!q) { out.replaceChildren(); return; }
     const all = [...D.world.founders, ...people()];
-    const hits = all.filter((p) => fold(p.displayName).includes(q) || fold(p.job).includes(q) || (p.id === 'cat' && 'the cat'.includes(q)));
+    const hits = all.filter((p) => matches(p, q));
     if (!hits.length) { const li = el('li', 'empty', people().length ? 'Nobody by that name yet. Comment on the latest day to move in.' : 'Nobody has moved in yet.'); out.replaceChildren(li); return; }
     out.replaceChildren(...hits.slice(0, 24).map((p) => { const li = el('li'); li.appendChild(personButton(p, p.dayJoined ? 'DAY ' + p.dayJoined : 'FOUNDER')); return li; }));
   }
@@ -513,6 +609,14 @@
     $('planks').textContent = s.planks;
     $('goal').textContent = goal;
     $('ship-bar').style.width = Math.min(100, (s.planks / goal) * 100) + '%';
+    hull($('yard-hull'), s.planks, goal);
+    const bits = [];
+    if (s.sharePlanks) bits.push(s.sharePlanks + ' came from shares of the videos' + (LH.map.SHARE_PLANKS ? ' (' + LH.map.SHARE_PLANKS + ' planks a share)' : ''));
+    if (s.founderPlanks) bits.push(s.founderPlanks + ' were laid by the founders');
+    $('ship-sources').textContent = bits.length ? 'Every villager adds one plank. ' + bits.join(', and ') + '.' : '';
+    const crew = people().filter((v) => v.crew);
+    $('crew-sub').textContent = crew.length ? crew.length + (crew.length === 1 ? ' villager has' : ' villagers have') + ' signed up for the voyage. Comment crew under a day to join them.' : 'Nobody has signed up yet. If you already live here, comment crew under a day to sign up for the voyage.';
+    $('crew-list').replaceChildren(...crew.map((v) => { const li = el('li'); li.appendChild(personButton(v, 'DAY ' + v.dayJoined)); return li; }));
     const cur = LH.map.shipStage(s.planks).index;
     $('stages').replaceChildren(...LH.map.SHIP_STAGES.slice(1).map((st, i) => {
       // no spoilers: a stage's name shows once the ship reaches it
@@ -550,19 +654,39 @@
     box.replaceChildren(...kids);
   }
 
+  const whereOf = (url) => (/youtu/.test(url) ? 'YouTube' : /instagram/.test(url) ? 'Instagram' : /tiktok/.test(url) ? 'TikTok' : 'the video');
+  const dayDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Brussels' });
+  const cleanDayTitle = (e) => e.title.replace(/^Day \d+:\s*/i, '');
+  function watchLinks(e, box) {
+    const a = el('a', null, 'Watch on ' + whereOf(e.url)); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a);
+    for (const u of Object.values(e.also || {})) { const y = el('a', 'alt', whereOf(u)); y.href = u; y.target = '_blank'; y.rel = 'noopener'; y.setAttribute('aria-label', 'Watch day ' + e.day + ' on ' + whereOf(u)); box.appendChild(y); }
+  }
   function renderDays() {
     const box = $('days');
     if (!D.episodes.length) { box.replaceChildren(el('p', 'muted', 'Day 1 is on its way.')); return; }
+    $('days-sub').textContent = D.episodes.length + (D.episodes.length === 1 ? ' day' : ' days') + ' so far, newest first. Every day is a new video.';
     box.replaceChildren(...D.episodes.map((e) => {
-      const a = el('a', 'day');
-      a.href = e.url; a.target = '_blank'; a.rel = 'noopener';
-      if (e.thumb) { const img = el('img'); img.src = e.thumb; img.alt = ''; img.loading = 'lazy'; a.appendChild(img); }
+      const row = el('article', 'day');
+      const pic = el('a', 'pic');
+      pic.href = e.url; pic.target = '_blank'; pic.rel = 'noopener'; pic.setAttribute('aria-label', 'Watch day ' + e.day);
+      if (e.thumb) { const img = el('img'); img.src = e.thumb; img.alt = ''; img.loading = 'lazy'; pic.appendChild(img); }
+      row.appendChild(pic);
       const t = el('div', 'txt');
-      t.appendChild(el('span', 'd', 'DAY ' + e.day));
-      t.appendChild(el('p', 't', e.title.replace(/^Day \d+:\s*/i, '')));
-      if (e.beat) t.appendChild(el('p', 'b', e.beat));
-      a.appendChild(t);
-      return a;
+      t.appendChild(el('span', 'd', 'DAY ' + e.day + (e.publishedAt ? ' · ' + dayDate(e.publishedAt).toUpperCase() : '')));
+      t.appendChild(el('h2', 't', cleanDayTitle(e)));
+      const links = el('div', 'links');
+      if (e.beat) {
+        const b = el('p', 'b clip', e.beat);
+        t.appendChild(b);
+        const more = el('button', null, 'Read the whole day');
+        more.type = 'button';
+        more.addEventListener('click', () => { const open = b.classList.toggle('clip'); more.textContent = open ? 'Read the whole day' : 'Fold it back'; });
+        watchLinks(e, links);
+        links.appendChild(more);
+      } else watchLinks(e, links);
+      t.appendChild(links);
+      row.appendChild(t);
+      return row;
     }));
   }
 
@@ -602,7 +726,9 @@
       : 'Nobody has moved in yet. The first comments become the first villagers.';
     $('founders').replaceChildren(...w.founders.map((f) => personButton(f, 'FOUNDER')));
     const dist = $('f-district').value, onlyCrew = $('f-crew').checked, sort = $('f-sort').value;
-    let list = people().filter((v) => (!dist || (v.home && v.home.district === dist)) && (!onlyCrew || v.crew));
+    const rq = fold($('r-search').value.trim()).replace(/^@/, '');
+    let list = people().filter((v) => (!dist || (v.home && v.home.district === dist)) && (!onlyCrew || v.crew) && (!rq || matches(v, rq)));
+    $('register-empty').hidden = !!list.length || !people().length;
     if (sort === 'new') list = [...list].sort((a, b) => b.dayJoined - a.dayJoined || b.id.localeCompare(a.id));
     else if (sort === 'old') list = [...list].sort((a, b) => a.dayJoined - b.dayJoined || a.id.localeCompare(b.id));
     else list = [...list].sort((a, b) => fold(a.displayName).localeCompare(fold(b.displayName)));
@@ -613,6 +739,7 @@
   $('more').addEventListener('click', () => { shown += 96; renderRegister(false); });
   for (const id of ['f-district', 'f-sort', 'f-crew']) $(id).addEventListener('change', () => renderRegister(true));
   $('search').addEventListener('input', renderSearch);
+  $('r-search').addEventListener('input', () => renderRegister(true));
 
   function renderJoin() {
     $('join-follow').replaceChildren(document.createTextNode('Follow '));
@@ -634,6 +761,214 @@
     $('built').textContent = fmtDate(D.builtAt);
   }
 
+  // ---------- the Harbor (front page), the noticeboard, the list of places ----------
+  // Everything here is read from the village data; nothing is written by hand.
+  function hull(box, planks, goal) {
+    const cells = 100, per = goal / cells, full = Math.floor(planks / per);
+    box.replaceChildren(...Array.from({ length: cells }, (_, i) => el('i', i < full ? 'in' : i === full && planks < goal ? 'now' : '')));
+    box.setAttribute('aria-label', planks + ' of ' + goal + ' planks');
+  }
+  // The days whose chronicle names this villager. Only shown when the text leaves no doubt; when
+  // in doubt, nothing is claimed. A day counts for a villager only if ALL of this holds:
+  //  - the whole display name stands in that day's text (never inside a longer villager's name, and
+  //    never inside the name of a landmark, building or object, which are blanked out first);
+  //  - nobody else who lived here by that day has that name, or carries it as a word of their name
+  //    ("Ram" and "Ram the Crier"), and the name is not a founder's;
+  //  - the villager had moved in by that day;
+  //  - a name that is also an ordinary word of the chronicles (used in lower case somewhere, or a
+  //    job word like "Baker") must stand in the middle of a sentence, where the capital means a name.
+  // A villager with even one impossible hit (named before they arrived) gets no claim at all.
+  let SEEN = null;
+  function seenIn(p) {
+    if (!SEEN) {
+      SEEN = {};
+      const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const word = (t) => new RegExp('(^|[^\\p{L}\\p{N}])' + esc(t) + '(?![\\p{L}\\p{N}])', 'gu');
+      const w = D.world;
+      const all = [...w.founders, ...people()].filter((v) => v.displayName && v.displayName.trim().length >= 3);
+      const joined = (v) => v.dayJoined || 0;
+      const byLen = [...all].sort((a, b) => b.displayName.length - a.displayName.length);
+      const placeNames = [...(w.landmarks || []), ...(w.buildings || []), ...(w.props || [])].map((x) => x.name).filter((n) => n && n.length >= 3).sort((a, b) => b.length - a.length);
+      const allText = D.episodes.map((e) => e.beat || '').join(' \n ');
+      const ordinary = new Set();
+      for (const v of all) for (const j of fold(v.job).split(/[^a-z]+/)) if (j.length >= 3) ordinary.add(j);
+      const isOrdinary = (name) => !/\s/.test(name) && (ordinary.has(fold(name)) || word(name.toLowerCase()).test(allText));
+      const doubt = new Set();
+      for (const e of D.episodes) {
+        let text = e.beat || '';
+        for (const n of placeNames) text = text.replace(word(n), '$1#');
+        for (const v of byLen) {
+          const name = v.displayName.trim(), re = word(name);
+          let m, hit = false, mid = false;
+          while ((m = re.exec(text))) {
+            hit = true;
+            const before = text.slice(0, m.index + m[1].length).trimEnd();
+            if (before && !/[.!?:;#"”)]$/.test(before)) mid = true; // inside a sentence, after ordinary words
+          }
+          if (!hit) continue;
+          text = text.replace(word(name), '$1#');
+          // anyone else this could mean, among the people living here by that day
+          const others = all.filter((o) => o !== v && joined(o) <= e.day && (o.displayName.trim() === name || word(name).test(o.displayName)));
+          if (others.length) continue;
+          if (e.day < joined(v)) { doubt.add(v.id); continue; }
+          if (isOrdinary(name) && !mid) continue;
+          (SEEN[v.id] = SEEN[v.id] || []).push(e);
+        }
+      }
+      for (const id of doubt) delete SEEN[id];
+    }
+    return [...(SEEN[p.id] || [])].sort((a, b) => a.day - b.day);
+  }
+  const firstSentences = (t, n) => { const m = String(t || '').match(/[^.!?]+[.!?]+(\s|$)/g); return m ? m.slice(0, n).join('').trim() : String(t || ''); };
+  function goPlace(id) {
+    const p = places().find((q) => q.id === id);
+    if (!p) return;
+    showPanel('village');
+    M.sel = null;
+    setZoom(4);
+    flyTo((p.box[0] + p.box[2]) / 2, (p.box[1] + p.box[3]) / 2);
+    setTimeout(() => openPlace(p), 950);
+  }
+  const newestLandmarks = () => [...(D.world.landmarks || [])].filter((l) => l.name).sort((a, b) => b.dayAdded - a.dayAdded);
+
+  function note(kicker, title, text) {
+    const n = el('div', 'note');
+    n.appendChild(el('p', 'nk', kicker));
+    if (title) n.appendChild(el('h3', null, title));
+    if (text) n.appendChild(el('p', null, text));
+    return n;
+  }
+  function notes(withVote) {
+    const w = D.world, st = w.story, out = [];
+    const v = st.activeVote;
+    if (v && D.open && withVote) {
+      const n = note('Open decision' + (v.day ? ' · day ' + v.day : ''), v.question);
+      const opts = el('div', 'vote-opts');
+      for (const o of v.options || []) opts.appendChild(el('span', null, typeof o === 'string' ? o : o.word || o.label || ''));
+      n.appendChild(opts);
+      n.appendChild(el('p', null, 'Comment your word under the latest day. The count decides what happens next.'));
+      if (D.latestUrl) { const a = el('a', 'btn', 'Vote on the latest day'); a.href = D.latestUrl; a.target = '_blank'; a.rel = 'noopener'; n.appendChild(a); }
+      out.push(n);
+    }
+    const fresh = people().filter((p) => p.dayJoined === st.day);
+    if (fresh.length) {
+      const n = note('Moved in on day ' + st.day, fresh.length + (fresh.length === 1 ? ' new villager' : ' new villagers'));
+      const names = el('p', 'names');
+      fresh.slice(0, 12).forEach((p, i) => {
+        if (i) names.appendChild(document.createTextNode(', '));
+        const b = el('button', null, p.displayName || 'A villager'); b.type = 'button'; b.addEventListener('click', () => openVillager(p.id)); names.appendChild(b);
+      });
+      if (fresh.length > 12) names.appendChild(document.createTextNode(' and ' + (fresh.length - 12) + ' more'));
+      n.appendChild(names);
+      out.push(n);
+    }
+    const marks = newestLandmarks();
+    const today = marks.filter((l) => l.dayAdded === st.day);
+    for (const l of (today.length ? today : marks).slice(0, today.length ? 2 : 1)) {
+      const n = note((l.dayAdded === st.day ? 'New in the village' : 'Built') + ' · day ' + l.dayAdded, l.name, l.description);
+      const b = el('button', 'btn ghost', 'See it on the map'); b.type = 'button'; b.addEventListener('click', () => goPlace(l.id)); n.appendChild(b);
+      out.push(n);
+    }
+    const sea = st.washedAshore[st.washedAshore.length - 1];
+    if (sea) out.push(note('Washed ashore · day ' + sea.day, null, (sea.description || sea.item).replace(/^./, (c) => c.toUpperCase()) + '.'));
+    const nx = LH.map.nextUpgrade(w);
+    if (nx && D.open) out.push(note('Next for the village', (nx.at - w.villagers.length) + ' more villagers', 'and the village gets ' + nx.name + '.'));
+    const last = st.votes[st.votes.length - 1];
+    if (last) out.push(note('Decided on day ' + last.day, last.question, (last.winner ? 'The village chose ' + last.winner : 'Decided') + (last.counts ? ' (' + Object.entries(last.counts).map(([k, c]) => k + ' ' + c).join(', ') + ').' : '.')));
+    return out;
+  }
+  function renderBoard() {
+    const st = D.world.story;
+    $('board-sub').textContent = D.open ? 'What is pinned up on day ' + st.day + '. Updated ' + fmtDate(D.builtAt) + '.' : 'Nothing pinned up yet. Day 1 is on its way.';
+    const all = notes(false);
+    $('board-notes').replaceChildren(...(all.length ? all : [note('Quiet', null, 'Nothing new today.')]));
+    $('notice-dot').hidden = !(st.activeVote && D.open);
+  }
+
+  function renderPlaces() {
+    const all = places(), box = $('places-list'), kids = [];
+    const group = (title, items) => {
+      if (!items.length) return;
+      kids.push(el('h4', null, title));
+      const ul = el('ul');
+      for (const p of items) {
+        const li = el('li'), b = el('button'); b.type = 'button';
+        b.appendChild(el('b', null, p.title)); b.appendChild(el('span', null, p.kicker || ''));
+        b.addEventListener('click', () => { $('places').close(); goPlace(p.id); });
+        li.appendChild(b); ul.appendChild(li);
+      }
+      kids.push(ul);
+    };
+    group('The harbour', ['lighthouse', 'ship', 'bram-workshop', 'board', 'dock', 'camp'].map((id) => all.find((p) => p.id === id)).filter(Boolean));
+    group('Landmarks, newest first', newestLandmarks().map((l) => all.find((p) => p.id === l.id)).filter(Boolean));
+    box.replaceChildren(...kids);
+  }
+  $('map-places').addEventListener('click', () => $('places').showModal());
+  $('places').addEventListener('click', (e) => { if (e.target === $('places')) $('places').close(); });
+
+  function renderHarbor() {
+    const w = D.world, st = w.story, s = w.ship, goal = s.goal || LH.map.SHIP_GOAL;
+    const residents = Math.max(st.followers || 0, w.villagers.length);
+    const latest = D.episodes[0];
+    if (D.open) $('hero-kicker').textContent = 'Day ' + st.day + ' · ' + residents.toLocaleString('en-US') + ' residents';
+    const hw = $('hero-watch');
+    if (latest) { hw.href = latest.url; hw.target = '_blank'; hw.rel = 'noopener'; hw.textContent = 'Watch day ' + latest.day; }
+    // today: the tally on the quay
+    const plate = (n, label, go) => { const p = el(go ? 'a' : 'div', 'plate'); if (go) { p.href = '#' + ROUTE[go]; p.addEventListener('click', (e) => { e.preventDefault(); showPanel(go); }); } p.appendChild(el('b', null, String(n))); p.appendChild(el('span', null, label)); return p; };
+    $('today-plates').replaceChildren(
+      plate(D.open ? st.day : 0, st.day === 1 ? 'day so far' : 'days so far', 'story'),
+      plate(residents.toLocaleString('en-US'), 'residents', 'villagers'),
+      plate(w.villagers.length, 'with a house', 'village'),
+      plate(s.planks, 'of ' + goal + ' planks', 'ship'));
+    const nx = LH.map.nextUpgrade(w);
+    const log = $('today-log');
+    log.hidden = !(nx && D.open);
+    if (nx && D.open) log.textContent = (nx.at - w.villagers.length) + ' more villagers and the village gets ' + nx.name + '.';
+    // the latest day
+    if (latest) {
+      const f = $('latest-frame');
+      f.hidden = !latest.thumb; f.href = latest.url; f.setAttribute('aria-label', 'Watch day ' + latest.day);
+      if (latest.thumb) $('latest-img').src = latest.thumb;
+      $('latest-kicker').textContent = 'The latest day · day ' + latest.day + (latest.publishedAt ? ' · ' + dayDate(latest.publishedAt) : '');
+      $('latest-title').textContent = cleanDayTitle(latest);
+      $('latest-beat').textContent = firstSentences(latest.beat, 2);
+      const links = $('latest-links');
+      links.replaceChildren();
+      watchLinks(latest, links);
+      for (const a of links.children) a.className = 'btn' + (a.classList.contains('alt') ? ' ghost' : '');
+      if (links.children[1]) links.children[1].textContent = 'Watch on ' + links.children[1].textContent;
+    }
+    // places worth a walk: the newest landmarks
+    $('home-places').replaceChildren(...newestLandmarks().slice(0, 6).map((l) => { const li = el('li'), b = el('button', null, l.name); b.type = 'button'; b.addEventListener('click', () => goPlace(l.id)); li.appendChild(b); return li; }));
+    // the newest residents, as they described themselves
+    const folk = [...people()].sort((a, b) => b.dayJoined - a.dayJoined || b.id.localeCompare(a.id)).slice(0, 6);
+    $('home-res-sub').textContent = people().length ? people().length + ' villagers have a house so far, each one a real comment. These are the newest arrivals.' : 'Nobody has moved in yet. The first comments become the first villagers.';
+    $('home-folk').replaceChildren(...folk.map((p) => {
+      const li = el('li'), b = el('button'); b.type = 'button';
+      b.appendChild(portrait(p));
+      const d = el('span');
+      d.appendChild(el('span', 'nm', p.displayName || p.id)); d.appendChild(el('span', 'jb', (p.job || '') + ' · day ' + p.dayJoined)); d.appendChild(el('span', 'tr', p.trait || ''));
+      b.appendChild(d);
+      b.addEventListener('click', () => openVillager(p.id));
+      li.appendChild(b);
+      return li;
+    }));
+    $('home-res-all').textContent = people().length ? 'Meet all ' + people().length + ' villagers' : 'The register';
+    // the ship
+    $('home-planks').textContent = s.planks; $('home-goal').textContent = goal;
+    hull($('home-hull'), s.planks, goal);
+    // the board: the three notes on top
+    const top = notes(true).slice(0, 3);
+    $('home-board').replaceChildren(...(top.length ? top : [note('Quiet', null, 'Nothing pinned up yet.')]));
+    // older days
+    const older = D.episodes.slice(1, 5);
+    $('home-days').replaceChildren(...older.map((e) => { const li = el('li'), a = el('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; a.appendChild(el('span', 'd', 'DAY ' + e.day)); a.appendChild(el('span', 't', cleanDayTitle(e))); li.appendChild(a); return li; }));
+    $('home-chron-all').textContent = D.episodes.length ? 'Open the chronicles (' + D.episodes.length + ' days)' : 'Open the chronicles';
+    const hl = $('home-latest');
+    hl.href = D.latestUrl || D.follow.url;
+    hl.textContent = D.latestUrl ? 'Comment on the latest day' : 'Follow ' + D.follow.label;
+  }
+
   // ---------- village switching ----------
   async function load(v, focus) {
     village = v;
@@ -649,9 +984,11 @@
     // start fully zoomed out on the whole village (sea, harbour, camp and fields); tap + to go closer
     M.x = OVERVIEW.x; M.y = OVERVIEW.y + (narrow ? 2 * T : 0);
     M.zi = 0;
+    SEEN = null;
     renderStats(); renderShip(); renderVote(); renderDays(); renderAshore(); renderDistricts(); renderRegister(true); renderJoin(); renderSearch();
+    renderHarbor(); renderBoard(); renderPlaces();
+    for (const s of scenes) s.drawn = false;
     if (focus && findPerson(focus)) { showOnMap(focus); openVillager(focus); }
-    else history.replaceState(null, '', '#' + v);
   }
   for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('click', () => load(b.dataset.village));
 
@@ -660,7 +997,14 @@
     if (!VILLAGES.includes(v) && REDIRECT[v]) return { v: REDIRECT[v].village, id: id && REDIRECT[v].ids[id] };
     return VILLAGES.includes(v) ? { v, id } : null;
   }
-  window.addEventListener('hashchange', () => { const h = fromHash(); if (h && (h.v !== village || h.id)) load(h.v, h.id); });
+  function route() {
+    const key = location.hash.replace(/^#/, '');
+    if (PANEL[key]) { if (dlg.open) dlg.close(); showPanel(PANEL[key], true); return; }
+    const h = fromHash();
+    if (h && (h.v !== village || h.id)) load(h.v, h.id);
+    else if (!key || h) showPanel('harbor', true);
+  }
+  window.addEventListener('hashchange', route);
 
   fetch('data/index.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((ix) => {
     if (ix && ix.villages && ix.villages.length) VILLAGES = ix.villages;
@@ -669,7 +1013,7 @@
     if (VILLAGES.length < 2) for (const n of document.querySelectorAll('.tabs')) n.hidden = true;
     const start = fromHash();
     return load(start ? start.v : VILLAGES[0], start && start.id);
-  }).then(() => requestAnimationFrame(loop));
+  }).then(() => { const key = location.hash.replace(/^#/, ''); if (PANEL[key]) showPanel(PANEL[key], true); requestAnimationFrame(loop); });
   // fonts arrive a moment later; name tags and portraits use them
   document.fonts && document.fonts.ready.then(() => { if (D) { renderRegister(false); } });
 })();

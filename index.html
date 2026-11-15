@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Last Harbor</title>
+<title>Last Harbor: the last village before the fog</title>
 <meta name="description" content="A pixel-art village at the edge of the world, built from your comments. Every commenter becomes a villager. Together we build a ship to sail into the fog.">
-<meta name="theme-color" content="#182544">
+<meta name="theme-color" content="#0d1828">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Last Harbor: the village at the edge of the world">
 <meta property="og:description" content="Every commenter becomes a villager. Find yours, and help build the ship.">
@@ -15,27 +15,166 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@400;600;700&family=Silkscreen:wght@400;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<!-- The page is an app: the map fills the screen (Village tab); everything else lives in the other
-     tabs of the bar at the bottom (app.js showPanel). -->
+<!-- One page, one place at a time (app.js showPanel): the Harbor is the front door, every other
+     place of the village is a panel behind it. Icons are the <symbol>s at the end of the page. -->
+<a class="skip" href="#harbor" data-go="harbor">Skip to the harbor</a>
 <header class="top">
-  <a class="brand" href="#" aria-label="Last Harbor, back to the village" data-go="village">
+  <a class="brand" href="#harbor" aria-label="Last Harbor, back to the harbor" data-go="harbor">
     <span class="brand-mark" aria-hidden="true"></span>
     <span class="brand-name">LAST HARBOR</span>
   </a>
   <p class="top-day"><span class="live-dot" aria-hidden="true"></span> <span id="day-badge">Day 0</span></p>
-  <button class="sound" id="music" aria-pressed="true" aria-label="Music on (tap to mute)" title="Music"><span class="spk" aria-hidden="true"></span></button>
-  <nav class="tabs" role="tablist" aria-label="Village">
+  <nav class="topnav" aria-label="Places">
+    <a href="#harbor" data-go="harbor">Harbor</a>
+    <a href="#explore" data-go="village">Explore</a>
+    <a href="#residents" data-go="villagers">Residents</a>
+    <a href="#shipyard" data-go="ship">Shipyard</a>
+    <a href="#chronicles" data-go="story">Chronicles</a>
+    <a href="#noticeboard" data-go="board">Noticeboard</a>
+    <a href="#join" data-go="join" class="topnav-join">Join us</a>
+  </nav>
+  <a class="iconbtn notice-btn" href="#noticeboard" data-go="board" aria-label="Noticeboard"><svg class="ico" aria-hidden="true"><use href="#i-notice"/></svg><span class="notice-dot" id="notice-dot" hidden></span></a>
+  <button class="iconbtn sound" id="music" aria-pressed="true" aria-label="Music on (tap to mute)" title="Music"><svg class="ico" aria-hidden="true"><use href="#i-sound"/></svg></button>
+  <nav class="tabs" role="tablist" aria-label="Village" hidden>
     <button role="tab" data-village="instagram" aria-selected="true">Instagram</button>
     <button role="tab" data-village="youtube" aria-selected="false">YouTube</button>
   </nav>
 </header>
 
 <main>
-  <section id="village" class="panel on" data-panel="village" aria-label="The village">
+  <!-- ============ THE HARBOR (front door) ============ -->
+  <section id="harbor" class="panel on" data-panel="harbor" aria-label="The harbor">
+    <div class="hero" id="hero">
+      <canvas id="hero-canvas" aria-label="The harbor of Last Harbor at dusk: the quay, the ship being built and the lighthouse."></canvas>
+      <div class="fog fog-a" aria-hidden="true"></div>
+      <div class="fog fog-b" aria-hidden="true"></div>
+      <div class="hero-signs" id="hero-signs"></div>
+      <div class="hero-shade" aria-hidden="true"></div>
+      <div class="hero-text">
+        <p class="kicker" id="hero-kicker">The village at the edge of the world</p>
+        <h1>The last village before the fog</h1>
+        <p class="hero-lede"><span class="lede-long">A village built by its people, one day at a time. Follow and you get a tent on the beach. </span>Comment and you become a villager. Every villager adds a plank to the ship that will sail into the fog.</p>
+        <p class="cta-row">
+          <a class="btn" href="#join" data-go="join">Move in</a>
+          <a class="btn ghost" id="hero-watch" href="#chronicles">Watch the latest day</a>
+        </p>
+      </div>
+      <a class="hero-down" href="#today" aria-label="Walk down to the quay"><svg class="ico" aria-hidden="true"><use href="#i-down"/></svg></a>
+    </div>
+
+    <!-- today's harbor: the tally chalked up on the quay -->
+    <div class="quay" id="today">
+      <div class="wrap">
+        <p class="quay-title">Today in the harbor</p>
+        <div class="plates" id="today-plates"></div>
+        <p class="quay-log" id="today-log" hidden></p>
+      </div>
+    </div>
+
+    <!-- latest episode -->
+    <div class="band" id="latest">
+      <div class="wrap latest">
+        <a class="frame" id="latest-frame" target="_blank" rel="noopener" hidden>
+          <img id="latest-img" alt="">
+          <span class="play" aria-hidden="true"><svg class="ico"><use href="#i-play"/></svg></span>
+        </a>
+        <div class="latest-txt">
+          <p class="kicker" id="latest-kicker">The latest day</p>
+          <h2 id="latest-title">Day 1 is on its way</h2>
+          <p class="prose" id="latest-beat"></p>
+          <p class="cta-row" id="latest-links"></p>
+          <p><a class="more" href="#chronicles" data-go="story">Read every day so far</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- explore -->
+    <div class="band band-sea">
+      <div class="wrap">
+        <p class="kicker">Explore</p>
+        <h2>Walk the village</h2>
+        <p class="prose narrow">Every house on this map belongs to someone who commented. Drag around it, tap a home to meet who lives there, and see what the village has built.</p>
+        <a class="chart" href="#explore" data-go="village" aria-label="Open the map of the village">
+          <canvas id="chart-canvas" aria-hidden="true"></canvas>
+          <span class="chart-open">Open the map</span>
+        </a>
+        <ul class="chips" id="home-places"></ul>
+      </div>
+    </div>
+
+    <!-- residents -->
+    <div class="band">
+      <div class="wrap">
+        <p class="kicker">Residents</p>
+        <h2 id="home-res-title">The people of Last Harbor</h2>
+        <p class="prose narrow" id="home-res-sub"></p>
+        <ul class="folk" id="home-folk"></ul>
+        <p class="cta-row"><a class="btn ghost" href="#residents" data-go="villagers" id="home-res-all">Meet everyone</a></p>
+      </div>
+    </div>
+
+    <!-- shipyard -->
+    <div class="band band-yard">
+      <div class="wrap yard">
+        <div class="slip">
+          <canvas id="slip-canvas" aria-label="The ship on the slipway, as it stands today."></canvas>
+        </div>
+        <div>
+          <p class="kicker">The shipyard</p>
+          <h2>One ship, a thousand planks</h2>
+          <p class="tally"><b id="home-planks">0</b><span> of <span id="home-goal">1000</span> planks</span></p>
+          <div class="hull" id="home-hull" role="img" aria-label="Plank progress"></div>
+          <p class="prose">Every villager adds one plank. When the last plank is in, the ship sails into the fog, with a crew picked from the village.</p>
+          <p class="cta-row"><a class="btn ghost" href="#shipyard" data-go="ship">Visit the shipyard</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- noticeboard -->
+    <div class="band">
+      <div class="wrap">
+        <p class="kicker">Noticeboard</p>
+        <h2>Pinned up this morning</h2>
+        <div class="board" id="home-board"></div>
+        <p class="cta-row"><a class="btn ghost" href="#noticeboard" data-go="board">Read the whole board</a></p>
+      </div>
+    </div>
+
+    <!-- chronicles -->
+    <div class="band band-sea">
+      <div class="wrap">
+        <p class="kicker">Chronicles</p>
+        <h2>The story so far</h2>
+        <p class="prose narrow" id="home-chron-sub">Every day is a new video, and every day the village changes.</p>
+        <ol class="spines" id="home-days"></ol>
+        <p class="cta-row"><a class="btn ghost" href="#chronicles" data-go="story" id="home-chron-all">Open the chronicles</a></p>
+      </div>
+    </div>
+
+    <!-- join -->
+    <div class="band band-join">
+      <div class="wrap">
+        <p class="kicker">Join us</p>
+        <h2>There is room for you</h2>
+        <ol class="steps short">
+          <li><span class="n">1</span><div><b>Follow</b><p>You get a tent on the beach the next day.</p></div></li>
+          <li><span class="n">2</span><div><b>Comment a name and a job</b><p>You get your own house, and the ship gets a plank.</p></div></li>
+          <li><span class="n">3</span><div><b>Have your say</b><p>Each day ends with one choice. The comments decide.</p></div></li>
+        </ol>
+        <p class="cta-row"><a class="btn" href="#join" data-go="join">How to move in</a> <a class="btn ghost" id="home-latest" href="#" target="_blank" rel="noopener">Comment on the latest day</a></p>
+      </div>
+    </div>
+    <footer class="foot wrap">
+      <p class="small">Every villager is a real public comment. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
+    </footer>
+  </section>
+
+  <!-- ============ EXPLORE (the map) ============ -->
+  <section id="village" class="panel" data-panel="village" aria-label="Explore the village">
     <div class="map" id="map">
       <canvas id="map-canvas" aria-label="Map of the village. Drag to look around."></canvas>
       <div class="map-card" aria-live="polite">
@@ -48,11 +187,12 @@
         <button class="mbtn" id="zoom-out" aria-label="Zoom out">−</button>
         <button class="mbtn" id="map-home" aria-label="Back to the whole village">⌂</button>
         <button class="mbtn wide" id="map-tod" aria-label="Time of day">DAY</button>
+        <button class="mbtn wide" id="map-places" aria-haspopup="dialog">PLACES</button>
       </div>
       <div class="map-find" id="find">
         <ul class="results" id="results"></ul>
         <p class="find-title">FIND YOUR VILLAGER</p>
-        <input id="search" type="search" placeholder="Your name or job" autocomplete="off" aria-label="Find your villager">
+        <input id="search" type="search" placeholder="Your name, @ or job" autocomplete="off" aria-label="Find your villager">
       </div>
       <div class="map-hint" id="map-hint">Drag to look around · tap a villager or a building</div>
       <div class="closed-banner" id="closed-banner" hidden>
@@ -63,49 +203,15 @@
     </div>
   </section>
 
-  <section id="ship" class="panel" data-panel="ship" aria-label="The ship">
-    <div class="wrap">
-      <h1>The last village before the fog</h1>
-      <p class="lede">Old Morten keeps the light at the edge of the world. Every follower gets a tent on the beach, every comment becomes a villager, and every villager adds a plank to the ship that will sail into the fog.</p>
-      <div class="stats" id="stats"></div>
-      <div class="two">
-        <div class="card">
-          <h2>The ship</h2>
-          <p class="big"><span id="planks">0</span><span class="of"> / <span id="goal">1000</span> planks</span></p>
-          <div class="bar"><div class="bar-fill" id="ship-bar"></div></div>
-          <ol class="stages" id="stages"></ol>
-          <p class="muted">Every villager adds one plank. At 1000 the ship sails into the fog, with a crew picked from the village.</p>
-        </div>
-        <div class="card" id="vote-card">
-          <h2>The village decides</h2>
-          <div id="vote"></div>
-        </div>
-      </div>
-      <div class="card spaced">
-        <h2>The districts</h2>
-        <ul class="districts" id="districts"></ul>
-      </div>
-    </div>
-  </section>
-
-  <section id="story" class="panel" data-panel="story" aria-label="The story">
-    <div class="wrap">
-      <h1>The story so far</h1>
-      <p class="muted">Every day is a new video. Tap one to watch it.</p>
-      <div class="days" id="days"></div>
-      <div class="card spaced">
-        <h2>Washed ashore</h2>
-        <ul class="ashore" id="ashore"></ul>
-      </div>
-    </div>
-  </section>
-
-  <section id="register" class="panel" data-panel="villagers" aria-label="The villagers">
-    <div class="wrap">
+  <!-- ============ RESIDENTS ============ -->
+  <section id="register" class="panel" data-panel="villagers" aria-label="The residents">
+    <div class="wrap page">
+      <p class="kicker">Residents</p>
       <h1>The register</h1>
-      <p class="muted" id="register-sub"></p>
+      <p class="prose" id="register-sub"></p>
       <div class="founders" id="founders"></div>
       <div class="filters">
+        <input id="r-search" type="search" placeholder="Search a name, @ or job" autocomplete="off" aria-label="Search the residents">
         <select id="f-district" aria-label="District"><option value="">All districts</option></select>
         <select id="f-sort" aria-label="Sort">
           <option value="new">Newest first</option>
@@ -115,12 +221,74 @@
         <label class="check"><input type="checkbox" id="f-crew"> Crew only</label>
       </div>
       <ul class="register" id="register-list"></ul>
+      <p class="prose" id="register-empty" hidden>Nobody by that name yet. Comment on the latest day to move in.</p>
       <button class="btn ghost" id="more" hidden>Show more</button>
     </div>
   </section>
 
+  <!-- ============ THE SHIPYARD ============ -->
+  <section id="ship" class="panel" data-panel="ship" aria-label="The shipyard">
+    <div class="slipway">
+      <canvas id="yard-canvas" aria-label="The ship on the slipway, as it stands today."></canvas>
+      <div class="fog fog-a" aria-hidden="true"></div>
+    </div>
+    <div class="wrap page">
+      <p class="kicker">The shipyard</p>
+      <h1>One ship, a thousand planks</h1>
+      <p class="prose narrow">Old Morten keeps the light at the edge of the world, and Bram the shipwright cuts every plank. Every villager adds one. At 1000 the ship sails into the fog, with a crew picked from the village.</p>
+      <div class="card parch">
+        <p class="tally"><b id="planks">0</b><span> of <span id="goal">1000</span> planks</span></p>
+        <div class="hull big" id="yard-hull" role="img" aria-label="Plank progress"></div>
+        <div class="bar" hidden><div class="bar-fill" id="ship-bar"></div></div>
+        <p class="small ink-muted">Each board on this hull stands for ten planks.</p>
+        <ol class="stages" id="stages"></ol>
+        <p class="small ink-muted" id="ship-sources"></p>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="card parch spaced">
+        <h2>The crew</h2>
+        <p class="prose" id="crew-sub"></p>
+        <ul class="register" id="crew-list"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHRONICLES ============ -->
+  <section id="story" class="panel" data-panel="story" aria-label="The chronicles">
+    <div class="wrap page">
+      <p class="kicker">Chronicles</p>
+      <h1>The story so far</h1>
+      <p class="prose" id="days-sub">Every day is a new video. Newest first.</p>
+      <div class="days" id="days"></div>
+      <div class="card parch spaced">
+        <h2>Washed ashore</h2>
+        <ul class="ashore" id="ashore"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NOTICEBOARD ============ -->
+  <section id="board" class="panel" data-panel="board" aria-label="The noticeboard">
+    <div class="wrap page">
+      <p class="kicker">Noticeboard</p>
+      <h1>The village board</h1>
+      <p class="prose" id="board-sub"></p>
+      <div class="card parch spaced" id="vote-card">
+        <h2>The village decides</h2>
+        <div id="vote"></div>
+      </div>
+      <div class="board big" id="board-notes"></div>
+      <div class="card parch spaced">
+        <h2>The districts</h2>
+        <ul class="districts" id="districts"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ JOIN US ============ -->
   <section id="join" class="panel" data-panel="join" aria-label="Move in">
-    <div class="wrap">
+    <div class="wrap page">
+    <p class="kicker">Join us</p>
     <h1>How to move in</h1>
     <ol class="steps">
       <li><span class="n">1</span><div><b>Follow and you move in</b><p id="join-follow"></p><p>Every follower lives in Last Harbor: you get a tent on the beach the next day.</p></div></li>
@@ -128,21 +296,22 @@
       <li><span class="n">3</span><div><b>Have your say</b><p>Every day ends with one choice. Comment the word, and the next day shows what the village picked. Pause and find yourself, then find your house here.</p></div></li>
     </ol>
     <p class="cta-row"><a class="btn" id="join-latest" href="#" target="_blank" rel="noopener">Comment on the latest day</a></p>
-    <p class="muted small">Comment <b>crew</b> under a day if you already live here, to sign up for the voyage.</p>
+    <p class="prose small">Comment <b>crew</b> under a day if you already live here, to sign up for the voyage.</p>
     <div class="foot">
       <p><span id="foot-villages">Two villages, never mixed: one built by YouTube, one by Instagram. Every villager is a real public comment.</span> Want yours changed or removed? Send a message to <a href="https://www.instagram.com/lastharborvillage/" target="_blank" rel="noopener">@lastharborvillage</a>.</p>
-      <p class="muted small">Updated <span id="built"></span>. Fonts: Pixelify Sans and Silkscreen (SIL Open Font License).</p>
+      <p class="small">Updated <span id="built"></span>. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a>. Fonts: Pixelify Sans, Silkscreen and Alegreya (SIL Open Font License).</p>
     </div>
     </div>
   </section>
 </main>
 
-<nav class="tabbar" aria-label="Sections">
-  <button data-go="village" aria-current="page"><span class="ic ic-village" aria-hidden="true"></span>Village</button>
-  <button data-go="ship"><span class="ic ic-ship" aria-hidden="true"></span>Ship</button>
-  <button data-go="villagers"><span class="ic ic-people" aria-hidden="true"></span>Villagers</button>
-  <button data-go="story"><span class="ic ic-story" aria-hidden="true"></span>Story</button>
-  <button data-go="join"><span class="ic ic-join" aria-hidden="true"></span>Join</button>
+<nav class="tabbar" aria-label="Places">
+  <a href="#harbor" data-go="harbor" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-harbor"/></svg>Harbor</a>
+  <a href="#explore" data-go="village"><svg class="ico" aria-hidden="true"><use href="#i-map"/></svg>Explore</a>
+  <a href="#residents" data-go="villagers"><svg class="ico" aria-hidden="true"><use href="#i-people"/></svg>Residents</a>
+  <a href="#shipyard" data-go="ship"><svg class="ico" aria-hidden="true"><use href="#i-ship"/></svg>Shipyard</a>
+  <a href="#chronicles" data-go="story"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>Chronicles</a>
+  <a href="#join" data-go="join"><svg class="ico" aria-hidden="true"><use href="#i-join"/></svg>Join</a>
 </nav>
 
 <dialog id="villager" aria-labelledby="v-name">
@@ -155,9 +324,10 @@
       <p class="v-job" id="v-job"></p>
       <p class="v-trait" id="v-trait"></p>
       <p class="v-social" id="v-social" hidden></p>
-      <p class="muted small" id="v-meta"></p>
+      <p class="small ink-muted" id="v-meta"></p>
     </div>
   </div>
+  <p class="v-seen" id="v-seen" hidden></p>
   <div class="v-actions">
     <button class="btn" id="v-show">Show on map</button>
     <a class="btn ghost" id="v-watch" target="_blank" rel="noopener" hidden>Watch the day</a>
@@ -173,13 +343,33 @@
   <p class="v-job" id="p-kicker"></p>
   <h3 id="p-title"></h3>
   <p class="v-trait" id="p-text"></p>
-  <p class="muted small" id="p-meta" hidden></p>
+  <p class="small ink-muted" id="p-meta" hidden></p>
   <div class="v-actions">
     <button class="btn" id="p-person" hidden></button>
     <a class="btn ghost" id="p-watch" target="_blank" rel="noopener" hidden>Watch the day</a>
     <button class="btn ghost" id="p-find" hidden>Find your villager</button>
   </div>
 </dialog>
+
+<dialog id="places" aria-labelledby="pl-title">
+  <form method="dialog" class="v-close-row"><button class="mbtn" aria-label="Close">×</button></form>
+  <h3 id="pl-title">Places in the village</h3>
+  <p class="small ink-muted">Pick a place and the map takes you there.</p>
+  <div id="places-list"></div>
+</dialog>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-harbor" viewBox="0 0 16 16"><path d="M7 0h2v2H7zM6 2h4v3H6zM1 3h4v1H1zM11 3h4v1h-4zM7 5h2v7H7zM6 7h4v1H6zM5 12h6v2H5zM3 14h10v2H3z"/></symbol>
+  <symbol id="i-map" viewBox="0 0 16 16"><path d="M1 3h4v11H1zM6 2h4v11H6zM11 3h4v11h-4z" opacity=".45"/><path d="M7 4h2v2H7zM6 6h4v2H6zM7 8h2v3H7z"/></symbol>
+  <symbol id="i-people" viewBox="0 0 16 16"><path d="M6 1h4v4H6zM4 6h8v2H4zM3 8h10v6H3z"/></symbol>
+  <symbol id="i-ship" viewBox="0 0 16 16"><path d="M7 0h1v9H7zM9 2h3v1H9zM9 3h4v2H9zM9 5h5v2H9zM0 10h16v2H0zM1 12h14v2H1zM3 14h10v1H3z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 16 16"><path d="M1 2h6v11H1zM9 2h6v11H9zM7 4h2v10H7zM1 13h14v1H1z"/><path d="M2 4h4v1H2zM2 6h4v1H2zM10 4h4v1h-4zM10 6h4v1h-4z" fill="#0d1828" opacity=".55"/></symbol>
+  <symbol id="i-join" viewBox="0 0 16 16"><path d="M7 2h2v12H7zM2 7h12v2H2z"/></symbol>
+  <symbol id="i-notice" viewBox="0 0 16 16"><path d="M2 3h12v11H2z" opacity=".5"/><path d="M7 1h2v4H7zM4 7h8v1H4zM4 9h8v1H4zM4 11h5v1H4z"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 16 16"><path d="M1 6h3v4H1zM4 5h2v6H4zM6 3h2v10H6z"/><path class="wave" d="M10 5h1v6h-1zM12 3h1v10h-1z"/><path class="mute" d="M10 6h1v1h-1zM11 7h1v1h-1zM12 8h1v1h-1zM13 9h1v1h-1zM13 6h1v1h-1zM12 7h1v1h-1zM10 9h1v1h-1zM11 8h1v1h-1z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M4 2h2v12H4zM6 3h2v10H6zM8 4h2v8H8zM10 5h2v6h-2zM12 7h2v2h-2z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M7 2h2v8H7zM3 8h2v2H3zM5 10h2v2H5zM7 12h2v2H7zM9 10h2v2H9zM11 8h2v2h-2z"/></symbol>
+</svg>
 
 <script src="engine/core.js"></script>
 <script src="engine/palette.js"></script>

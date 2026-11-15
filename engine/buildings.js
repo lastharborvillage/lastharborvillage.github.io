@@ -665,7 +665,7 @@
         for (let x = a; x <= b; x++) {
           const hh = 4 + (Math.floor((x - a) / 3) % 2) + (L.tall ? 1 : 0);
           rect(c, 'ink', x, y - hh - 1, 1, hh + 2); rect(c, 'pine', x, y - hh, 1, hh); px(c, 'pine2', x, y - 1); if ((x + y) % 3 === 0) px(c, 'moss2', x, y - hh);
-          if (F === 'flowerhedge' && (x * 7 + y) % 4 === 0) px(c, ['rose', 'white', 'gold', 'plum'][(L.hue + x) % 4], x, y - hh + 1 + ((x >> 1) % 2));
+          if (F === 'flowerhedge' && (x * 7 + y) % 4 === 0) px(c, ['rose', 'white', 'gold', 'plum'][(((L.hue + x) % 4) + 4) % 4], x, y - hh + 1 + ((x >> 1) % 2));
         }
       }
     };

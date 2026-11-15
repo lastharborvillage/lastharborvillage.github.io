@@ -319,6 +319,14 @@ dialog h3 { color: var(--ink); margin-bottom: 4px; }
 dialog .btn { min-height: 44px; font-size: 15px; padding: 6px 14px; }
 dialog .btn.ghost { background: transparent; color: var(--ink); border-color: #1d130b; }
 dialog .btn.ghost:hover { background: var(--lanternhi); color: var(--ink); }
+dialog .btn .ico { width: 16px; height: 16px; margin-right: 8px; flex: none; }
+/* villager card: two big actions on top, three equal small ones below; hidden buttons take no column */
+#villager .v-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+#villager .v-more { margin-top: 8px; }
+#villager .v-more .btn { min-height: 40px; font-size: 13px; padding: 4px 6px; white-space: nowrap; }
+#villager .v-more .ico { width: 14px; height: 14px; margin-right: 6px; }
+#villager .v-main .btn { white-space: nowrap; padding: 6px 8px; }
+@media (max-width: 400px) { #villager .v-actions .ico { display: none; } }
 .toast { min-height: 1em; margin: 10px 0 0; font-size: 15px; color: #8a4a12; word-break: break-all; }
 #places-list h4 { font: 400 11px var(--label); letter-spacing: 0.12em; text-transform: uppercase; color: #8a5a17; margin: 16px 0 6px; }
 #places-list ul { list-style: none; padding: 0; margin: 0; }

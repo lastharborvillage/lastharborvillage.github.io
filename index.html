@@ -328,12 +328,14 @@
     </div>
   </div>
   <p class="v-seen" id="v-seen" hidden></p>
-  <div class="v-actions">
-    <button class="btn" id="v-show">Show on map</button>
+  <div class="v-actions v-main">
+    <button class="btn" id="v-show"><svg class="ico" aria-hidden="true"><use href="#i-map"/></svg>Show on map</button>
     <a class="btn ghost" id="v-watch" target="_blank" rel="noopener" hidden>Watch the day</a>
-    <button class="btn ghost" id="v-share">Share</button>
-    <button class="btn ghost" id="v-copy">Copy link</button>
-    <button class="btn ghost" id="v-save">Save image</button>
+  </div>
+  <div class="v-actions v-more">
+    <button class="btn ghost" id="v-share"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg>Share</button>
+    <button class="btn ghost" id="v-copy"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg>Copy link</button>
+    <button class="btn ghost" id="v-save"><svg class="ico" aria-hidden="true"><use href="#i-save"/></svg>Save image</button>
   </div>
   <p class="toast" id="toast" aria-live="polite"></p>
 </dialog>
@@ -368,6 +370,9 @@
   <symbol id="i-notice" viewBox="0 0 16 16"><path d="M2 3h12v11H2z" opacity=".5"/><path d="M7 1h2v4H7zM4 7h8v1H4zM4 9h8v1H4zM4 11h5v1H4z"/></symbol>
   <symbol id="i-sound" viewBox="0 0 16 16"><path d="M1 6h3v4H1zM4 5h2v6H4zM6 3h2v10H6z"/><path class="wave" d="M10 5h1v6h-1zM12 3h1v10h-1z"/><path class="mute" d="M10 6h1v1h-1zM11 7h1v1h-1zM12 8h1v1h-1zM13 9h1v1h-1zM13 6h1v1h-1zM12 7h1v1h-1zM10 9h1v1h-1zM11 8h1v1h-1z"/></symbol>
   <symbol id="i-play" viewBox="0 0 16 16"><path d="M4 2h2v12H4zM6 3h2v10H6zM8 4h2v8H8zM10 5h2v6h-2zM12 7h2v2h-2z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 16 16"><path d="M11 1h4v4h-4zM1 6h4v4H1zM11 11h4v4h-4zM5 6h2v1H5zM7 5h2v1H7zM9 4h2v1H9zM5 9h2v1H5zM7 10h2v1H7zM9 11h2v1H9z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 16 16"><path d="M1 5h2v6H1zM3 3h5v2H3zM3 11h5v2H3zM8 5h2v1H8zM8 10h2v1H8zM13 5h2v6h-2zM8 3h5v2H8zM8 11h5v2H8zM5 7h6v2H5z"/></symbol>
+  <symbol id="i-save" viewBox="0 0 16 16"><path d="M7 1h2v8H7zM3 6h2v2H3zM5 8h2v2H5zM9 8h2v2H9zM11 6h2v2h-2zM1 11h2v4H1zM13 11h2v4h-2zM1 13h14v2H1z"/></symbol>
   <symbol id="i-down" viewBox="0 0 16 16"><path d="M7 2h2v8H7zM3 8h2v2H3zM5 10h2v2H5zM7 12h2v2H7zM9 10h2v2H9zM11 8h2v2h-2z"/></symbol>
 </svg>
 

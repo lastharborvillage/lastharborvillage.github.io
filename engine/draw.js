@@ -682,7 +682,7 @@
       leafy(c, [[x + sway, y - 16, 12, 7], [x - 5 + sway, y - 21, 7, 5], [x + 5 + sway, y - 20, 6, 5]], leafCols('oak', seed), seed, 0.06);
       if (seed % 4 === 1) for (const [dx, dy] of [[-6, -15], [4, -13], [7, -19]]) px(c, 'wood3', x + dx + sway, y + dy); // acorns
     } else if (kind === 'maple') { // three round lobes
-      rect(c, 'ink', x - 2, y - 8, 4, 8); rect(c, 'wood', x - 1, y - 8, 2, 8);
+      rect(c, 'ink', x - 2, y - 12, 4, 12); rect(c, 'wood', x - 1, y - 12, 2, 12); // up into the crown (no gap between the lobes)
       const cols = leafCols('maple', seed);
       leafy(c, [[x - 5 + sway, y - 13, 5, 4], [x + 5 + sway, y - 13, 5, 4], [x + sway, y - 18, 6, 5]], cols, seed, 0.04);
     } else if (kind === 'willow') { // a round top with long hanging strands
@@ -1330,7 +1330,7 @@
       const bt = by - 14 + bob;
       for (let yy = ey + 13; yy < bt; yy++) { const f = (yy - ey - 13) / Math.max(1, bt - ey - 13); px(c, 'wood2', cx - 6 + f * 2, yy); px(c, 'wood2', cx + 6 - f * 2, yy); }
       rect(c, 'ink', cx - 5, bt, 10, 8); rect(c, 'wood3', cx - 4, bt + 1, 8, 6); rect(c, 'wood', cx - 4, bt + 3, 8, 1);
-      if (st >= 2) { const f = Math.floor(t * 8) % 2; rect(c, f ? 'lantern' : 'lanternhi', cx - 1, bt - 4, 2, 3); glow(lights, cx, bt - 3, 14); }
+      if (st >= 2) { const f = Math.floor(t * 8) % 2; rect(c, f ? 'lantern' : 'lanternhi', cx - 1, bt - 3, 2, 3); glow(lights, cx, bt - 3, 14); } // the flame sits on the basket rim
     },
     fishracks(c, x0, y0, l, t, lights) { // drying racks with fish; 1 more fish and a salt barrel; 2 a smoker
       const by = y0 + 14, st = l.stage || 0;
@@ -1351,8 +1351,8 @@
     orchard(c, x0, y0, l, t, lights) { // six young fruit trees; stage 1 fruit; 2 bigger, baskets; 3 full grown
       const st = l.stage || 0, size = 5 + Math.min(st, 3);
       for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
-        const tx = x0 + 8 + i * 16, ty = y0 + 20 + j * 20;
-        rect(c, 'ink', tx - 1, ty - 7, 3, 7); rect(c, 'wood2', tx, ty - 7, 1, 7);
+        const tx = x0 + 8 + i * 16, ty = y0 + 20 + j * 21; // rows 21 apart: a back trunk never ends 1 px over a front crown
+        rect(c, 'ink', tx - 1, ty - 10, 3, 10); rect(c, 'wood2', tx, ty - 10, 1, 10); // trunk runs up into the crown (no gap)
         blob(c, 'moss2', tx, ty - 8 - size, size, size - 1); blob(c, 'moss', tx - 1, ty - 9 - size, size - 2, size - 3, null);
         if (st >= 1) for (let k = 0; k < 4 + st; k++) px(c, (i + j) % 2 ? 'ember' : 'gold', tx - size + 1 + Math.floor(C.h2(i * 7 + j, k, l.tileX) * (size * 2 - 1)), ty - 8 - size - size + 2 + Math.floor(C.h2(k, i + j * 3, 5) * (size * 2 - 2)));
       }
@@ -2864,4 +2864,5 @@
   }
 
   LH.draw = { villagerSprite, petSprite, drawVillager, renderWorld, gridToCanvas, composeGrid, drawTree, PROPS };
+  LH.draw.drawLandmark = drawLandmark; // scripts/gap-check.mjs draws each design alone
 })();

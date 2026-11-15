@@ -15,7 +15,11 @@
 
   // ---------- helpers ----------
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const districtName = (id) => (D.world.districts[id] && D.world.districts[id].name) || '???';
+  // solitary homes (Twigs' tower, 2026-11-12) sit outside every district: they get their own name
+  // instead of the locked district's blank one
+  const WILDS = 'wilds';
+  const homeDistrict = (v) => v && v.home && (v.home.solitary ? WILDS : v.home.district);
+  const districtName = (id) => id === WILDS ? 'the Wilds' : (D.world.districts[id] && D.world.districts[id].name) || '???';
   const people = () => D.world.villagers;
   const findPerson = (id) => people().find((v) => v.id === id) || D.world.founders.find((f) => f.id === id);
   const fmtDate = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Brussels' });
@@ -225,7 +229,7 @@
       if (!v.home || v.home.tileX == null) continue;
       const lay = LH.map.homeLayout(v.home);
       const cx = v.home.tileX * T + 16 + lay.dx, base = v.home.tileY * T + 30 + lay.dy;
-      push({ id: 'home-' + v.id, title: (v.displayName || 'A villager') + "'s home", kicker: v.job || 'Villager', text: v.trait || '', meta: 'In ' + districtName(v.home.district) + ' · moved in on day ' + v.dayJoined, person: v.id, day: v.dayJoined }, [cx - 20, base - 44, cx + 20, base + 3]);
+      push({ id: 'home-' + v.id, title: (v.displayName || 'A villager') + "'s home", kicker: v.job || 'Villager', text: v.trait || '', meta: 'In ' + districtName(homeDistrict(v)) + ' · moved in on day ' + v.dayJoined, person: v.id, day: v.dayJoined }, [cx - 20, base - 44, cx + 20, base + 3]);
     }
     const s = w.ship;
     if (s && s.x != null) {
@@ -473,7 +477,14 @@
   function watchButton(a, day) {
     const e = day && (D.episodes || []).find((q) => q.day === day);
     a.hidden = !e;
-    if (e) { a.href = e.url; a.textContent = 'Watch day ' + day + (e.also ? ' (Instagram)' : ''); }
+    if (!e) return;
+    a.href = e.url;
+    a.title = e.also ? 'Opens the episode on Instagram' : '';
+    const ico = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    ico.setAttribute('class', 'ico'); ico.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-play'); ico.appendChild(use);
+    a.replaceChildren(ico, document.createTextNode('Watch day ' + day));
   }
   function openVillager(id) {
     const p = findPerson(id);
@@ -493,7 +504,7 @@
     const so = $('v-social');
     so.hidden = !p.social;
     if (p.social) { so.textContent = (p.social.platform === 'instagram' ? 'Instagram ' : 'YouTube ') + p.social.handle; so.dataset.platform = p.social.platform; }
-    const dn = districtName(p.home && p.home.district);
+    const dn = districtName(homeDistrict(p));
     $('v-meta').textContent = founder ? 'Founder of Last Harbor' : (dn === '???' ? 'Moved in on day ' : 'Lives in ' + dn + ' · moved in on day ') + p.dayJoined;
     watchButton($('v-watch'), founder ? null : p.dayJoined);
     $('v-show').hidden = !spotOf(p);
@@ -698,7 +709,7 @@
   function renderDistricts() {
     const n = people().length;
     const counts = {};
-    for (const v of people()) if (v.home) counts[v.home.district] = (counts[v.home.district] || 0) + 1;
+    for (const v of people()) if (v.home) counts[homeDistrict(v)] = (counts[homeDistrict(v)] || 0) + 1;
     const ds = Object.entries(D.world.districts).sort((a, b) => a[1].unlockAt - b[1].unlockAt);
     $('districts').replaceChildren(...ds.map(([id, d]) => {
       const open = n >= d.unlockAt;
@@ -712,7 +723,8 @@
     const keep = sel.value;
     sel.replaceChildren(el('option', null, 'All districts'));
     sel.firstChild.value = '';
-    for (const [id, d] of ds) if (counts[id]) { const o = el('option', null, d.name); o.value = id; sel.appendChild(o); }
+    for (const [id, d] of ds) if (counts[id] && d.name) { const o = el('option', null, d.name); o.value = id; sel.appendChild(o); }
+    if (counts[WILDS]) { const o = el('option', null, 'Out in the Wilds'); o.value = WILDS; sel.appendChild(o); }
     sel.value = counts[keep] ? keep : '';
   }
 
@@ -727,7 +739,7 @@
     $('founders').replaceChildren(...w.founders.map((f) => personButton(f, 'FOUNDER')));
     const dist = $('f-district').value, onlyCrew = $('f-crew').checked, sort = $('f-sort').value;
     const rq = fold($('r-search').value.trim()).replace(/^@/, '');
-    let list = people().filter((v) => (!dist || (v.home && v.home.district === dist)) && (!onlyCrew || v.crew) && (!rq || matches(v, rq)));
+    let list = people().filter((v) => (!dist || homeDistrict(v) === dist) && (!onlyCrew || v.crew) && (!rq || matches(v, rq)));
     $('register-empty').hidden = !!list.length || !people().length;
     if (sort === 'new') list = [...list].sort((a, b) => b.dayJoined - a.dayJoined || b.id.localeCompare(a.id));
     else if (sort === 'old') list = [...list].sort((a, b) => a.dayJoined - b.dayJoined || a.id.localeCompare(b.id));

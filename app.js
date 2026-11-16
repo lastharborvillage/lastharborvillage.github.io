@@ -253,6 +253,7 @@
     KIND.warriorstatue = 'Warrior statue';
     KIND.henhouse = 'Chicken farm';
     KIND.palisade = 'Village wall';
+    KIND.hospital = 'Hospital';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;

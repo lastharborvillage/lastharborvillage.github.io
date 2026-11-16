@@ -492,6 +492,8 @@
     // added 2026-11-14 (expansion run, viewers' ideas): town hall, sawmill, fox statue, warrior statue, chicken farm, defences
     townhall: { w: 3, h: 2 }, sawmill: { w: 3, h: 2 }, foxstatue: { w: 1, h: 1 }, warriorstatue: { w: 1, h: 1 },
     henhouse: { w: 3, h: 2 }, palisade: { w: 3, h: 1 },
+    // added 2026-11-16 (idea build): a hospital
+    hospital: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.

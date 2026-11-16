@@ -1798,6 +1798,39 @@
       }
       if (st >= 3) for (const bx of [x0 + 10, x0 + 26]) { rect(c, 'ink', bx, by - 16, 6, 10); rect(c, 'ember', bx + 1, by - 15, 4, 8); rect(c, 'gold', bx + 1, by - 12, 4, 1); px(c, 'ink', bx + 2, by - 7); px(c, 'ink', bx + 3, by - 7); }
     },
+    // added 2026-11-16 (idea build, a viewer's idea): a hospital. A white two-storey hall with a teal roof, a
+    // centre gable with a red cross on a white plate, glass double doors under a striped canopy, steps. 1 lit
+    // windows and lamps by the door; 2 a doctor in a white coat with a bag, flower boxes; 3 a cross flag on top.
+    hospital(c, x0, y0, l, t, lights) {
+      const cx = x0 + 24, by = y0 + 30, st = l.stage || 0, L = x0 + 2, W = 44, wt = by - 24;
+      rect(c, 'ink', L - 1, wt - 1, W + 2, 25); rect(c, 'white', L, wt, W, 24); // the walls
+      rect(c, 'stone3', L + W - 3, wt, 3, 21); rect(c, 'stone3', L, wt + 11, W, 1);
+      rect(c, 'ink', L - 1, by - 3, W + 2, 3); rect(c, 'stone', L, by - 2, W, 2); // the plinth
+      for (const wx of [L + 2, L + 8, L + 34, L + 40]) for (const wy of [wt + 3, wt + 14]) { // two rows of windows
+        rect(c, 'ink', wx - 1, wy - 1, 5, 6); rect(c, st >= 1 ? 'lanternhi' : 'night', wx, wy, 3, 4); rect(c, 'stone3', wx + 1, wy, 1, 4);
+        if (st >= 1) glow(lights, wx + 1, wy + 2, 9); else px(c, 'fog2', wx, wy);
+        if (st >= 2 && wy === wt + 3) { rect(c, 'ink', wx - 1, wy + 5, 5, 2); px(c, 'rose', wx, wy + 5); px(c, 'gold', wx + 2, wy + 5); }
+      }
+      rect(c, 'ink', L - 3, wt - 4, W + 6, 4); rect(c, 'teal', L - 2, wt - 3, W + 4, 1); rect(c, 'teal2', L - 2, wt - 2, W + 4, 1); // the roof
+      rect(c, 'ink', cx - 10, wt - 9, 21, 30); rect(c, 'white', cx - 9, wt - 8, 19, 29); rect(c, 'stone3', cx + 7, wt - 8, 2, 29); // the entrance block
+      for (let r = 0; r <= 10; r++) { const hw = 11 - r, y = wt - 9 - r; rect(c, 'ink', cx - hw - 1, y, hw * 2 + 3, 1); rect(c, r % 3 === 2 ? 'teal2' : 'teal', cx - hw, y, hw * 2 + 1, 1); }
+      rect(c, 'ink', cx - 5, wt - 7, 11, 11); rect(c, 'white', cx - 4, wt - 6, 9, 9); // the sign: a red cross
+      rect(c, 'ember', cx - 1, wt - 5, 3, 7); rect(c, 'ember', cx - 3, wt - 3, 7, 3);
+      rect(c, 'ink', cx - 4, by - 15, 9, 12); rect(c, 'sea3', cx - 3, by - 14, 7, 11); rect(c, 'stone3', cx, by - 14, 1, 11); // glass doors
+      px(c, 'foam', cx - 2, by - 13); px(c, 'foam', cx + 1, by - 13);
+      rect(c, 'ink', cx - 7, by - 18, 15, 3); for (let i = 0; i < 13; i++) px(c, i % 2 ? 'white' : 'ember', cx - 6 + i, by - 17); // the canopy
+      rect(c, 'ink', cx - 6, by - 3, 13, 3); rect(c, 'stone3', cx - 5, by - 2, 11, 1); rect(c, 'stone', cx - 5, by - 1, 11, 1); // steps
+      if (st >= 1) for (const p of [cx - 8, cx + 8]) { rect(c, 'ink', p - 1, by - 13, 3, 4); px(c, 'lantern', p, by - 12); px(c, 'lanternhi', p, by - 11); glow(lights, p, by - 11, 12); }
+      if (st >= 2) { // a doctor in a white coat with a bag
+        const gx = x0 + 6;
+        rect(c, 'ink', gx - 1, by - 15, 5, 15);
+        rect(c, 'wood2', gx, by - 14, 3, 1); rect(c, 'skin2', gx, by - 13, 3, 2); px(c, 'ink', gx + 2, by - 13);
+        rect(c, 'white', gx, by - 11, 3, 8); rect(c, 'stone3', gx + 2, by - 11, 1, 8); px(c, 'teal', gx + 1, by - 10); px(c, 'teal', gx + 1, by - 9);
+        rect(c, 'sea2', gx, by - 3, 1, 2); rect(c, 'sea2', gx + 2, by - 3, 1, 2);
+        rect(c, 'ink', gx + 3, by - 8, 4, 4); rect(c, 'ember', gx + 4, by - 7, 2, 2);
+      }
+      if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 28, 1, 10); rect(c, 'ink', cx + 1, wt - 28 + w, 7, 6); rect(c, 'white', cx + 1, wt - 27 + w, 6, 4); rect(c, 'ember', cx + 3, wt - 27 + w, 2, 4); rect(c, 'ember', cx + 1, wt - 26 + w, 6, 2); }
+    },
   };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];

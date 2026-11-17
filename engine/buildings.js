@@ -85,10 +85,46 @@
     boathouse: { w: 32, wall: 'planks', wallCol: 'wood3', roof: 'gable', roofCol: 'navy', sign: 'boat', doorType: 'barn', prop: 'net', annex: 0, chimney: 0 },
     wizardtower: { shape: 'wizard', sign: 'star' },
     mushroom: { shape: 'mushroom' },
+    // plain homes (2026-11-16): no trade, no sign; map.PLAIN_MODELS gives them to new homes with a paint
+    narrowhouse: { w: 20, storeys: 2, roof: 'gable', annex: 0 },
+    dormer: { roof: 'side', dormer: true },
+    turret: { roof: 'side', turret: true, annex: 0 },
+    roundhouse: { shape: 'round' },
+    boathome: { shape: 'boat' },
+    aframe: { shape: 'aframe' },
     // patron-only (not live yet)
     manor: { w: 34, storeys: 3, wall: 'bricks', wallCol: 'stone3', roof: 'hip', roofCol: 'navy', doorType: 'arch', lantern: true, bunting: true, prop: 'pots', annex: 0, chimney: 1, patron: true },
     castle: { shape: 'castle', patron: true },
   };
+  // Paints (2026-11-16): one colour scheme for a home's walls, roof, door and trim (shutters), named in
+  // home.paint (map.HOME_PAINTS). 'natural' keeps the district's own wood, stone and plaster.
+  const PAINTS = {
+    falu: { wall: 'ember', roof: 'dark', door: 'green', trim: 'white' },
+    mustard: { wall: 'gold', roof: 'grey', door: 'navy', trim: 'white' },
+    harbourblue: { wall: 'sea3', roof: 'red', door: 'yellow', trim: 'white' },
+    mint: { wall: 'foam', roof: 'teal', door: 'red', trim: 'white' },
+    blush: { wall: 'rose', roof: 'grey', door: 'teal', trim: 'white' },
+    sage: { wall: 'moss', roof: 'dark', door: 'red', trim: 'cream' },
+    lavender: { wall: 'fog2', roof: 'purple', door: 'yellow', trim: 'white' },
+    whitewash: { wall: 'white', roof: 'navy', door: 'blue', trim: 'sky' },
+    teal: { wall: 'teal', roof: 'dark', door: 'yellow', trim: 'white' },
+    ochre: { wall: 'sand', roof: 'red', door: 'green', trim: 'green' },
+    deepblue: { wall: 'sea2', roof: 'grey', door: 'red', trim: 'white' },
+    apricot: { wall: 'lantern', roof: 'brown', door: 'navy', trim: 'cream' },
+    plum: { wall: 'plum', roof: 'dark', door: 'yellow', trim: 'gold' },
+    pine: { wall: 'pine', roof: 'grey', door: 'red', trim: 'cream' },
+    natural: null,
+  };
+  // the line colour of a painted wall's boards and joints (SHADE stays as it was for the old homes)
+  const PAINT_SHADE = { ember: 'ember2', gold: 'gold2', sea3: 'sea2', foam: 'sea3', rose: 'rose2', moss: 'moss2', fog2: 'fog', white: 'stone3', teal: 'teal2', sand: 'sand2', sea2: 'sea', lantern: 'lantern2', plum: 'plum2', pine: 'pine2' };
+  const PAINTED_WALL = { logs: 'planks', bricks: 'plaster', stones: 'plaster' }; // paint goes on boards and render, not on stone
+  function applyPaint(P, name) {
+    const pt = PAINTS[name];
+    if (!pt) return P;
+    P.paint = name; P.wallCol = pt.wall; P.wall = PAINTED_WALL[P.wall] || P.wall;
+    P.roofFam = LH.fam(pt.roof); P.doorFam = LH.fam(pt.door); P.shutters = LH.fam(pt.trim);
+    return P;
+  }
   const DOORS = ['red', 'blue', 'green', 'purple', 'teal', 'brown', 'yellow', 'navy'];
   const SHADE = { wood3: 'wood', wood: 'wood2', cream: 'sand', sand: 'sand2', stone3: 'stone', stone: 'stone2', ember: 'ember2' };
 
@@ -122,6 +158,7 @@
       bunting: !!K.bunting,
       tower: !!K.tower,
       shape: K.shape || null,
+      dormer: !!K.dormer, turret: !!K.turret,
       seed: L.seed,
     };
     if (P.w > 30) P.annex = 0;
@@ -154,7 +191,7 @@
   }
 
   function wallPattern(c, P, wx, wy, w, h) {
-    const sh = SHADE[P.wallCol] || 'wood2';
+    const sh = (P.paint && PAINT_SHADE[P.wallCol]) || SHADE[P.wallCol] || 'wood2';
     if (P.wall === 'planks') for (let yy = wy + 2; yy < wy + h; yy += 3) rect(c, sh, wx, yy, w, 1);
     if (P.wall === 'vplanks') for (let xx = wx + 2; xx < wx + w; xx += 4) rect(c, sh, xx, wy, 1, h);
     if (P.wall === 'logs') for (let yy = wy + 1; yy < wy + h; yy += 3) { rect(c, sh, wx, yy + 1, w, 1); px(c, 'wood3', wx, yy); px(c, 'wood3', wx + w - 1, yy); }
@@ -266,17 +303,29 @@
     rect(c, 'ink', x, y, 5, 4); rect(c, 'gold2', x + 1, y + 1, 3, 2); px(c, 'gold', x + 1, y + 1);
     px(c, glint ? 'white' : 'lanternhi', x + 2, y + 1); px(c, 'lanternhi', x + 2, y + 2);
   }
+  // homes drawn as one shape, with the door in the middle: [draw function, plaque offset from the centre]
+  const oneShape = (P) => P.tower ? [drawTower, 3] : SHAPES[P.shape] || null;
+  // where the door of a regular building is: width, left edge and height (door -1 / 0 / 1 = left, centre,
+  // right, kept inside the wall)
+  function doorBox(P, cx) {
+    const w = P.w, wx = Math.round(cx - w / 2);
+    const dw = P.doorType === 'barn' || P.doorType === 'bay' ? 12 : 6;
+    const dcx = Math.round(cx + P.door * 8);
+    const dx0 = Math.round(Math.min(wx + w - dw - 2, Math.max(wx + 2, dcx - dw / 2)));
+    return { dw, dx0, dh: P.doorType === 'barn' ? 13 : 10 };
+  }
   // Draws a building whose 2x2 plot has its top-left at (x, y) world px. L = lights list.
   function drawBuilding(c, x, y, P, t, Lights, lay = { dx: 0, dy: 0, door: 0 }) {
     const cx = x + 16 + lay.dx;
     const by = y + 30 + lay.dy;
     // one-shape homes: their door is centred on cx (map.homeLayout gives them door 0); plaque right of it
-    const one = P.tower ? [drawTower, 3] : P.shape === 'wizard' ? [drawWizardTower, 3] : P.shape === 'mushroom' ? [drawMushroom, 3] : P.shape === 'castle' ? [drawCastle, 5] : null;
+    const one = oneShape(P);
     if (one) { one[0](c, cx, by, P, t, Lights); if (P.founder) founderPlaque(c, cx + one[1], by - 9, t, x); return; }
     const lift = P.stilts ? 5 : 0;
     const wallH = P.storeys === 3 ? 33 : P.storeys === 2 ? 25 : 17;
     const roofH = (P.storeys === 3 ? 10 : P.storeys === 2 ? 11 : 18) - lift;
     const w = P.w, wx = Math.round(cx - w / 2), wb = by - lift, wy = wb - wallH;
+    if (P.turret) drawTurret(c, P, wx, w, wb, wallH + roofH + 7, Lights);
     c.globalAlpha = 0.25; rect(c, 'ink', wx + 1, by, w + 3, 2); c.globalAlpha = 1;
     if (P.stilts) for (const sx of [wx + 1, wx + Math.floor(w / 2) - 1, wx + w - 3]) { rect(c, 'ink', sx - 1, wb - 1, 4, lift + 2); rect(c, 'wood2', sx, wb - 1, 2, lift + 1); }
 
@@ -295,10 +344,7 @@
     wallPattern(c, P, wx, wy, w, wallH);
 
     // door
-    const dw = P.doorType === 'barn' ? 12 : P.doorType === 'bay' ? 12 : 6;
-    const dcx = Math.round(cx + P.door * 8);
-    const dx0 = Math.round(Math.min(wx + w - dw - 2, Math.max(wx + 2, dcx - dw / 2)));
-    const dh = P.doorType === 'barn' ? 13 : 10, dy0 = wb - dh;
+    const { dw, dx0, dh } = doorBox(P, cx), dy0 = wb - dh;
     rect(c, 'ink', dx0 - 1, dy0 - 1, dw + 2, dh + 1);
     if (P.doorType === 'bay') {
       rect(c, 'wood4', dx0, dy0, dw, dh);
@@ -319,6 +365,8 @@
     rect(c, 'stone', dx0 - 1, wb, dw + 2, 1);
     // a doorstep; the path itself is drawn on the ground (draw.js door paths, 2026-11-10: was a straight sand strip)
     if (!P.stilts) { rect(c, 'ink', dx0 - 1, wb + 1, dw + 2, 2); rect(c, 'stone', dx0, wb + 1, dw, 1); }
+    // on stilts: a little ladder from the door down to the ground, where the path starts (2026-11-16)
+    else { rect(c, 'ink', dx0, wb, dw, lift + 1); for (const lx of [dx0 + 1, dx0 + dw - 2]) rect(c, 'wood2', lx, wb, 1, lift); for (let yy = wb + 1; yy < by; yy += 2) rect(c, 'wood3', dx0 + 1, yy, dw - 2, 1); }
 
     // windows: avoid the door; upper floor gets a row too
     const rows = P.storeys === 3 ? [wy + 3, wy + 13, wy + 23] : P.storeys === 2 ? [wy + 3, wy + 14] : [wy + 4];
@@ -347,6 +395,7 @@
       rect(c, 'ink', chimX - 1, top - 1, chW + 2, chH + 1); rect(c, big ? 'stone' : 'stone2', chimX, top, chW, chH); rect(c, 'stone3', chimX, top, chW, 1);
       if (P.smoke) smoke(c, chimX + chW / 2, top - 2, t, P.smoke === 'dark', P.seed % 97);
     }
+    if (P.dormer) drawDormer(c, P, Math.round(cx), ry, rh, Lights);
     if (P.bunting) for (let i = 0; i < w; i += 3) { const yy = wy + 1 + Math.round(Math.sin((i / w) * Math.PI) * 2); px(c, ['ember', 'gold', 'sea3', 'rose'][(i / 3) % 4], wx + i, yy); px(c, ['ember', 'gold', 'sea3', 'rose'][(i / 3) % 4], wx + i, yy + 1); }
 
     // awning over the door
@@ -453,10 +502,123 @@
     sign(c, x + w + 2, by - 15, 'shield');
   }
 
-  function drawHome(c, v, districts, t, Lights) {
+  // ---- plain home models (added 2026-11-16) ----
+  // A dormer window standing out of the roof, in the middle (the chimney stays at an end).
+  function drawDormer(c, P, cx, ry, rh, Lights) {
+    const h = Math.min(9, rh - 4), x = cx - 5, y = ry + rh - 3 - h;
+    rect(c, 'ink', x - 1, y - 1, 11, h + 1); rect(c, P.wallCol, x, y, 9, h);
+    for (let k = 0; k < 4; k++) { rect(c, 'ink', x - 2 + k, y - 2 - k, 13 - k * 2, 1); if (k) rect(c, P.roofFam[0], x - 1 + k, y - 2 - k + 1, 11 - k * 2, 1); }
+    rect(c, P.roofFam[1], x - 1, y - 1, 11, 1); rect(c, 'ink', x - 2, y - 1, 1, 1); rect(c, 'ink', x + 10, y - 1, 1, 1);
+    windowAt(c, x + 2, y + 2, { ...P, shutters: null, flowerbox: false, seed: P.seed + 7 }, Lights);
+  }
+  // A round corner turret with a cone roof, on the side away from the door (drawn behind the house).
+  function drawTurret(c, P, wx, w, wb, th, Lights) {
+    const tw = 10, tx = P.side > 0 ? wx + w - 4 : wx - tw + 4; // th: up past the roof ridge
+    const top = wb - th;
+    rect(c, 'ink', tx - 1, top, tw + 2, th + 1); rect(c, P.wallCol, tx, top, tw, th);
+    wallPattern(c, { ...P, wall: P.wall === 'beams' ? 'plaster' : P.wall, storeys: 1 }, tx, top, tw, th);
+    rect(c, (P.paint && PAINT_SHADE[P.wallCol]) || SHADE[P.wallCol] || 'wood2', P.side > 0 ? tx + tw - 2 : tx, top, 2, th); // the round side in shade
+    rect(c, 'ink', tx + 3, top + 4, 4, 6); rect(c, 'night', tx + 4, top + 5, 2, 4); px(c, 'foam', tx + 4, top + 5);
+    if (Lights) Lights.push({ x: tx + 5, y: top + 7, r: 9, kind: 'window', win: [tx + 4, top + 5, 2, 4], seed: P.seed + 3 });
+    const ch = 13;
+    for (let k = 0; k <= ch; k++) {
+      const hw = Math.round(7 * (k / ch)), yy = top - ch + k;
+      rect(c, 'ink', tx + 5 - hw - 1, yy, hw * 2 + 2, 1);
+      if (k) rect(c, k > ch - 3 ? P.roofFam[1] : P.roofFam[0], tx + 5 - hw, yy, hw * 2, 1);
+    }
+    rect(c, 'ink', tx + 5, top - ch - 3, 1, 3); px(c, 'gold', tx + 5, top - ch - 4);
+  }
+  // a small arched door centred on cx, its bottom on by (doorFam colours)
+  function centreDoor(c, cx, by, P) {
+    rect(c, 'ink', cx - 4, by - 11, 8, 11); px(c, 'ink', cx - 3, by - 12); rect(c, 'ink', cx - 2, by - 12, 4, 1);
+    rect(c, P.doorFam[0], cx - 3, by - 10, 6, 10); rect(c, P.doorFam[0], cx - 2, by - 11, 4, 1); rect(c, P.doorFam[1], cx, by - 10, 1, 10);
+    px(c, 'gold', cx + 1, by - 5);
+    rect(c, 'ink', cx - 4, by + 1, 8, 2); rect(c, 'stone', cx - 3, by + 1, 6, 1); // doorstep, where the path starts
+  }
+  // A round house: a round wall (shaded at the sides) under a tall cone of thatch, or slates when painted.
+  function drawRoundHouse(c, cx, by, P, t, Lights) {
+    const w = 28, x = cx - 14, h = 17, top = by - h;
+    c.globalAlpha = 0.25; rect(c, 'ink', x, by, w + 3, 2); c.globalAlpha = 1;
+    const wall = P.paint ? P.wallCol : P.wallCol === 'stone3' || P.wallCol === 'stone' ? 'stone' : 'cream';
+    rect(c, 'ink', x - 1, top, w + 2, h + 1); rect(c, wall, x, top, w, h);
+    wallPattern(c, { ...P, wallCol: wall, wall: 'plaster' }, x, top, w, h);
+    const sh = (P.paint && PAINT_SHADE[wall]) || SHADE[wall] || 'wood2';
+    rect(c, sh, x, top, 2, h); rect(c, sh, x + w - 2, top, 2, h); px(c, sh, x + 2, top + 3); px(c, sh, x + w - 3, top + 5);
+    for (const wx of [x + 3, x + w - 8]) windowAt(c, wx, top + 7, { ...P, flowerbox: false, shutters: null }, Lights);
+    centreDoor(c, cx, by, P);
+    const ch = 20, R = 17, thatch = !P.paint;
+    for (let k = 0; k <= ch; k++) {
+      const hw = Math.round(R * Math.pow(k / ch, 0.85)), yy = top + 2 - ch + k;
+      rect(c, 'ink', cx - hw - 1, yy, hw * 2 + 2, 1);
+      if (k) rect(c, thatch ? (k > ch - 3 ? 'sand2' : 'sand') : k > ch - 3 ? P.roofFam[1] : P.roofFam[0], cx - hw, yy, hw * 2, 1);
+      if (k > 2 && k < ch - 1) for (let xx = -hw + 2 + (k % 3); xx < hw - 1; xx += 4) px(c, thatch ? 'sand3' : P.roofFam[1], cx + xx, yy);
+    }
+    rect(c, 'ink', cx - R, top + 3, R * 2, 1);
+    if (thatch) for (let xx = cx - R + 1; xx < cx + R - 1; xx++) if ((xx * 7) % 3 !== 0) px(c, 'sand2', xx, top + 3);
+    rect(c, 'ink', cx - 1, top - ch, 3, 3); rect(c, 'wood2', cx, top - ch + 1, 1, 1);
+    smoke(c, cx + 0.5, top - ch - 2, t, false, P.seed % 97);
+    PROP.pots(c, cx + 14, by + 3);
+  }
+  // A boat home: an old boat turned upside down for a roof (painted hull, a stripe, a keel) on a low wall
+  // of boards, with porthole windows and a stove pipe.
+  function drawBoatHome(c, cx, by, P, t, Lights) {
+    const w = 26, x = cx - 13, h = 14, top = by - h;
+    c.globalAlpha = 0.25; rect(c, 'ink', x - 3, by, w + 7, 2); c.globalAlpha = 1;
+    const wall = P.paint ? P.wallCol : 'wood3';
+    rect(c, 'ink', x - 1, top, w + 2, h + 1); rect(c, wall, x, top, w, h);
+    wallPattern(c, { ...P, wallCol: wall, wall: 'vplanks' }, x, top, w, h);
+    for (const px0 of [x + 5, x + w - 5]) { // portholes
+      rect(c, 'ink', px0 - 2, top + 4, 4, 5); rect(c, 'ink', px0 - 3, top + 5, 6, 3);
+      rect(c, 'night', px0 - 1, top + 5, 2, 3); rect(c, 'night', px0 - 2, top + 6, 4, 1); px(c, 'foam', px0 - 1, top + 5);
+      if (Lights) Lights.push({ x: px0, y: top + 6.5, r: 9, kind: 'window', win: [px0 - 2, top + 5, 4, 3], seed: P.seed + px0 });
+    }
+    centreDoor(c, cx, by, P);
+    // the hull, keel up: a straight keel on top, and the gunwale dipping towards the ground at both ends
+    // (bow and stern), so it reads as a boat and not as a roof; a white stripe along the gunwale
+    const hull = P.roofFam, R = 20, kt = top - 7; // keel top
+    for (let xx = -R; xx <= R; xx++) {
+      const e = Math.abs(xx) / R, x0 = cx + xx;
+      const t0 = kt + Math.round(5 * Math.pow(e, 4)); // the keel rounds down at the very ends
+      const b0 = top + 1 + Math.round(9 * Math.pow(e, 2.2)); // the gunwale dips to the ground at the ends
+      rect(c, 'ink', x0, t0 - 1, 1, b0 - t0 + 2);
+      if (Math.abs(xx) === R) continue;
+      rect(c, hull[0], x0, t0, 1, b0 - t0);
+      for (let yy = t0 + 2; yy < b0 - 2; yy += 3) px(c, hull[1], x0, yy); // planks
+      px(c, 'white', x0, b0 - 2); px(c, hull[1], x0, b0 - 1);
+    }
+    rect(c, 'ink', cx - 15, kt - 2, 30, 2); rect(c, 'wood2', cx - 14, kt - 1, 28, 1); // keel
+    const H = 7, hullB = top + 1;
+    rect(c, 'ink', cx + 6, hullB - H - 7, 4, 6); rect(c, 'stone2', cx + 7, hullB - H - 6, 2, 5); // stove pipe
+    smoke(c, cx + 8, hullB - H - 9, t, false, P.seed % 97);
+  }
+  // An A-frame: a steep roof down to the ground, a painted front with the door and a round window.
+  function drawAFrame(c, cx, by, P, t, Lights) {
+    const H = 32, R = 16;
+    c.globalAlpha = 0.25; rect(c, 'ink', cx - R, by, R * 2 + 3, 2); c.globalAlpha = 1;
+    const wall = P.paint ? P.wallCol : 'wood3';
+    for (let k = 0; k <= H; k++) {
+      const hw = Math.round(R * (k / H)), yy = by - H + k;
+      rect(c, 'ink', cx - hw - 1, yy, hw * 2 + 2, 1);
+      if (!k) continue;
+      rect(c, P.roofFam[0], cx - hw, yy, hw * 2, 1); // roof slopes
+      if (k % 3 === 0) { rect(c, P.roofFam[1], cx - hw, yy, 3, 1); rect(c, P.roofFam[1], cx + hw - 3, yy, 3, 1); }
+      const iw = hw - 4; // the front wall inside the eaves
+      if (k > 5 && iw > 0) { rect(c, 'ink', cx - iw - 1, yy, iw * 2 + 2, 1); rect(c, wall, cx - iw, yy, iw * 2, 1); }
+    }
+    const fy = by - H + 6;
+    for (let yy = fy + 4; yy < by; yy += 3) { const iw = Math.round(R * ((yy - by + H) / H)) - 4; if (iw > 1) rect(c, (P.paint && PAINT_SHADE[wall]) || SHADE[wall] || 'wood2', cx - iw, yy, iw * 2, 1); }
+    rect(c, 'ink', cx - 3, by - 22, 6, 6); rect(c, 'ink', cx - 4, by - 21, 8, 4); // round window
+    rect(c, 'night', cx - 2, by - 21, 4, 4); rect(c, 'night', cx - 3, by - 20, 6, 2); px(c, 'foam', cx - 2, by - 21); rect(c, 'wood2', cx, by - 21, 1, 4);
+    if (Lights) Lights.push({ x: cx, y: by - 19, r: 10, kind: 'window', win: [cx - 2, by - 21, 4, 4], seed: P.seed + 1 });
+    centreDoor(c, cx, by, P);
+    PROP.woodpile(c, cx + 15, by + 2);
+  }
+  const SHAPES = { wizard: [drawWizardTower, 3], mushroom: [drawMushroom, 3], castle: [drawCastle, 5], round: [drawRoundHouse, 5], boat: [drawBoatHome, 5], aframe: [drawAFrame, 5] };
+
+  // Everything about how a home looks: district style, kind, layout, stage, floors, founder, paint.
+  function homeSpec(v, districts, lay = LH.map.homeLayout(v.home)) {
     const h = v.home;
     const style = (districts[h.district] || {}).style || 'hut';
-    const lay = LH.map.homeLayout(h);
     const P = spec(style, h.kind, lay);
     // A home grows with its owner's story (home.stage, set by the writer): 1 flower box and a lantern,
     // 2 an annex, 3 a second storey, 4 bunting and an awning. Stage 0 / none = the house as it was built.
@@ -467,9 +629,27 @@
     if (st >= 4) { P.bunting = true; if (!P.awning) P.awning = LH.fam('yellow'); }
     // floors asked for (home.floors 2-3, a villager's own request): taller, never lower
     if (h.floors && h.floors > P.storeys) P.storeys = Math.min(3, h.floors);
+    if (P.turret) P.annex = 0; // the turret stands where an annex would
     // a founder (one of the village's first 100) has a small gold plaque with a star on the wall beside the
     // door (2026-11-11, was a gold sign on a post in the yard)
     P.founder = LH.map.isFounder(v);
+    if (h.paint) applyPaint(P, h.paint);
+    return P;
+  }
+  // The middle of a home's drawn door (x) and the ground in front of it (y), world px: where its path
+  // starts (draw.js doorSpurs, map.homePaths). 2026-11-16: paths ran from where the door was meant to be,
+  // not from where it was drawn after being kept inside a narrow wall.
+  function doorOf(v, districts) {
+    const h = v.home, lay = LH.map.homeLayout(h), P = homeSpec(v, districts, lay);
+    const cx = h.tileX * T + 16 + lay.dx, y = h.tileY * T + 30 + lay.dy;
+    if (oneShape(P)) return { x: cx, y };
+    const { dw, dx0 } = doorBox(P, cx);
+    return { x: dx0 + dw / 2, y };
+  }
+  function drawHome(c, v, districts, t, Lights) {
+    const h = v.home;
+    const lay = LH.map.homeLayout(h);
+    const P = homeSpec(v, districts, lay);
     drawBuilding(c, h.tileX * T, h.tileY * T, P, t, Lights, lay);
     // a patron's home has a little gold pennant by the door (only when "patron": true; not live yet)
     if (v.patron === true) {
@@ -839,5 +1019,5 @@
     add(12.7 * T, () => goodsPile(c, 0.6 * T, 12.7 * T));
   }
 
-  LH.bld = { STYLE, TRADE, ICONS, spec, drawBuilding, drawHome, drawCommon, drawYard, yardOf, gardenHome, drawGarden, gardenLook, marketSquare };
+  LH.bld = { STYLE, TRADE, ICONS, PAINTS, spec, homeSpec, doorOf, drawBuilding, drawHome, drawCommon, drawYard, yardOf, gardenHome, drawGarden, gardenLook, marketSquare };
 })();

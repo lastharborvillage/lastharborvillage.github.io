@@ -142,12 +142,36 @@
     'carpenter', 'pottery', 'watchtower', 'beekeeper', 'cookhouse', 'studio', 'musichall',
     // added 2026-11-08
     'florist', 'barber', 'tinker', 'shop', 'school', 'boathouse', 'wizardtower', 'mushroom',
+    // plain homes, added 2026-11-16 (no trade; a newcomer's 'house' becomes one of these at placement)
+    'narrowhouse', 'dormer', 'turret', 'roundhouse', 'boathome', 'aframe',
     // patron-only (only for villagers with "patron": true; not live yet)
     'manor', 'castle'];
   const PATRON_HOME_KINDS = ['manor', 'castle'];
+  // Plain homes (2026-11-16, user: the plain houses repeat; colour alone makes them feel different).
+  // A new home whose kind is 'house' (or none) gets a model that fits its district and a paint (wall,
+  // roof, door and trim colours: buildings.js PAINTS) when it is placed, picked from its tile. Homes
+  // placed before keep their look. The writer may choose either itself (card home.kind / home.paint,
+  // update homeKind / homePaint).
+  const PLAIN_MODELS = {
+    house: null, dormer: null,
+    narrowhouse: ['harbour', 'market', 'shipyard', 'lighthouse'],
+    turret: ['market', 'lighthouse', 'cliffs', 'harbour'],
+    roundhouse: ['farms', 'cliffs', 'forest', 'lighthouse', 'fogbeach'],
+    boathome: ['harbour', 'fogbeach', 'shipyard'],
+    aframe: ['forest', 'cliffs', 'farms', 'harbour'],
+  };
+  const HOME_PAINTS = ['falu', 'mustard', 'harbourblue', 'mint', 'blush', 'sage', 'lavender', 'whitewash',
+    'teal', 'ochre', 'deepblue', 'apricot', 'plum', 'pine', 'natural'];
+  function plainLook(h) {
+    const r = LH.core.rng(LH.core.hashStr('look|' + h.tileX + ',' + h.tileY));
+    const fits = Object.keys(PLAIN_MODELS).filter((k) => k !== 'house' && (!PLAIN_MODELS[k] || PLAIN_MODELS[k].includes(h.district)));
+    const kind = r() < 0.25 ? 'house' : fits[Math.floor(r() * fits.length)];
+    const paint = r() < 0.15 ? 'natural' : HOME_PAINTS[Math.floor(r() * (HOME_PAINTS.length - 1))];
+    return { kind, paint };
+  }
 
   // Small fixed offsets per plot so houses do not line up perfectly; door -1 left, 0 centre, 1 right.
-  const CENTRE_DOOR = ['watchtower', 'wizardtower', 'mushroom', 'castle'];
+  const CENTRE_DOOR = ['watchtower', 'wizardtower', 'mushroom', 'castle', 'roundhouse', 'boathome', 'aframe'];
   function homeLayout(h) {
     const r = LH.core.rng(LH.core.hashStr('plot|' + h.tileX + ',' + h.tileY));
     // dy -8..+1 (2026-11-10, was -2..2): homes sit at different depths in their plot, so a row of
@@ -256,6 +280,13 @@
     }
     return set;
   }
+  // a newly placed plain home: its model and paint (plainLook), unless the writer chose them
+  function newLook(h) {
+    if (h.kind && h.kind !== 'house') return;
+    const L = plainLook(h);
+    h.kind = L.kind;
+    if (!h.paint) h.paint = L.paint;
+  }
   function placeAll(world) {
     const ds = world.districts || DISTRICTS;
     const used = new Set(); // tiles no new home's core (or the free ring round it) may touch
@@ -282,6 +313,7 @@
         v.home.tileX = s.x; v.home.tileY = s.y;
         v.home.district = districtAt(s.x + 1, s.y + 1, ds); // its look (the land there); never locked for them
         add(solitaryRing(v.home));
+        newLook(v.home);
         placed.push(v.id);
         return;
       }
@@ -295,6 +327,7 @@
       const s = list[k];
       v.home.tileX = s.x; v.home.tileY = s.y;
       add(coreTiles(s.x, s.y));
+      newLook(v.home);
       placed.push(v.id);
     });
     return placed;
@@ -318,7 +351,7 @@
     for (const l of world.landmarks || []) landmarkTiles(l).forEach((k) => blocked.add(k));
     const fronts = homes.map((v) => {
       const hx = v.home.tileX, hy = v.home.tileY, L = homeLayout(v.home);
-      const door = Math.floor(((hx + 1) * T + L.dx + L.door * 8) / T);
+      const door = Math.floor((LH.bld ? LH.bld.doorOf(v, world.districts || DISTRICTS).x : (hx + 1) * T + L.dx + L.door * 8) / T);
       const own = [];
       const fp = (x) => { if (frontPathOK(x, hy + 2) && !own.includes(x)) own.push(x); };
       fp(hx); fp(hx + 1); fp(door);
@@ -727,6 +760,7 @@
       if (ds[h.district].unlockAt > i + 1 && !v.founder && !h.solitary) p.push(who + ': district ' + h.district + ' was still locked when they joined');
       if (!isSlot(h.tileX, h.tileY) && !siteOK(h.tileX, h.tileY)) p.push(who + ': home ' + h.tileX + ',' + h.tileY + ' is not a valid house spot'); // old grid plot or a spot off the grid
       if (h.kind && !HOME_KINDS.includes(h.kind)) p.push(who + ': unknown home kind "' + h.kind + '" (' + HOME_KINDS.join(', ') + ')');
+      if (h.paint && !HOME_PAINTS.includes(h.paint)) p.push(who + ': unknown home paint "' + h.paint + '" (' + HOME_PAINTS.join(', ') + ')');
       claim(footprint(h.tileX, h.tileY), who);
     });
     // nothing may stand on a solitary home's private land but that home
@@ -774,5 +808,5 @@
     return null;
   }
 
-  LH.map = { SOLITARY_RING, SOLITARY_PLACES, solitaryRing, solitaryTiles, sitesNear, WATER_PROPS, waterSpot, seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
+  LH.map = { SOLITARY_RING, SOLITARY_PLACES, solitaryRing, solitaryTiles, sitesNear, WATER_PROPS, waterSpot, seasonFor, SEASON_LOOKS, commonFree, homePaths, frontPathOK, biomeAt, linksRight, T, FOG_Y, PLOT, DISTRICTS, RESERVED, coastY, isLand, districtAt, ground, slots, isSlot, isPlot, isCommon, isRoad, HOME_KINDS, PATRON_HOME_KINDS, PLAIN_MODELS, HOME_PAINTS, plainLook, homeLayout, footprint, unlocked, placeAll, homeSpot, SHIP_STAGES, SHIP_GOAL, shipStage, planksFor, SHARE_PLANKS, FOUNDER_LIMIT, isFounder, foundersLeft, raceCounts, check, PROP_TYPES, PLACES, inPlot, freeSpot, camp, tentsFor, CAMP_MAX, LANDMARKS, LANDMARK_TYPES, LANDMARK_PLACES, landmarkSpot, landmarkTiles, clearingRadius, frontier, LANDMARK_MAX_STAGE: 6, fieldAt, fieldKind, UPGRADES, upgrades, nextUpgrade, upgradeReach, upgradeCovers, UPGRADE_CENTRE, WORKS, WORK_TYPES, workOf, workSpot, route };
 })();

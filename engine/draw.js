@@ -2161,8 +2161,8 @@
     m = new Map();
     const put = (tx, ty, sp) => { const k = tx + ',' + ty; if (!m.has(k)) m.set(k, []); m.get(k).push(sp); };
     for (const v of worldIndex(world).housed) {
-      const L = map.homeLayout(v.home), hx = v.home.tileX, hy = v.home.tileY;
-      const x = (hx + 1) * T + L.dx + L.door * 8, y0 = hy * T + 30 + L.dy;
+      const hx = v.home.tileX, hy = v.home.tileY;
+      const { x, y: y0 } = LH.bld.doorOf(v, world.districts || map.DISTRICTS); // the drawn door (2026-11-16)
       const sp = { x, y0, s: C.h2(hx, hy, 91) * 6.28 };
       // where the door path ends: the lane in front, or the road one row further down when no lane
       // may run in front (map.frontPathOK)

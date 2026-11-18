@@ -937,6 +937,80 @@
       for (let i = 0; i < 24; i++) rect(c, Math.floor(i / 3) % 2 ? 'white' : a1, x - 12 + i, y - 26, 1, 4);
       for (let i = 0; i < 8; i++) { rect(c, 'ink', x - 12 + i * 3, y - 21, 3, 2); rect(c, i % 2 ? 'white' : a1, x - 11 + i * 3, y - 21, 1, 1); }
     },
+    // ---- added 2026-11-18 (idea build) ----
+    // A small stone commercial harbour for two boats (a water object, map.WATER_PROPS): seen from above, a
+    // stone quay along the front with two arms and a middle pier round two berths; a boat moored in each
+    // (bobbing, a rope to a bollard): a wheelhouse boat west, a cargo boat with crates and a furled sail
+    // east. Crates and a barrel on the quay, a red and a green harbour light on the arm heads (lit at night).
+    // o.boats: 0, 1 or 2 boats in their berths (default 2); o.color (a colour family) paints the hulls.
+    stoneharbour(c, x, y, o, t, L) {
+      const X = Math.round(x), Y = Math.round(y);
+      const [h1, h2] = o.color ? LH.fam(o.color, 'brown') : ['wood', 'wood2'];
+      const nb = o.boats == null ? 2 : Math.max(0, Math.min(2, Math.floor(o.boats)));
+      const f = Math.floor(t * 3);
+      // the basin water, a shade under the east side of each wall, a few ripples
+      rect(c, 'sea2', X - 23, Y - 28, 46, 19);
+      rect(c, 'sea', X - 22, Y - 28, 2, 18); rect(c, 'sea', X + 5, Y - 24, 2, 14);
+      for (let i = 0; i < 6; i++) px(c, 'sea3', X - 18 + i * 7 + ((f + i) % 3), Y - 25 + ((i * 5 + f) % 12));
+      // the boats (drawn before the walls, so the quay overlaps their sterns)
+      const boat = (bx, k) => {
+        const b = Math.round(Math.sin(t * 1.6 + X * 0.3 + k * 2.1) * 1), top = Y - 27 + b;
+        for (let r = 0; r < 15; r++) {
+          const hw = Math.min(5, 1 + r);
+          rect(c, 'ink', bx - hw, top + r, hw * 2, 1);
+          if (hw > 1) rect(c, h1, bx - hw + 1, top + r, hw * 2 - 2, 1);
+          if (hw > 2 && r > 2) rect(c, 'wood3', bx - hw + 2, top + r, hw * 2 - 4, 1);
+        }
+        rect(c, 'ink', bx - 5, top + 15, 10, 1); rect(c, h2, bx - 4, top + 14, 8, 1);
+        px(c, 'foam', bx - 6, top + 9 - b); px(c, 'foam', bx + 5, top + 11 - b); px(c, 'foam2', bx - 6, top + 12 - b);
+        if (k === 0) { // a wheelhouse with a window
+          rect(c, 'ink', bx - 3, top + 6, 6, 7); rect(c, 'white', bx - 2, top + 7, 4, 5); rect(c, 'stone3', bx - 2, top + 11, 4, 1);
+          rect(c, 'ember', bx - 2, top + 7, 4, 1); rect(c, 'sea3', bx - 1, top + 9, 2, 1);
+        } else { // cargo: two crates and a short mast with a furled sail
+          for (const [cx, cy] of [[bx - 3, top + 9], [bx, top + 10]]) { rect(c, 'ink', cx, cy, 4, 4); rect(c, 'wood3', cx + 1, cy + 1, 2, 2); }
+          rect(c, 'ink', bx - 1, top - 1, 3, 9); rect(c, 'wood2', bx, top, 1, 8);
+          rect(c, 'ink', bx - 1, top + 3, 5, 3); rect(c, 'cream', bx, top + 4, 3, 1);
+        }
+        return b;
+      };
+      const bobs = [];
+      if (nb >= 1) bobs[0] = boat(X - 14, 0);
+      if (nb >= 2) bobs[1] = boat(X + 13, 1);
+      // stone: an outline, a lighter top, a highlight on the west edge and block joints
+      const slab = (x0, y0, w, h) => {
+        rect(c, 'ink', x0 - 1, y0 - 1, w + 2, h + 2); rect(c, 'stone', x0, y0, w, h);
+        rect(c, 'stone3', x0, y0, 1, h); rect(c, 'stone2', x0 + w - 1, y0, 1, h);
+      };
+      slab(X - 30, Y - 28, 7, 19); slab(X + 24, Y - 28, 7, 19); slab(X - 3, Y - 24, 7, 15); // the arms and the middle pier
+      for (let yy = Y - 24; yy < Y - 10; yy += 5) { rect(c, 'stone2', X - 29, yy, 5, 1); rect(c, 'stone2', X + 25, yy, 5, 1); rect(c, 'stone2', X - 2, yy + 2, 5, 1); }
+      slab(X - 31, Y - 31, 9, 4); slab(X + 23, Y - 31, 9, 4); // round arm heads
+      rect(c, 'stone3', X - 30, Y - 31, 7, 1); rect(c, 'stone3', X + 24, Y - 31, 7, 1);
+      // the front quay: top and the wall face above the water
+      rect(c, 'ink', X - 31, Y - 10, 63, 11); rect(c, 'stone', X - 30, Y - 9, 61, 5); rect(c, 'stone3', X - 30, Y - 9, 61, 1);
+      rect(c, 'stone2', X - 30, Y - 4, 61, 4);
+      for (let i = 0; i < 10; i++) { px(c, 'ink', X - 28 + i * 6, Y - 4); px(c, 'ink', X - 28 + i * 6, Y - 3); px(c, 'ink', X - 25 + i * 6, Y - 2); px(c, 'ink', X - 25 + i * 6, Y - 1); }
+      for (let i = 0; i < 12; i++) px(c, 'stone2', X - 27 + i * 5, Y - 7 + (i % 2));
+      for (let i = 0; i < 16; i++) if ((i + f) % 4) px(c, i % 3 ? 'foam' : 'foam2', X - 31 + i * 4, Y + 1);
+      // bollards and the mooring ropes
+      for (const bx of [X - 17, X - 10, X + 9, X + 16]) { rect(c, 'ink', bx, Y - 9, 2, 3); px(c, 'stone3', bx, Y - 9); }
+      if (nb >= 1) { const b = bobs[0]; px(c, 'sand2', X - 18, Y - 13 + b); px(c, 'sand2', X - 17, Y - 12 + b); px(c, 'sand2', X - 17, Y - 11); px(c, 'sand2', X - 17, Y - 10); }
+      if (nb >= 2) { const b = bobs[1]; px(c, 'sand2', X + 17, Y - 13 + b); px(c, 'sand2', X + 17, Y - 12 + b); px(c, 'sand2', X + 17, Y - 11); px(c, 'sand2', X + 17, Y - 10); }
+      // cargo on the quay: a barrel west, two crates east
+      rect(c, 'ink', X - 29, Y - 13, 5, 7); rect(c, 'wood', X - 28, Y - 12, 3, 5); rect(c, 'stone2', X - 28, Y - 10, 3, 1); rect(c, 'wood3', X - 28, Y - 12, 1, 5);
+      rect(c, 'ink', X + 21, Y - 13, 7, 7); rect(c, 'wood3', X + 22, Y - 12, 5, 5); rect(c, 'wood', X + 22, Y - 10, 5, 1);
+      rect(c, 'ink', X + 24, Y - 18, 6, 6); rect(c, 'wood3', X + 25, Y - 17, 4, 4); px(c, 'wood', X + 26, Y - 15);
+      // harbour lights on the arm heads: red west, green east (they stand on the heads, 1 px into the stone)
+      for (const [lx, lc] of [[X - 29, 'ember'], [X + 25, 'moss']]) {
+        rect(c, 'ink', lx, Y - 36, 5, 6); rect(c, 'white', lx + 1, Y - 32, 3, 2); rect(c, lc, lx + 1, Y - 35, 3, 2);
+        if (L) L.push({ x: lx + 2.5, y: Y - 34, r: 10, kind: 'lamp' });
+      }
+      // surf on the outer walls and at the harbour mouth
+      for (let i = 0; i < 4; i++) {
+        const w = (f + i) % 2;
+        px(c, 'foam', X - 33, Y - 26 + i * 5 + w); px(c, 'foam', X - 32, Y - 25 + i * 5 + w); px(c, 'foam', X + 32, Y - 24 + i * 5 - w); px(c, 'foam', X + 33, Y - 23 + i * 5 - w);
+        px(c, i % 2 ? 'foam2' : 'foam', X - 20 + i * 12 + w, Y - 30);
+      }
+    },
   };
 
   // ---------------------------------------------------------------- landmarks

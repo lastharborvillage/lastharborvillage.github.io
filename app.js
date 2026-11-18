@@ -213,6 +213,7 @@
   PLACE_TEXT.shark = { title: 'A Shark', kicker: 'Sea', text: 'A fin in the harbour water. It keeps to itself.' };
   PLACE_TEXT.bunker = { title: 'A Bunker', kicker: 'Village', text: 'A small bunker dug into a grassy mound.' };
   PLACE_TEXT.foodstall = { title: 'A Food Stall', kicker: 'Village', text: 'Something warm to eat, right off the counter.' };
+  PLACE_TEXT.stoneharbour = { title: 'The Stone Harbour', kicker: 'Sea', text: 'A small stone harbour with room for two boats and their cargo.' };
 
   // Every tappable place with its box in world pixels [x0, y0, x1, y1].
   function places() {

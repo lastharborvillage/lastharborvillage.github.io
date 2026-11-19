@@ -95,6 +95,8 @@
     // patron-only (not live yet)
     manor: { w: 34, storeys: 3, wall: 'bricks', wallCol: 'stone3', roof: 'hip', roofCol: 'navy', doorType: 'arch', lantern: true, bunting: true, prop: 'pots', annex: 0, chimney: 1, patron: true },
     castle: { shape: 'castle', patron: true },
+    // added 2026-11-19 (idea build): a bunker home (Alex Wander), drawBunker
+    bunker: { shape: 'bunker' },
   };
   // Paints (2026-11-16): one colour scheme for a home's walls, roof, door and trim (shutters), named in
   // home.paint (map.HOME_PAINTS). 'natural' keeps the district's own wood, stone and plaster.
@@ -613,7 +615,55 @@
     centreDoor(c, cx, by, P);
     PROP.woodpile(c, cx + 15, by + 2);
   }
+  // ---- added 2026-11-19 (idea build) ----
+  // A bunker home: a grassy earth mound with a concrete front under a thick slab, a heavy riveted door
+  // (doorFam), two lit slit windows, a door lamp, sandbags piled at both sides, an air pipe with smoke
+  // and a small flag (roofFam) on the mound. Painted (homePaint): the front takes the wall colour.
+  function drawBunker(c, cx, by, P, t, Lights) {
+    c.globalAlpha = 0.25; rect(c, 'ink', cx - 21, by, 45, 2); c.globalAlpha = 1;
+    const R = 21, H = 26;
+    for (let k = 0; k <= H; k++) { // the earth mound
+      const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((H - k) / (H + 0.5)) ** 2))), yy = by - H + k;
+      rect(c, 'ink', cx - hw - 1, yy, hw * 2 + 2, 1);
+      if (!k) continue;
+      rect(c, k < 3 ? 'grass' : k > H - 4 ? 'moss2' : 'moss', cx - hw, yy, hw * 2, 1);
+      for (let xx = -hw; xx < hw; xx++) if (k >= 3 && bayer(cx + xx, yy) < 0.1) px(c, k > H - 4 ? 'pine' : 'moss2', cx + xx, yy);
+    }
+    for (const [dx, dy] of [[-3, -27], [-3, -28], [2, -27], [2, -28], [-9, -23], [8, -23], [-17, -11], [16, -11]]) px(c, 'grass', cx + dx, by + dy); // grass tufts
+    // the air pipe, its foot in the mound
+    rect(c, 'ink', cx + 7, by - 31, 3, 8); rect(c, 'stone2', cx + 8, by - 30, 1, 6);
+    rect(c, 'ink', cx + 6, by - 33, 5, 3); rect(c, 'stone', cx + 7, by - 32, 3, 1);
+    smoke(c, cx + 8.5, by - 35, t, false, P.seed % 97);
+    // a small flag on the mound (the home's roof colour), waving
+    const wv = Math.floor(t * 3) % 2;
+    rect(c, 'ink', cx - 11, by - 38, 3, 16); rect(c, 'wood2', cx - 10, by - 37, 1, 15); px(c, 'gold', cx - 10, by - 39);
+    rect(c, 'ink', cx - 9, by - 38 + wv, 8, 6); rect(c, P.roofFam[0], cx - 9, by - 37 + wv, 7, 4); rect(c, P.roofFam[1], cx - 9, by - 34 + wv, 7, 1);
+    // the concrete front and its slab
+    const wall = P.paint ? P.wallCol : 'stone';
+    const sh = (P.paint && PAINT_SHADE[wall]) || (wall === 'stone' ? 'stone2' : SHADE[wall]) || 'stone2';
+    rect(c, 'ink', cx - 12, by - 15, 24, 16); rect(c, wall, cx - 11, by - 14, 22, 14);
+    rect(c, sh, cx - 11, by - 7, 22, 1); rect(c, sh, cx - 11, by - 1, 22, 1);
+    for (const jx of [cx - 7, cx + 6]) rect(c, sh, jx, by - 14, 1, 7);
+    rect(c, 'ink', cx - 14, by - 19, 28, 5); rect(c, 'stone3', cx - 13, by - 18, 26, 2); rect(c, 'stone', cx - 13, by - 16, 26, 1);
+    for (const mx of [-13, -12, -8, 9, 12]) px(c, 'moss', cx + mx, by - 18); // moss creeping over the slab
+    // slit windows
+    for (const wx of [cx - 11, cx + 5]) {
+      rect(c, 'ink', wx, by - 13, 6, 4); rect(c, 'night', wx + 1, by - 12, 4, 2); px(c, 'foam', wx + 1, by - 12);
+      if (Lights) Lights.push({ x: wx + 3, y: by - 11, r: 9, kind: 'window', win: [wx + 1, by - 12, 4, 2], seed: P.seed + wx });
+    }
+    // the heavy door with rivets, a crossbar and a handle; a lamp above it; the doorstep (the path starts here)
+    rect(c, 'ink', cx - 4, by - 11, 8, 11); rect(c, P.doorFam[0], cx - 3, by - 10, 6, 10); rect(c, P.doorFam[1], cx - 3, by - 6, 6, 1);
+    for (const [rx, ry] of [[-2, -9], [1, -9], [-2, -3], [1, -3]]) px(c, 'stone3', cx + rx, by + ry);
+    px(c, 'gold', cx + 1, by - 5);
+    rect(c, 'ink', cx - 1, by - 14, 3, 3); px(c, Math.floor(t * 2) % 5 ? 'lantern' : 'lanternhi', cx, by - 13);
+    if (Lights) Lights.push({ x: cx + 0.5, y: by - 13, r: 12, kind: 'lamp' });
+    rect(c, 'ink', cx - 4, by + 1, 8, 2); rect(c, 'stone', cx - 3, by + 1, 6, 1);
+    // sandbags piled against both sides
+    const bag = (x, y) => { rect(c, 'ink', x, y, 6, 4); rect(c, 'sand2', x + 1, y + 1, 4, 2); px(c, 'sand', x + 1, y + 1); px(c, 'sand3', x + 4, y + 2); };
+    for (const [bx, byy] of [[-21, -3], [-16, -3], [-19, -6], [10, -3], [15, -3], [13, -6]]) bag(cx + bx, by + byy);
+  }
   const SHAPES = { wizard: [drawWizardTower, 3], mushroom: [drawMushroom, 3], castle: [drawCastle, 5], round: [drawRoundHouse, 5], boat: [drawBoatHome, 5], aframe: [drawAFrame, 5] };
+  SHAPES.bunker = [drawBunker, 5]; // added 2026-11-19 (idea build)
 
   // Everything about how a home looks: district style, kind, layout, stage, floors, founder, paint.
   function homeSpec(v, districts, lay = LH.map.homeLayout(v.home)) {

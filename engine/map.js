@@ -530,6 +530,8 @@
     henhouse: { w: 3, h: 2 }, palisade: { w: 3, h: 1 },
     // added 2026-11-16 (idea build): a hospital
     hospital: { w: 3, h: 2 },
+    // added 2026-11-20 (idea build): a trading post at the start of a trade route
+    tradepost: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.

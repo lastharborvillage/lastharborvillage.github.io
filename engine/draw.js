@@ -1906,6 +1906,61 @@
       if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 28, 1, 10); rect(c, 'ink', cx + 1, wt - 28 + w, 7, 6); rect(c, 'white', cx + 1, wt - 27 + w, 6, 4); rect(c, 'ember', cx + 3, wt - 27 + w, 2, 4); rect(c, 'ember', cx + 1, wt - 26 + w, 6, 2); }
     },
   };
+  // added 2026-11-20 (idea build, a viewer's idea): a trading post at the start of a trade route to another
+  // village. A market booth with a striped awning and goods on the counter (a sack, a jar, a roll of cloth),
+  // a crate, a dirt road leaving east and a signpost with one arrow pointing down the road and one back home.
+  // 1 a lantern on the signpost and one under the awning; 2 the merchant (wide hat, teal coat, coin pouch)
+  // beside a covered wagon ready to leave; 3 a gold coin sign on the booth and a pennant on the signpost.
+  LANDMARK_DRAW.tradepost = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, L = x0 + 2, W = 16, sx = x0 + 27;
+    rect(c, 'sand3', x0 + 20, by - 5, 28, 5); rect(c, 'sand2', x0 + 21, by - 4, 27, 3); rect(c, 'sand3', x0 + 22, by - 3, 26, 1); // the road
+    // the booth: dark inside, two posts, a counter with goods
+    rect(c, 'ink', L - 1, by - 18, W + 2, 18); rect(c, 'wood4', L, by - 17, W, 17);
+    for (const p of [L, L + W - 2]) { rect(c, 'wood', p, by - 17, 2, 17); rect(c, 'wood2', p + 1, by - 17, 1, 17); }
+    rect(c, 'ink', L - 1, by - 8, W + 2, 8); rect(c, 'wood', L, by - 7, W, 7); rect(c, 'wood3', L, by - 7, W, 1);
+    for (let x = L + 3; x < L + W - 1; x += 4) rect(c, 'wood2', x, by - 6, 1, 6);
+    rect(c, 'ink', L + 1, by - 12, 5, 4); rect(c, 'sand', L + 2, by - 11, 3, 3); px(c, 'sand2', L + 4, by - 10); // a sack
+    rect(c, 'ink', L + 6, by - 12, 4, 4); rect(c, 'teal', L + 7, by - 11, 2, 3); px(c, 'foam', L + 7, by - 11); // a jar
+    rect(c, 'ink', L + 10, by - 11, 6, 3); rect(c, 'plum', L + 11, by - 10, 4, 1); px(c, 'plum2', L + 14, by - 10); // a roll of cloth
+    rect(c, 'ink', L - 3, by - 23, W + 6, 6); // the striped awning with a fringe
+    for (let i = 0; i < W + 4; i++) rect(c, Math.floor(i / 3) % 2 ? 'cream' : 'ember', L - 2 + i, by - 22, 1, 4);
+    for (let i = 0; i < W + 4; i += 2) px(c, Math.floor(i / 3) % 2 ? 'cream' : 'ember', L - 2 + i, by - 17);
+    if (st >= 1) { px(c, 'ink', L + 8, by - 17); rect(c, 'ink', L + 7, by - 16, 3, 3); px(c, 'lanternhi', L + 8, by - 15); glow(lights, L + 8, by - 15, 12); }
+    if (st >= 3) { // a gold coin sign on top of the booth
+      rect(c, 'ink', L + 4, by - 30, 9, 7); rect(c, 'wood3', L + 5, by - 29, 7, 5);
+      rect(c, 'ink', L + 6, by - 28, 5, 3); rect(c, 'gold', L + 7, by - 28, 3, 3); px(c, 'gold2', L + 9, by - 26); px(c, 'gold2', L + 8, by - 27);
+    }
+    rect(c, 'ink', x0 + 20, by - 6, 6, 6); rect(c, 'wood3', x0 + 21, by - 5, 4, 4); rect(c, 'wood', x0 + 21, by - 3, 4, 1); px(c, 'wood2', x0 + 22, by - 4); // a crate
+    if (st >= 2) { // a covered wagon on the road, ready to leave
+      const wx = x0 + 34, hx = wx + 6;
+      rect(c, 'ink', wx + 13, by - 7, 3, 1); rect(c, 'wood2', wx + 13, by - 6, 3, 1); // the shaft
+      rect(c, 'ink', wx - 1, by - 9, 15, 4); rect(c, 'wood', wx, by - 8, 13, 2); rect(c, 'wood2', wx, by - 6, 13, 1);
+      for (let r = 0; r < 8; r++) { const hw = Math.round(6.5 * Math.sqrt(1 - (r / 8) ** 2)), y = by - 10 - r; rect(c, 'ink', hx - hw - 1, y, hw * 2 + 3, 1); rect(c, 'cream', hx - hw, y, hw * 2 + 1, 1); }
+      rect(c, 'ink', hx - 2, by - 18, 5, 1);
+      rect(c, 'sand2', hx - 4, by - 14, 1, 4); rect(c, 'sand2', hx, by - 16, 1, 6); rect(c, 'sand2', hx + 4, by - 14, 1, 4);
+      for (const wc of [wx + 3, wx + 10]) { blob(c, 'wood2', wc, by - 3, 3, 3); px(c, 'wood3', wc - 2, by - 3); px(c, 'wood3', wc + 2, by - 3); px(c, 'wood3', wc, by - 5); px(c, 'wood3', wc, by - 1); px(c, 'ink', wc, by - 3); }
+    }
+    // the signpost: one arrow down the road, one back home
+    rect(c, 'ink', sx - 1, by - 25, 3, 25); rect(c, 'wood2', sx, by - 24, 1, 24); rect(c, 'ink', sx - 2, by - 26, 5, 1);
+    const arrow = (x, y, w, dir) => {
+      rect(c, 'ink', x - 1, y - 1, w + 2, 5); rect(c, 'wood3', x, y, w, 3);
+      const e = dir > 0 ? x + w : x - 1, s = dir;
+      rect(c, 'wood3', e, y, 1, 3); px(c, 'ink', e + s, y); px(c, 'wood3', e + s, y + 1); px(c, 'ink', e + s, y + 2); px(c, 'ink', e + 2 * s, y + 1);
+      for (let i = 1; i < w - 1; i += 2) px(c, 'wood2', x + i, y + 1);
+    };
+    arrow(sx + 2, by - 22, 8, 1); arrow(sx - 5, by - 15, 4, -1);
+    if (st >= 1) { rect(c, 'ink', sx - 1, by - 30, 3, 4); px(c, 'lanternhi', sx, by - 29); px(c, 'lantern', sx, by - 28); glow(lights, sx, by - 28, 12); }
+    if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', sx, by - 38, 1, 8); rect(c, 'ink', sx + 1, by - 38 + w, 6, 4); rect(c, 'teal', sx + 1, by - 37 + w, 5, 2); px(c, 'gold', sx + 6, by - 37 + w); }
+    if (st >= 2) { // the merchant: wide hat, teal coat, a coin pouch
+      const gx = x0 + 31;
+      rect(c, 'ink', gx - 1, by - 16, 5, 16); rect(c, 'wood2', gx, by - 15, 3, 1);
+      rect(c, 'ink', gx - 2, by - 14, 7, 1); rect(c, 'wood2', gx - 1, by - 14, 5, 1);
+      rect(c, 'skin2', gx, by - 13, 3, 2); px(c, 'ink', gx + 2, by - 13);
+      rect(c, 'teal', gx, by - 11, 3, 8); rect(c, 'teal2', gx + 2, by - 11, 1, 8); rect(c, 'wood2', gx, by - 7, 3, 1);
+      rect(c, 'wood2', gx, by - 3, 1, 2); rect(c, 'wood2', gx + 2, by - 3, 1, 2);
+      rect(c, 'ink', gx + 3, by - 9, 3, 3); px(c, 'gold', gx + 4, by - 8);
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

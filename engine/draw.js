@@ -1012,6 +1012,111 @@
       }
     },
   };
+  // ---- added 2026-11-21 (expansion run, viewers' ideas) ----
+  // A cast-iron furnace (the HVAC installer's showpiece for winter): a stove on short feet with a glowing
+  // fire door (lit at night), a flue pipe with smoke and a coal scuttle. o.color (a colour family) paints the iron.
+  PROPS.furnace = function (c, x, y, o, t, L) {
+    const [b1, b2] = o.color ? LH.fam(o.color, 'grey') : ['stone2', 'stone'];
+    rect(c, 'ink', x - 6, y - 3, 2, 3); rect(c, 'ink', x + 4, y - 3, 2, 3); // feet
+    rect(c, 'ink', x + 1, y - 31, 5, 15); rect(c, 'stone2', x + 2, y - 30, 3, 14); rect(c, 'stone', x + 2, y - 30, 1, 14); // the flue
+    rect(c, 'ink', x, y - 33, 7, 2);
+    for (let i = 0; i < 3; i++) { const ph = (t * 0.6 + i / 3) % 1; px(c, i % 2 ? 'fog' : 'fog2', x + 3 + Math.round(Math.sin(ph * 6 + i) * 2), y - 35 - Math.round(ph * 12)); }
+    rect(c, 'ink', x - 7, y - 16, 14, 13); rect(c, b1, x - 6, y - 15, 12, 11); rect(c, b2, x + 4, y - 15, 2, 11); // the body
+    rect(c, 'ink', x - 8, y - 18, 16, 3); rect(c, 'stone3', x - 7, y - 17, 14, 1); // the top plate
+    const f = Math.floor(t * 6) % 3;
+    rect(c, 'ink', x - 4, y - 12, 8, 6); rect(c, f ? 'ember' : 'lantern', x - 3, y - 11, 6, 4); px(c, 'lanternhi', x - 2 + (f % 2), y - 9);
+    rect(c, 'ink', x - 1, y - 11, 1, 4); rect(c, 'ink', x + 1, y - 11, 1, 4); // the grate bars
+    rect(c, 'ink', x + 8, y - 5, 5, 5); rect(c, 'wood2', x + 9, y - 4, 3, 4); px(c, 'ink', x + 10, y - 6); px(c, 'ink', x + 9, y - 5); // coal scuttle
+    if (L) L.push({ x: x + 0.5, y: y - 9, r: 12, kind: 'lamp' });
+  };
+  // Diving: a dive float with a red flag (a white stripe) bobbing on the water, bubbles rising beside it and
+  // now and then a diver surfacing with a mask and a snorkel. o.color (a colour family) = the diver's hood.
+  // A water object (map.WATER_PROPS); on land (onLand) the diving gear: a brass helmet on a crate.
+  PROPS.diver = function (c, x, y, o, t) {
+    const hood = o.color ? LH.fam(o.color, 'navy')[0] : 'sea';
+    if (map.isLand(Math.floor(x / T), Math.floor(y / T))) {
+      rect(c, 'ink', x - 6, y - 8, 12, 8); rect(c, 'wood3', x - 5, y - 7, 10, 7); rect(c, 'wood', x - 5, y - 4, 10, 1);
+      blob(c, 'gold2', x, y - 13, 5, 5); rect(c, 'gold', x - 3, y - 17, 3, 2);
+      rect(c, 'ink', x - 2, y - 15, 5, 4); rect(c, 'sea3', x - 1, y - 14, 3, 2); px(c, 'foam2', x - 1, y - 14);
+      return;
+    }
+    const b = Math.round(Math.sin(t * 2 + x) * 1);
+    rect(c, 'ink', x - 4, y - 5 + b, 8, 5); rect(c, 'white', x - 3, y - 4 + b, 6, 3); rect(c, 'foam', x - 5, y + b, 10, 1);
+    rect(c, 'ink', x - 1, y - 18 + b, 1, 13);
+    rect(c, 'ink', x, y - 18 + b, 9, 7); rect(c, 'ember', x + 1, y - 17 + b, 7, 5);
+    for (let i = 0; i < 7; i++) px(c, 'white', x + 1 + i, y - 17 + b + Math.floor((i * 5) / 7));
+    const cyc = (t * 0.25 + x * 0.01) % 1, dx = x - 13;
+    if (cyc > 0.6) { // the diver comes up for air
+      rect(c, 'ink', dx - 3, y - 7, 6, 7); rect(c, hood, dx - 2, y - 6, 4, 5);
+      rect(c, 'ink', dx - 2, y - 5, 4, 2); rect(c, 'foam', dx - 1, y - 5, 2, 1);
+      rect(c, 'gold', dx + 3, y - 10, 1, 6); px(c, 'ember', dx + 3, y - 11);
+      rect(c, 'foam', dx - 5, y, 10, 1); px(c, 'foam2', dx - 6, y - 1); px(c, 'foam2', dx + 5, y - 1);
+    } else for (let k = 0; k < 3; k++) { // bubbles from below
+      const ph = (t * 0.9 + k / 3) % 1;
+      px(c, k % 2 ? 'foam2' : 'foam', dx - 2 + k * 2, y - Math.round(ph * 3));
+      if (ph > 0.7) px(c, 'foam', dx - 3 + k * 2, y);
+    }
+  };
+  // Magic flowers from the wizard's woods: a patch of glowing flowers with sparkles drifting up (they glow
+  // at night). o.color (a colour family) = the petals, alternating with pale foam petals.
+  PROPS.magicflowers = function (c, x, y, o, t, L) {
+    const p1 = o.color ? LH.fam(o.color, 'purple')[0] : 'plum', p2 = 'foam';
+    const FL = [[-8, 4], [-5, 6], [-2, 5], [1, 7], [4, 5], [7, 6], [9, 4]];
+    FL.forEach(([fx, h], k) => {
+      const X = x + fx, Y = y - (k % 2);
+      rect(c, 'moss2', X, Y - h, 1, h); px(c, 'moss', X + 1, Y - 2);
+      const col = k % 2 ? p2 : p1;
+      px(c, col, X - 1, Y - h - 1); px(c, col, X + 1, Y - h - 1); px(c, col, X, Y - h - 2); px(c, col, X, Y - h);
+      px(c, Math.floor(t * 2 + k) % 2 ? 'lanternhi' : 'gold', X, Y - h - 1);
+    });
+    for (let k = 0; k < 4; k++) {
+      const ph = (t * 0.7 + k / 4) % 1, sx = x - 8 + ((k * 5 + Math.floor(t * 0.7 + k / 4) * 3) % 18);
+      if (ph < 0.9) px(c, ph < 0.5 ? 'lanternhi' : 'foam2', sx, y - 8 - Math.round(ph * 10));
+    }
+    px(c, 'grass', x - 10, y - 1); px(c, 'grass', x + 11, y - 1); px(c, 'moss', x - 4, y);
+    if (L) L.push({ x: x + 0.5, y: y - 5, r: 14, kind: 'lamp' });
+  };
+  // A fruit tree: o.fruit "apple" (default, red) or "pear" (yellow-green); o.young: true = a sapling tied to a
+  // stake (just planted), with a first fruit or two.
+  PROPS.fruittree = function (c, x, y, o) {
+    const pear = o.fruit === 'pear', fc = pear ? 'gold' : 'ember', fh = pear ? 'grass' : 'rose';
+    if (o.young) {
+      rect(c, 'ink', x + 3, y - 14, 2, 14); rect(c, 'wood3', x + 3, y - 13, 1, 13); // the stake
+      rect(c, 'ink', x - 1, y - 10, 3, 10); rect(c, 'wood', x, y - 9, 1, 9);
+      blob(c, 'moss', x, y - 13, 4, 3); px(c, 'grass', x - 2, y - 15); px(c, 'grass', x + 1, y - 14);
+      px(c, 'sand2', x + 1, y - 6); px(c, 'sand2', x + 2, y - 6); // the tie
+      px(c, fc, x - 2, y - 12); px(c, fc, x + 2, y - 11);
+      px(c, 'wood2', x - 2, y); px(c, 'wood2', x + 2, y); px(c, 'wood4', x, y); // fresh earth
+      return;
+    }
+    rect(c, 'ink', x - 2, y - 14, 5, 14); rect(c, 'wood', x - 1, y - 13, 3, 13); rect(c, 'wood2', x + 1, y - 13, 1, 13);
+    blob(c, 'moss', x, y - 21, 9, 7); blob(c, 'grass', x - 2, y - 23, 5, 3, null); blob(c, 'moss2', x + 3, y - 18, 5, 3, null);
+    for (const [dx, dy] of [[-6, -21], [-3, -17], [1, -25], [4, -20], [6, -24], [-1, -21], [3, -16]]) {
+      if (pear) { px(c, fc, x + dx, y + dy); rect(c, fc, x + dx, y + dy + 1, 2, 2); px(c, 'gold2', x + dx + 1, y + dy + 2); }
+      else { rect(c, fc, x + dx, y + dy, 2, 2); px(c, fh, x + dx, y + dy); }
+    }
+    px(c, fc, x + 5, y - 1); px(c, fc, x + 6, y - 1); // a fallen one in the grass
+  };
+  // A sheep, side on, facing east; now and then it grazes. o.color (a colour family) = the wool (default
+  // white); o.shorn: true = freshly shorn (its wool went to the ship's sails), pale and thin.
+  PROPS.sheep = function (c, x, y, o, t) {
+    const [w1, w2] = o.color ? LH.fam(o.color, 'white') : ['white', 'stone3'];
+    const graze = Math.floor(t * 0.5 + x * 0.17) % 3 === 0;
+    for (const lx of [x - 5, x - 2, x + 2, x + 5]) rect(c, 'ink', lx, y - 5, 1, 5);
+    if (o.shorn) { rect(c, 'ink', x - 7, y - 10, 14, 6); rect(c, 'cream', x - 6, y - 9, 12, 4); rect(c, 'sand2', x - 6, y - 6, 12, 1); px(c, 'cream', x - 8, y - 9); }
+    else {
+      blob(c, w1, x - 1, y - 9, 7, 4);
+      for (let i = 0; i < 5; i++) { px(c, w2, x - 6 + i * 3, y - 7 + (i % 2)); px(c, w2, x - 5 + i * 3, y - 11 + (i % 2)); }
+      px(c, w2, x - 9, y - 10);
+    }
+    if (graze) {
+      rect(c, 'ink', x + 5, y - 7, 5, 5); rect(c, 'stone2', x + 6, y - 6, 3, 3); px(c, 'ink', x + 4, y - 7);
+      px(c, 'grass', x + 10, y - 1); px(c, 'moss', x + 9, y);
+    } else {
+      rect(c, 'ink', x + 5, y - 14, 5, 6); rect(c, 'stone2', x + 6, y - 13, 3, 4); px(c, 'white', x + 8, y - 12);
+      px(c, 'ink', x + 4, y - 13); px(c, 'stone2', x + 4, y - 12);
+    }
+  };
 
   // ---------------------------------------------------------------- landmarks
   function drawLighthouse(c, x, y, t, L) {
@@ -1157,6 +1262,7 @@
       for (let i = 0; i < 3; i++) rect(c, 'wood2', cx - 6, by - 1 + i * 2, 12, 1);
       if ((l.stage || 0) >= 1) { rect(c, 'ink', cx + 10, by - 6, 9, 6); rect(c, 'stone2', cx + 11, by - 5, 7, 3); rect(c, 'stone3', cx + 11, by - 7, 7, 2); }
       if ((l.stage || 0) >= 2) { rect(c, 'lantern', cx - 1, by - 22, 3, 3); glow(lights, cx, by - 21); }
+      if ((l.stage || 0) >= 3) { rect(c, 'ink', cx - 5, by - 8, 10, 6); rect(c, 'stone2', cx - 4, by - 7, 8, 4); rect(c, 'stone', cx - 4, by - 7, 8, 1); rect(c, 'ink', cx - 4, by - 2, 2, 2); rect(c, 'ink', cx + 2, by - 2, 2, 2); px(c, 'stone3', cx - 3, by - 9); px(c, 'gold', cx - 1, by - 9); px(c, 'stone3', cx + 1, by - 10); px(c, Math.floor(t * 3) % 2 ? 'lanternhi' : 'gold', cx + 2, by - 9); for (let i = 0; i < 9; i++) px(c, 'wood3', cx - 13 + Math.floor(i / 3), by - 1 - i); rect(c, 'ink', cx - 14, by - 12, 7, 2); rect(c, 'stone3', cx - 13, by - 12, 5, 1); } // added 2026-11-21: stage 3 a mine cart of ore on the rails and a pickaxe at the entrance
     },
     tower(c, x0, y0, l, t, lights) {
       const cx = x0 + 16, by = y0 + 30;
@@ -1960,6 +2066,93 @@
       rect(c, 'wood2', gx, by - 3, 1, 2); rect(c, 'wood2', gx + 2, by - 3, 1, 2);
       rect(c, 'ink', gx + 3, by - 9, 3, 3); px(c, 'gold', gx + 4, by - 8);
     }
+  };
+  // added 2026-11-21 (idea build, a viewer's idea): a small seaweed farm for nori (sushi). A wooden basin of
+  // sea water with two float lines (red floats) and green seaweed fronds swaying up out of the water, and a
+  // drying rack with dark nori sheets pegged on it. 1 a lantern on the rack and a basket of harvested
+  // seaweed; 2 more seaweed, a second row of nori and a plate of sushi rolls on a stool; 3 a sushi-roll sign.
+  LANDMARK_DRAW.seaweedfarm = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, rx = x0 + 31;
+    // the basin
+    rect(c, 'ink', x0 + 1, by - 14, 28, 14); rect(c, 'wood', x0 + 2, by - 13, 26, 12);
+    rect(c, 'sea2', x0 + 3, by - 12, 24, 9); rect(c, 'sea', x0 + 3, by - 5, 24, 2);
+    rect(c, 'wood2', x0 + 2, by - 3, 26, 1);
+    const r = Math.floor(t * 1.5) % 8; px(c, 'sea3', x0 + 6 + r * 2, by - 8); px(c, 'foam', x0 + 22 - r * 2, by - 4);
+    // two float lines with seaweed growing on them
+    const fronds = st >= 2 ? [7, 10, 13, 16, 19, 22, 25] : [7, 13, 19, 25];
+    [by - 10, by - 6].forEach((ry, row) => {
+      rect(c, 'sand2', x0 + 3, ry, 24, 1);
+      fronds.forEach((fx, k) => {
+        const x = x0 + fx, h = 3 + ((k + row) % 2) + (st >= 2 ? 1 : 0), sw = Math.round(Math.sin(t * 2 + k + row * 2) * 0.7);
+        for (let j = 1; j <= h; j++) { const xx = x + (j > 2 ? sw : 0); px(c, j === h ? 'grass' : 'moss2', xx, ry - j); if (j < h) px(c, 'moss', xx + 1, ry - j); }
+        px(c, 'moss2', x + 1, ry - 2); px(c, 'pine', x, ry + 1);
+      });
+      for (let i = 0; i < 4; i++) { const fx = x0 + 5 + i * 6; rect(c, 'ember', fx, ry - 1, 2, 2); px(c, 'white', fx, ry - 1); }
+    });
+    // the drying rack with nori sheets
+    for (const p of [rx, rx + 14]) { rect(c, 'ink', p - 1, by - 24, 3, 24); rect(c, 'wood2', p, by - 23, 1, 23); }
+    for (const row of st >= 2 ? [by - 23, by - 15] : [by - 23]) {
+      rect(c, 'wood', rx, row, 15, 1);
+      for (let k = 0; k < 3; k++) {
+        const fx = rx + 2 + k * 4;
+        rect(c, 'pine2', fx, row + 1, 3, 5); px(c, 'pine', fx + 1, row + 2); px(c, 'pine', fx, row + 4); px(c, 'wood3', fx + 1, row);
+      }
+    }
+    if (st >= 1) {
+      rect(c, 'ink', rx - 1, by - 27, 3, 3); px(c, 'lanternhi', rx, by - 26); glow(lights, rx, by - 26, 12);
+      const bx = x0 + 31; // a basket of harvested seaweed
+      rect(c, 'ink', bx, by - 5, 7, 5); rect(c, 'wood3', bx + 1, by - 4, 5, 4); rect(c, 'wood', bx + 1, by - 2, 5, 1);
+      rect(c, 'moss2', bx + 1, by - 6, 5, 1); px(c, 'pine', bx + 2, by - 7); px(c, 'moss', bx + 4, by - 7);
+    }
+    if (st >= 2) { // a plate of sushi rolls on a stool
+      const sx = x0 + 39;
+      rect(c, 'ink', sx - 1, by - 6, 9, 3); rect(c, 'white', sx, by - 5, 7, 1);
+      rect(c, 'wood2', sx, by - 3, 1, 3); rect(c, 'wood2', sx + 6, by - 3, 1, 3);
+      for (const kx of [sx, sx + 4]) { rect(c, 'pine2', kx, by - 9, 3, 3); px(c, 'white', kx + 1, by - 8); }
+    }
+    if (st >= 3) { // a sign on top of the rack: a sushi roll and a frond
+      rect(c, 'ink', rx + 3, by - 29, 9, 6); rect(c, 'wood3', rx + 4, by - 28, 7, 4);
+      rect(c, 'pine2', rx + 5, by - 28, 3, 3); px(c, 'white', rx + 6, by - 27);
+      rect(c, 'moss2', rx + 9, by - 28, 1, 3); px(c, 'moss', rx + 10, by - 27);
+    }
+  };
+  // added 2026-11-21 (expansion run, a viewer's idea): an inn. Two storeys: a stone ground floor with a door
+  // and two windows, a cream timber-framed upper floor with three windows under a red roof, a chimney and a
+  // hanging sign with a foaming mug. 1 lit windows, smoke and a lantern by the door; 2 a table with mugs
+  // outside under the sign; 3 flower boxes under the upper windows and a gold pennant on the roof.
+  LANDMARK_DRAW.inn = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, L = x0 + 4, W = 32, wt = by - 33, cx = L + 16;
+    rect(c, 'ink', L + 25, wt - 13, 6, 10); rect(c, 'stone', L + 26, wt - 12, 4, 9); rect(c, 'stone3', L + 26, wt - 12, 1, 9); // the chimney
+    if (st >= 1) for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1; px(c, i % 2 ? 'fog' : 'fog2', L + 28 + Math.round(Math.sin(ph * 6 + i) * 2), wt - 15 - Math.round(ph * 14)); }
+    rect(c, 'ink', L - 1, wt - 1, W + 2, by - wt + 1);
+    rect(c, 'cream', L, wt, W, 18); // the timber-framed upper floor
+    for (const tx of [L, L + 10, L + 21, L + W - 1]) rect(c, 'wood2', tx, wt, 1, 18);
+    rect(c, 'wood2', L, wt + 17, W, 1);
+    rect(c, 'stone', L, wt + 18, W, by - wt - 18); rect(c, 'stone3', L, wt + 18, W, 1); // the stone ground floor
+    for (let yy = wt + 21; yy < by - 1; yy += 4) rect(c, 'stone2', L, yy, W, 1);
+    for (const wx of [L + 3, L + 14, L + 25]) {
+      rect(c, 'ink', wx - 1, wt + 4, 6, 7); rect(c, st >= 1 ? 'lanternhi' : 'night', wx, wt + 5, 4, 5); rect(c, 'wood2', wx, wt + 7, 4, 1);
+      if (st >= 1) glow(lights, wx + 2, wt + 7, 9); else px(c, 'fog2', wx, wt + 5);
+      if (st >= 3) { rect(c, 'ink', wx - 1, wt + 11, 6, 2); px(c, 'rose', wx, wt + 11); px(c, 'gold', wx + 2, wt + 11); px(c, 'rose', wx + 3, wt + 11); }
+    }
+    for (const wx of [L + 3, L + 24]) { rect(c, 'ink', wx - 1, by - 12, 7, 6); rect(c, st >= 1 ? 'lantern' : 'night', wx, by - 11, 5, 4); rect(c, 'wood2', wx + 2, by - 11, 1, 4); if (st >= 1) glow(lights, wx + 2, by - 9, 9); }
+    rect(c, 'ink', cx - 4, by - 13, 8, 13); rect(c, 'wood2', cx - 3, by - 12, 6, 12); rect(c, 'wood', cx - 3, by - 12, 6, 1); px(c, 'gold', cx + 1, by - 6); // the door
+    rect(c, 'ink', cx - 5, by - 1, 10, 1);
+    for (let r = 0; r <= 9; r++) { const hw = 20 - r * 2, y = wt - 1 - r; rect(c, 'ink', cx - hw - 1, y, hw * 2 + 2, 1); if (hw > 0) rect(c, r % 3 === 2 ? 'ember2' : 'ember', cx - hw, y, hw * 2, 1); } // the roof
+    // the hanging sign: an arm off the east wall, a board with a foaming mug
+    const sx = L + W + 1;
+    rect(c, 'ink', L + W, by - 23, 9, 2); rect(c, 'wood2', L + W, by - 22, 8, 1);
+    px(c, 'ink', sx + 2, by - 21); px(c, 'ink', sx + 6, by - 21);
+    rect(c, 'ink', sx + 1, by - 20, 7, 7); rect(c, 'wood3', sx + 2, by - 19, 5, 5);
+    rect(c, 'gold', sx + 3, by - 17, 2, 3); rect(c, 'white', sx + 3, by - 18, 2, 1); px(c, 'gold2', sx + 5, by - 16);
+    if (st >= 1) { rect(c, 'ink', cx + 5, by - 14, 3, 4); px(c, 'lanternhi', cx + 6, by - 13); px(c, 'lantern', cx + 6, by - 12); glow(lights, cx + 6, by - 12, 12); }
+    if (st >= 2) { // a table with mugs outside, under the sign
+      const tx = x0 + 38;
+      rect(c, 'ink', tx - 1, by - 7, 10, 3); rect(c, 'wood3', tx, by - 6, 8, 1);
+      rect(c, 'wood2', tx, by - 4, 1, 4); rect(c, 'wood2', tx + 7, by - 4, 1, 4);
+      for (const mx of [tx + 1, tx + 5]) { rect(c, 'ink', mx - 1, by - 10, 4, 3); rect(c, 'gold', mx, by - 9, 2, 2); px(c, 'white', mx, by - 10); }
+    }
+    if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 18, 1, 8); rect(c, 'ink', cx + 1, wt - 18 + w, 6, 4); rect(c, 'gold', cx + 1, wt - 17 + w, 5, 2); }
   };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];

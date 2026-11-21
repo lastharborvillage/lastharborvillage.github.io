@@ -452,6 +452,7 @@
   const PROP_TYPES = ['sign', 'flag', 'bench', 'lamppost', 'barrel', 'crate', 'netrack', 'plankpile', 'sawhorse', 'rowboat', 'buoy'];
   PROP_TYPES.push('horse', 'cart', 'shark', 'bunker', 'foodstall'); // added 2026-11-14 (expansion run, viewers' ideas)
   PROP_TYPES.push('stoneharbour'); // added 2026-11-18 (idea build): a small stone commercial harbour for two boats
+  PROP_TYPES.push('furnace', 'diver', 'magicflowers', 'fruittree', 'sheep'); // added 2026-11-21 (expansion run, viewers' ideas)
   // Is tile (x, y) inside any house plot (house, front path and yard: 2x3 from a plot origin)?
   const inPlot = (x, y) => {
     for (let ox = x - 1; ox <= x; ox++) for (let oy = y - 2; oy <= y; oy++) if (isPlot(ox, oy)) return true;
@@ -532,6 +533,10 @@
     hospital: { w: 3, h: 2 },
     // added 2026-11-20 (idea build): a trading post at the start of a trade route
     tradepost: { w: 3, h: 2 },
+    // added 2026-11-21 (idea build): a small seaweed farm (nori for sushi)
+    seaweedfarm: { w: 3, h: 2 },
+    // added 2026-11-21 (expansion run, a viewer's idea): an inn
+    inn: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.
@@ -798,6 +803,7 @@
   const WATER_PROPS = ['rowboat', 'buoy'];
   WATER_PROPS.push('shark'); // added 2026-11-14: a shark swims (or pulls a rowboat), off the shore
   WATER_PROPS.push('stoneharbour'); // added 2026-11-18 (idea build): the stone harbour stands in the water off the shore
+  WATER_PROPS.push('diver'); // added 2026-11-21 (expansion run): a dive float and a diver, off the shore
   function waterSpot(world, ax) {
     const docks = (world.props || []).filter((p) => p.type === 'dock');
     const taken = (world.props || []).filter((p) => p.type !== 'dock').map((p) => [p.x, p.y]);

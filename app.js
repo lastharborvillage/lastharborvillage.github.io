@@ -214,6 +214,11 @@
   PLACE_TEXT.bunker = { title: 'A Bunker', kicker: 'Village', text: 'A small bunker dug into a grassy mound.' };
   PLACE_TEXT.foodstall = { title: 'A Food Stall', kicker: 'Village', text: 'Something warm to eat, right off the counter.' };
   PLACE_TEXT.stoneharbour = { title: 'The Stone Harbour', kicker: 'Sea', text: 'A small stone harbour with room for two boats and their cargo.' };
+  PLACE_TEXT.furnace = { title: 'A Furnace', kicker: 'Village', text: 'A cast-iron furnace, glowing against the winter.' };
+  PLACE_TEXT.diver = { title: 'Diving', kicker: 'Sea', text: 'A red dive flag bobbing on the water. Somebody is down there.' };
+  PLACE_TEXT.magicflowers = { title: 'Magic Flowers', kicker: 'Village', text: 'Flowers that glow after dark. Nobody planted them on purpose.' };
+  PLACE_TEXT.fruittree = { title: 'A Fruit Tree', kicker: 'Village', text: 'A fruit tree someone planted for the village.' };
+  PLACE_TEXT.sheep = { title: 'A Sheep', kicker: 'Village', text: 'A sheep of the village, grazing in peace.' };
 
   // Every tappable place with its box in world pixels [x0, y0, x1, y1].
   function places() {
@@ -256,6 +261,8 @@
     KIND.palisade = 'Village wall';
     KIND.hospital = 'Hospital';
     KIND.tradepost = 'Trading post';
+    KIND.seaweedfarm = 'Seaweed farm';
+    KIND.inn = 'Inn';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;

@@ -2154,6 +2154,70 @@
     }
     if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 18, 1, 8); rect(c, 'ink', cx + 1, wt - 18 + w, 6, 4); rect(c, 'gold', cx + 1, wt - 17 + w, 5, 2); }
   };
+  // added 2026-11-22 (idea build, a viewer's idea): the smiths forge an anchor for the ship. An open-air smithy
+  // yard: a stone hearth with a fire and a chimney hood that smokes, an anvil with a glowing piece, a smith
+  // (leather apron) swinging a hammer with sparks, and the big anchor standing beside it. 0 the anchor is still
+  // being made (shank and arms only, the crown red-hot); 1 finished: a ring and a crossbar, a lantern on the
+  // chimney; 2 a chain from the ring to a pile on the ground, ready for the ship; 3 a gold ring and a pennant.
+  LANDMARK_DRAW.anchorforge = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, ax = x0 + 39, gx = x0 + 16;
+    // the hearth with its fire, the chimney hood
+    rect(c, 'ink', x0 + 5, by - 27, 7, 13); rect(c, 'stone', x0 + 6, by - 26, 5, 12); rect(c, 'stone3', x0 + 6, by - 26, 1, 12);
+    rect(c, 'ink', x0 + 3, by - 15, 11, 4); rect(c, 'stone2', x0 + 4, by - 14, 9, 2);
+    rect(c, 'ink', x0 + 1, by - 11, 15, 11); rect(c, 'stone', x0 + 2, by - 10, 13, 10); rect(c, 'stone3', x0 + 2, by - 10, 13, 1); rect(c, 'stone2', x0 + 2, by - 3, 13, 1);
+    rect(c, 'ink', x0 + 4, by - 9, 9, 5); rect(c, 'ember2', x0 + 5, by - 8, 7, 3); rect(c, 'ember', x0 + 5, by - 6, 7, 1);
+    for (let i = 0; i < 4; i++) { const fx = x0 + 5 + i * 2, h = Math.sin(t * 9 + i * 2) > 0 ? 2 : 1; rect(c, 'lantern', fx, by - 6 - h, 1, h); if (h === 2) px(c, 'lanternhi', fx, by - 8); }
+    glow(lights, x0 + 8, by - 7, 14);
+    for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1; px(c, i % 2 ? 'fog3' : 'stone', x0 + 8 + Math.round(Math.sin(ph * 6 + i) * 2), by - 29 - Math.round(ph * 14)); }
+    if (st >= 1) { rect(c, 'ink', x0 + 7, by - 23, 3, 4); px(c, 'lanternhi', x0 + 8, by - 22); px(c, 'lantern', x0 + 8, by - 21); glow(lights, x0 + 8, by - 21, 12); }
+    if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', x0 + 8, by - 35, 1, 8); rect(c, 'ink', x0 + 9, by - 35 + w, 6, 4); rect(c, 'gold', x0 + 9, by - 34 + w, 5, 2); }
+    // the anvil with a glowing piece on it
+    rect(c, 'ink', x0 + 23, by - 7, 6, 4); rect(c, 'stone2', x0 + 24, by - 6, 4, 3);
+    rect(c, 'ink', x0 + 21, by - 3, 10, 3); rect(c, 'stone2', x0 + 22, by - 2, 8, 1);
+    rect(c, 'ink', x0 + 21, by - 10, 10, 4); rect(c, 'stone2', x0 + 22, by - 9, 8, 2); rect(c, 'stone3', x0 + 22, by - 9, 8, 1);
+    rect(c, 'ink', x0 + 19, by - 9, 3, 2); rect(c, 'stone2', x0 + 20, by - 9, 2, 1);
+    rect(c, 'ink', x0 + 24, by - 12, 5, 2); rect(c, 'lantern', x0 + 25, by - 11, 3, 1); px(c, 'lanternhi', x0 + 26, by - 11); glow(lights, x0 + 26, by - 11, 8);
+    // the smith in a leather apron, swinging the hammer
+    const down = Math.floor(t * 3) % 2 === 0;
+    rect(c, 'ink', gx - 1, by - 16, 5, 16);
+    rect(c, 'wood4', gx, by - 15, 3, 1); rect(c, 'skin2', gx, by - 14, 3, 2); px(c, 'ink', gx + 2, by - 14);
+    rect(c, 'cream', gx, by - 12, 3, 8); rect(c, 'wood2', gx + 1, by - 11, 2, 7);
+    rect(c, 'stone2', gx, by - 4, 1, 3); rect(c, 'stone2', gx + 2, by - 4, 1, 3);
+    if (down) {
+      rect(c, 'ink', gx + 3, by - 14, 5, 3); rect(c, 'skin2', gx + 3, by - 13, 2, 1); rect(c, 'wood2', gx + 5, by - 13, 2, 1);
+      rect(c, 'ink', gx + 7, by - 15, 3, 4); rect(c, 'stone2', gx + 8, by - 14, 1, 2);
+      px(c, 'lanternhi', x0 + 29, by - 14); px(c, 'lantern', x0 + 31, by - 16); px(c, 'lanternhi', x0 + 27, by - 17);
+    } else {
+      rect(c, 'ink', gx + 2, by - 18, 3, 6); rect(c, 'skin2', gx + 3, by - 17, 1, 4);
+      rect(c, 'ink', gx + 2, by - 22, 3, 5); rect(c, 'wood2', gx + 3, by - 21, 1, 4);
+      rect(c, 'ink', gx + 1, by - 24, 5, 3); rect(c, 'stone2', gx + 2, by - 23, 3, 1);
+    }
+    // the anchor: shank, curved arms with flukes; red-hot at stage 0, then a crossbar and a ring
+    const arm = st >= 1 ? 'stone2' : 'ember', top = st >= 1 ? by - 25 : by - 22;
+    const armY = (dx) => by - 3 - Math.round(dx * dx / 8), armH = (dx) => (Math.abs(dx) >= 5 ? 3 : 2);
+    rect(c, 'ink', ax - 2, top - 1, 5, by - 3 - top + 1);
+    for (let dx = -7; dx <= 7; dx++) rect(c, 'ink', ax + dx - 1, armY(dx) - 1, 3, armH(dx) + 2);
+    for (const s of [-1, 1]) { const fx = ax + 7 * s, fy = armY(7); rect(c, 'ink', fx - 2, fy - 2, 5, 3); px(c, 'ink', fx, fy - 3); }
+    rect(c, 'stone2', ax - 1, top, 3, by - 3 - top); rect(c, 'stone3', ax - 1, top, 1, by - 3 - top);
+    for (let dx = -7; dx <= 7; dx++) rect(c, st < 1 && Math.abs(dx) <= 1 ? 'lantern' : arm, ax + dx, armY(dx), 1, armH(dx));
+    for (const s of [-1, 1]) { const fx = ax + 7 * s, fy = armY(7); rect(c, arm, fx - 1, fy - 1, 3, 1); px(c, arm, fx, fy - 2); }
+    if (st < 1) { px(c, 'lanternhi', ax, by - 3); glow(lights, ax, by - 4, 10); }
+    if (st >= 2) { // a chain from the ring down to a pile on the ground (behind the crossbar)
+      const pts = [];
+      for (let k = 0; k <= 11; k++) pts.push([ax + 3 + Math.round(k * 6 / 11), by - 27 + Math.round(k * 24 / 11)]);
+      for (const [x, y] of pts) rect(c, 'ink', x - 1, y, 3, 1);
+      pts.forEach(([x, y], k) => px(c, k % 2 ? 'stone3' : 'stone', x, y));
+      rect(c, 'ink', ax + 7, by - 4, 7, 4);
+      for (let i = 0; i < 5; i++) { px(c, i % 2 ? 'stone3' : 'stone', ax + 8 + i, by - 3); px(c, i % 2 ? 'stone' : 'stone3', ax + 8 + i, by - 2); }
+    }
+    if (st >= 1) {
+      rect(c, 'ink', ax - 9, by - 24, 3, 6); rect(c, 'ink', ax + 7, by - 24, 3, 6); rect(c, 'ink', ax - 8, by - 23, 17, 4);
+      rect(c, 'stone2', ax - 8, by - 23, 1, 4); rect(c, 'stone2', ax + 8, by - 23, 1, 4);
+      rect(c, 'stone2', ax - 7, by - 22, 15, 2); rect(c, 'stone3', ax - 7, by - 22, 15, 1);
+      rect(c, 'ink', ax - 3, by - 31, 7, 7); rect(c, st >= 3 ? 'gold' : 'stone2', ax - 2, by - 30, 5, 5); px(c, st >= 3 ? 'lanternhi' : 'stone3', ax - 2, by - 30);
+      rect(c, 'ink', ax - 1, by - 29, 3, 3);
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

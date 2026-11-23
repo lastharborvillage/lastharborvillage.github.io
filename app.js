@@ -264,6 +264,7 @@
     KIND.seaweedfarm = 'Seaweed farm';
     KIND.inn = 'Inn';
     KIND.anchorforge = 'Anchor forge';
+    KIND.heatpipes = 'Warm pipes';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;

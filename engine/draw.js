@@ -2218,6 +2218,57 @@
       rect(c, 'ink', ax - 1, by - 29, 3, 3);
     }
   };
+  // added 2026-11-23 (idea build, a viewer's idea): stone pipes that carry a chimney's hot smoke along the
+  // tents to keep them warm. A small stone cottage with a tall chimney on its east wall, smoke pouring out; a
+  // stone pipe with collars leaves the chimney's foot and runs east along the ground right in front of the
+  // tents, heat shimmering up from it. 0 one tent on the pipe; 1 a second tent, both tents glow warm inside
+  // and the cottage window is lit; 2 a camper sits on the warm pipe with a steaming mug; 3 a gold plaque on
+  // the chimney and a pennant on its cap.
+  LANDMARK_DRAW.heatpipes = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, hx = x0 + 8;
+    // the smoke: lots of it, hot and grey
+    for (let i = 0; i < 6; i++) { const ph = (t * 0.6 + i / 6) % 1; rect(c, i % 2 ? 'fog' : 'stone3', x0 + 16 + Math.round(Math.sin(ph * 6 + i) * 2), by - 34 - Math.round(ph * 16), 2, 2); }
+    // the cottage: stone walls, a door, a small window, a wooden roof
+    rect(c, 'ink', x0 + 2, by - 12, 12, 12); rect(c, 'stone', x0 + 3, by - 11, 10, 11); rect(c, 'stone3', x0 + 3, by - 11, 10, 1);
+    for (let yy = by - 8; yy < by - 1; yy += 3) rect(c, 'stone2', x0 + 3, yy, 10, 1);
+    rect(c, 'ink', x0 + 4, by - 8, 4, 8); rect(c, 'wood2', x0 + 5, by - 7, 2, 7); px(c, 'gold', x0 + 6, by - 4);
+    rect(c, 'ink', x0 + 9, by - 9, 4, 4); rect(c, st >= 1 ? 'lantern' : 'night', x0 + 10, by - 8, 2, 2);
+    if (st >= 1) glow(lights, x0 + 11, by - 7, 9);
+    for (let r = 0; r <= 6; r++) { const hw = 7 - r, y = by - 13 - r; rect(c, 'ink', hx - hw - 1, y, hw * 2 + 3, 1); rect(c, r % 2 ? 'wood2' : 'wood', hx - hw, y, hw * 2 + 1, 1); }
+    // the chimney on the east wall
+    rect(c, 'ink', x0 + 13, by - 28, 7, 28); rect(c, 'stone', x0 + 14, by - 27, 5, 27); rect(c, 'stone3', x0 + 14, by - 27, 1, 27);
+    for (let yy = by - 24; yy < by - 1; yy += 3) rect(c, 'stone2', x0 + 15, yy, 4, 1);
+    rect(c, 'ink', x0 + 12, by - 30, 9, 3); rect(c, 'stone3', x0 + 13, by - 29, 7, 1); px(c, 'ink', x0 + 16, by - 30);
+    if (st >= 3) { // a gold plaque on the chimney, a pennant on its cap
+      rect(c, 'ink', x0 + 14, by - 20, 5, 4); rect(c, 'gold', x0 + 15, by - 19, 3, 2); px(c, 'gold2', x0 + 17, by - 18);
+      const w = Math.round(Math.sin(t * 3) * 1);
+      rect(c, 'ink', x0 + 20, by - 38, 1, 8); rect(c, 'ink', x0 + 21, by - 38 + w, 6, 4); rect(c, 'gold', x0 + 21, by - 37 + w, 5, 2);
+    }
+    // the tents, sitting right behind the pipe
+    const tent = (tx, a, b) => {
+      for (let r = 0; r < 8; r++) { const half = Math.floor(r * 0.75) + 1, y = by - 13 + r; rect(c, 'ink', tx - half - 1, y, half * 2 + 3, 1); rect(c, a, tx - half, y, half, 1); rect(c, b, tx + 1, y, half, 1); }
+      px(c, 'wood2', tx, by - 14);
+      rect(c, st >= 1 ? 'lantern' : 'ink', tx - 1, by - 10, 3, 4);
+      if (st >= 1) { px(c, 'lanternhi', tx, by - 9); glow(lights, tx, by - 8, 11); }
+    };
+    tent(x0 + 29, 'cream', 'sand2');
+    if (st >= 1) tent(x0 + 40, 'teal', 'teal2');
+    // the stone pipe: out of the chimney's foot, along the ground in front of the tents, with collars
+    rect(c, 'ink', x0 + 19, by - 6, 28, 6); rect(c, 'stone', x0 + 20, by - 5, 26, 4); rect(c, 'stone3', x0 + 20, by - 5, 26, 1); rect(c, 'stone2', x0 + 20, by - 2, 26, 1);
+    for (const jx of [x0 + 19, x0 + 27, x0 + 35, x0 + 43]) { rect(c, 'ink', jx, by - 7, 3, 8); rect(c, 'stone2', jx + 1, by - 6, 1, 6); }
+    for (const gx of [x0 + 24, x0 + 32, x0 + 40]) { px(c, 'ember', gx, by - 4); px(c, 'ember', gx - 1, by - 3); if (st >= 1) glow(lights, gx, by - 4, 8); }
+    // heat shimmering up from the pipe
+    for (let i = 0; i < 5; i++) { const ph = (t * 0.8 + i / 5) % 1; px(c, 'fog2', x0 + 23 + i * 5 + Math.round(Math.sin(ph * 6 + i)), by - 9 - Math.round(ph * 6)); }
+    if (st >= 2) { // a camper sitting on the warm pipe with a steaming mug
+      const gx = x0 + 23;
+      rect(c, 'ink', gx - 1, by - 15, 5, 9);
+      rect(c, 'wood2', gx, by - 14, 3, 1); rect(c, 'skin2', gx, by - 13, 3, 2); px(c, 'ink', gx + 2, by - 13);
+      rect(c, 'plum', gx, by - 11, 3, 4); rect(c, 'plum2', gx + 2, by - 11, 1, 4);
+      rect(c, 'ink', gx, by - 7, 4, 5); rect(c, 'wood2', gx + 1, by - 6, 2, 3);
+      rect(c, 'ink', gx + 3, by - 11, 3, 3); px(c, 'gold', gx + 4, by - 10);
+      const ph = (t * 0.9) % 1; px(c, 'white', gx + 4, by - 13 - Math.round(ph * 4));
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

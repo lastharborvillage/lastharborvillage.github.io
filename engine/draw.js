@@ -2269,6 +2269,58 @@
       const ph = (t * 0.9) % 1; px(c, 'white', gx + 4, by - 13 - Math.round(ph * 4));
     }
   };
+  // added 2026-11-24 (idea build, a viewer's idea): a beach motel for holiday guests. A long white single-storey
+  // row of three guest rooms (coloured doors, windows) under a striped awning and a teal flat roof, a red
+  // "MOTEL" sign on the roof, and a sandy patch with a striped beach umbrella and a towel. 1 the sign and the
+  // windows light up; 2 a holiday guest in a sun hat on a deck chair under the umbrella; 3 flower boxes under
+  // the windows and a gold pennant on the sign.
+  LANDMARK_DRAW.motel = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, L = x0 + 2, W = 32, bw = by - 2, wt = bw - 13, cx = L + 16;
+    // the sand: an apron in front and a patch for the umbrella
+    rect(c, 'sand', x0 + 36, by - 7, 11, 1); rect(c, 'sand', x0 + 35, by - 6, 13, 5); rect(c, 'sand', x0, by - 1, 48, 2);
+    for (const [sx, sy] of [[5, 0], [18, -1], [29, 0], [46, -3], [37, -6], [44, 0]]) px(c, 'sand2', x0 + sx, by + sy);
+    // the building: white walls, three rooms
+    rect(c, 'ink', L - 1, wt - 1, W + 2, bw - wt + 2); rect(c, 'white', L, wt, W, bw - wt);
+    ['teal', 'rose', 'sea2'].forEach((dc, i) => {
+      const rx = L + 1 + i * 10;
+      rect(c, 'ink', rx, bw - 10, 5, 10); rect(c, dc, rx + 1, bw - 9, 3, 9); px(c, 'gold', rx + 3, bw - 5);
+      rect(c, 'ink', rx + 5, bw - 9, 5, 5);
+      rect(c, st >= 1 ? 'lanternhi' : 'sea3', rx + 6, bw - 8, 3, 3);
+      if (st >= 1) glow(lights, rx + 7, bw - 7, 9); else px(c, 'foam', rx + 6, bw - 8);
+      if (st >= 3) { rect(c, 'ink', rx + 5, bw - 4, 5, 2); px(c, 'rose', rx + 6, bw - 4); px(c, 'gold', rx + 7, bw - 4); px(c, 'rose', rx + 8, bw - 4); }
+    });
+    // the striped awning and the flat teal roof
+    for (let x = L; x < L + W; x++) rect(c, Math.floor((x - L) / 3) % 2 ? 'white' : 'teal', x, wt, 1, 2);
+    rect(c, 'ink', L, wt + 2, W, 1);
+    rect(c, 'ink', L - 3, wt - 4, W + 6, 4); rect(c, 'teal', L - 2, wt - 3, W + 4, 2); rect(c, 'teal2', L - 2, wt - 2, W + 4, 1);
+    // the MOTEL sign on two posts on the roof
+    for (const p of [cx - 8, cx + 7]) { rect(c, 'ink', p - 1, wt - 6, 3, 3); px(c, 'wood2', p, wt - 6); px(c, 'wood2', p, wt - 5); }
+    rect(c, 'ink', cx - 12, wt - 14, 25, 9); rect(c, 'ember', cx - 11, wt - 13, 23, 7); rect(c, 'ember2', cx - 11, wt - 7, 23, 1);
+    const FONT = { M: ['1.1', '111', '111', '1.1', '1.1'], O: ['111', '1.1', '1.1', '1.1', '111'], T: ['111', '.1.', '.1.', '.1.', '.1.'], E: ['111', '1..', '11.', '1..', '111'], L: ['1..', '1..', '1..', '1..', '111'] };
+    [...'MOTEL'].forEach((ch, k) => FONT[ch].forEach((row, j) => { for (let i = 0; i < 3; i++) if (row[i] === '1') px(c, st >= 1 ? 'lanternhi' : 'white', cx - 9 + k * 4 + i, wt - 12 + j); }));
+    if (st >= 1) glow(lights, cx, wt - 10, 16);
+    if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx + 10, wt - 22, 1, 8); rect(c, 'ink', cx + 11, wt - 22 + w, 6, 4); rect(c, 'gold', cx + 11, wt - 21 + w, 5, 2); }
+    // a beach towel on the sand
+    rect(c, 'ink', x0 + 36, by - 4, 5, 4); rect(c, 'rose', x0 + 37, by - 3, 3, 2); rect(c, 'white', x0 + 38, by - 3, 1, 2);
+    // the beach umbrella: a white pole into a rose-and-white striped canopy
+    const ux = x0 + 42, cy0 = by - 23;
+    rect(c, 'ink', ux - 1, cy0 + 3, 3, by - cy0 - 3); rect(c, 'white', ux, cy0 + 3, 1, by - cy0 - 4);
+    px(c, 'ink', ux, cy0 - 2); rect(c, 'ink', ux - 2, cy0 - 1, 5, 1);
+    [2, 4, 6, 6].forEach((hw, r) => {
+      rect(c, 'ink', ux - hw - 1, cy0 + r, hw * 2 + 3, 1);
+      for (let x = ux - hw; x <= ux + hw; x++) px(c, Math.floor((x - ux + 7) / 3) % 2 ? 'white' : 'rose', x, cy0 + r);
+    });
+    rect(c, 'ink', ux - 7, cy0 + 4, 15, 1);
+    if (st >= 2) { // a holiday guest in a sun hat on a deck chair
+      const gx = x0 + 44;
+      rect(c, 'ink', gx - 2, by - 4, 3, 3); rect(c, 'ink', gx + 2, by - 4, 3, 3); px(c, 'wood2', gx - 1, by - 3); px(c, 'wood2', gx + 3, by - 3);
+      rect(c, 'ink', gx - 2, by - 7, 7, 4); rect(c, 'white', gx - 1, by - 6, 5, 1); rect(c, 'teal', gx - 1, by - 5, 5, 1);
+      rect(c, 'ink', gx - 1, by - 12, 5, 6); rect(c, 'rose', gx, by - 11, 3, 4);
+      rect(c, 'ink', gx - 1, by - 14, 5, 3); rect(c, 'skin2', gx, by - 14, 3, 2); px(c, 'ink', gx + 2, by - 13);
+      rect(c, 'ink', gx - 2, by - 16, 7, 2); rect(c, 'gold', gx - 1, by - 15, 5, 1);
+      rect(c, 'ink', gx - 1, by - 18, 5, 3); rect(c, 'gold', gx, by - 17, 3, 1);
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

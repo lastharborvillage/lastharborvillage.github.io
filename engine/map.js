@@ -541,6 +541,8 @@
     anchorforge: { w: 3, h: 2 },
     // added 2026-11-23 (idea build): stone pipes carrying a chimney's heat along the tents
     heatpipes: { w: 3, h: 2 },
+    // added 2026-11-24 (idea build): a beach motel for holiday guests
+    motel: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.

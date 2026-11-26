@@ -543,6 +543,8 @@
     heatpipes: { w: 3, h: 2 },
     // added 2026-11-24 (idea build): a beach motel for holiday guests
     motel: { w: 3, h: 2 },
+    // added 2026-11-26 (idea build): social housing, a terrace of three homes for the people in the tents
+    rowhomes: { w: 3, h: 2 },
   };
   const LANDMARK_TYPES = Object.keys(LANDMARKS);
   // Where landmarks can be asked for (tiles): the places above plus the wild edges of the map.

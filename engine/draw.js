@@ -2321,6 +2321,53 @@
       rect(c, 'ink', gx - 1, by - 18, 5, 3); rect(c, 'gold', gx, by - 17, 3, 1);
     }
   };
+  // added 2026-11-26 (idea build, a viewer's idea): social housing for the people in the beach tents. A terrace
+  // of three small joined homes (cream, sand and fog walls; teal, red and blue doors; a window each) under one
+  // long slate roof with three chimneys. 0 just built and still empty: dark windows, scaffolding at the east end;
+  // 1 the windows light up and the chimneys smoke; 2 moving-in day: the middle door stands open and lit and a
+  // camper from the tents arrives with a rolled-up bedroll; 3 flower boxes, a gold plaque and a gold pennant.
+  LANDMARK_DRAW.rowhomes = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, L = x0 + 2, W = 38, wt = by - 16, cx = L + 18;
+    const WALLS = ['cream', 'sand', 'fog2'], DOORS = ['teal', 'ember', 'sea2'];
+    // the chimneys (drawn first, the roof covers their feet) and their smoke
+    for (let i = 0; i < 3; i++) {
+      const hx = L + i * 13 + 8;
+      rect(c, 'ink', hx, wt - 12, 4, 8); rect(c, 'stone', hx + 1, wt - 11, 2, 7); px(c, 'stone3', hx + 1, wt - 11);
+      if (st >= 1) for (let k = 0; k < 3; k++) { const ph = (t * 0.6 + k / 3 + i * 0.3) % 1; px(c, k % 2 ? 'fog' : 'fog2', hx + 2 + Math.round(Math.sin(ph * 6 + k + i) * 2), wt - 14 - Math.round(ph * 12)); }
+    }
+    // the walls: three homes side by side, ink lines between them
+    rect(c, 'ink', L - 1, wt - 1, W + 2, by - wt + 1);
+    for (let i = 0; i < 3; i++) {
+      const hx = L + i * 13, open = st >= 2 && i === 1;
+      rect(c, WALLS[i], hx, wt, 12, by - wt); rect(c, 'stone3', hx, by - 2, 12, 2);
+      rect(c, 'ink', hx + 1, by - 11, 5, 11);
+      if (open) { rect(c, 'lantern', hx + 2, by - 10, 3, 10); rect(c, 'lanternhi', hx + 3, by - 9, 1, 8); rect(c, DOORS[i], hx + 2, by - 10, 1, 10); glow(lights, hx + 3, by - 6, 12); }
+      else { rect(c, DOORS[i], hx + 2, by - 10, 3, 10); px(c, 'gold', hx + 4, by - 5); }
+      rect(c, 'ink', hx + 7, by - 12, 5, 6); rect(c, st >= 1 ? 'lanternhi' : 'night', hx + 8, by - 11, 3, 4); rect(c, 'wood2', hx + 8, by - 9, 3, 1);
+      if (st >= 1) glow(lights, hx + 9, by - 9, 9); else px(c, 'fog2', hx + 8, by - 11);
+      if (st >= 3) { rect(c, 'ink', hx + 7, by - 6, 5, 2); px(c, 'rose', hx + 8, by - 6); px(c, 'gold', hx + 9, by - 6); px(c, 'rose', hx + 10, by - 6); }
+    }
+    // one long slate roof over all three
+    for (let r = 0; r < 8; r++) { const y = wt - 1 - r; rect(c, 'ink', L - 4 + r, y, W + 8 - 2 * r, 1); rect(c, r % 3 === 2 ? 'sea' : 'sea2', L - 3 + r, y, W + 6 - 2 * r, 1); }
+    rect(c, 'ink', L + 4, wt - 9, W - 8, 1);
+    if (st === 0) { // scaffolding still up at the east end
+      for (const p of [x0 + 42, x0 + 46]) { rect(c, 'ink', p - 1, by - 20, 3, 20); rect(c, 'wood', p, by - 19, 1, 19); }
+      for (const py of [by - 9, by - 17]) { rect(c, 'ink', x0 + 40, py, 8, 3); rect(c, 'wood3', x0 + 41, py + 1, 6, 1); }
+    }
+    if (st >= 2) { // a camper from the tents arrives with a rolled-up bedroll
+      const gx = x0 + 43;
+      rect(c, 'ink', gx - 1, by - 16, 5, 16);
+      rect(c, 'wood2', gx, by - 15, 3, 1); rect(c, 'skin2', gx, by - 14, 3, 2); px(c, 'ink', gx, by - 14);
+      rect(c, 'moss', gx, by - 12, 3, 6); rect(c, 'moss2', gx, by - 12, 1, 6);
+      rect(c, 'wood2', gx, by - 6, 1, 5); rect(c, 'wood2', gx + 2, by - 6, 1, 5);
+      rect(c, 'ink', gx + 2, by - 14, 5, 5); rect(c, 'cream', gx + 3, by - 13, 3, 3); rect(c, 'sand2', gx + 4, by - 13, 1, 3);
+    }
+    if (st >= 3) { // a gold plaque on the middle home, a pennant on the ridge
+      rect(c, 'ink', L + 19, wt + 1, 6, 3); rect(c, 'gold', L + 20, wt + 2, 4, 1);
+      const w = Math.round(Math.sin(t * 3) * 1);
+      rect(c, 'ink', cx, wt - 17, 1, 9); rect(c, 'ink', cx + 1, wt - 17 + w, 6, 4); rect(c, 'gold', cx + 1, wt - 16 + w, 5, 2);
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

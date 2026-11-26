@@ -266,6 +266,7 @@
     KIND.anchorforge = 'Anchor forge';
     KIND.heatpipes = 'Warm pipes';
     KIND.motel = 'Beach motel';
+    KIND.rowhomes = 'Homes for all';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;

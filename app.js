@@ -267,6 +267,7 @@
     KIND.heatpipes = 'Warm pipes';
     KIND.motel = 'Beach motel';
     KIND.rowhomes = 'Homes for all';
+    KIND.restaurant = 'Restaurant';
     for (const l of w.landmarks || []) {
       const s = LH.map.LANDMARKS[l.type];
       if (!s) continue;

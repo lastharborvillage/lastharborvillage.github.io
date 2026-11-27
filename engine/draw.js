@@ -2368,6 +2368,69 @@
       rect(c, 'ink', cx, wt - 17, 1, 9); rect(c, 'ink', cx + 1, wt - 17 + w, 6, 4); rect(c, 'gold', cx + 1, wt - 16 + w, 5, 2);
     }
   };
+  // added 2026-11-27 (idea build, a viewer's idea): a restaurant. A cream single-storey dining room under a teal
+  // roof with a red sign on the ridge (a white plate between a fork and a knife), a kitchen chimney, a door and a
+  // big front window under a red-and-white striped awning, and a terrace with a table (red-and-white checked
+  // cloth) and two chairs. 1 open: the window and the sign light up, the chimney smokes, a string of lights over
+  // the terrace and a steaming bowl on the table; 2 the chef (tall white hat) steps out with a fish on a plate;
+  // 3 a flower box under the window and a gold pennant on the sign.
+  LANDMARK_DRAW.restaurant = function (c, x0, y0, l, t, lights) {
+    const by = y0 + 30, st = l.stage || 0, L = x0 + 2, W = 28, wt = by - 17, cx = L + 14, sy = wt - 18, tx = x0 + 36;
+    // the kitchen chimney (drawn first, the roof covers its foot) and its smoke
+    rect(c, 'ink', cx + 10, wt - 13, 5, 11); rect(c, 'stone', cx + 11, wt - 12, 3, 10); px(c, 'stone3', cx + 11, wt - 12);
+    if (st >= 1) for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1; px(c, i % 2 ? 'fog' : 'fog2', cx + 12 + Math.round(Math.sin(ph * 6 + i) * 2), wt - 15 - Math.round(ph * 14)); }
+    // the walls
+    rect(c, 'ink', L - 1, wt - 1, W + 2, by - wt + 1);
+    rect(c, 'cream', L, wt, W, by - wt); rect(c, 'stone3', L, by - 2, W, 2);
+    // the door
+    rect(c, 'ink', L + 2, by - 12, 7, 12); rect(c, 'wood2', L + 3, by - 11, 5, 11); rect(c, 'wood', L + 3, by - 11, 5, 1); px(c, 'gold', L + 7, by - 6);
+    // the big front window
+    rect(c, 'ink', L + 11, by - 12, 15, 9); rect(c, st >= 1 ? 'lantern' : 'night', L + 12, by - 11, 13, 7); rect(c, 'wood2', L + 18, by - 11, 1, 7);
+    if (st >= 1) { rect(c, 'lanternhi', L + 13, by - 10, 4, 2); rect(c, 'lanternhi', L + 20, by - 10, 4, 2); glow(lights, L + 18, by - 8, 12); }
+    else { px(c, 'fog2', L + 12, by - 11); px(c, 'fog2', L + 19, by - 11); }
+    if (st >= 3) { rect(c, 'ink', L + 11, by - 3, 15, 2); for (let i = 0; i < 13; i++) px(c, i % 3 === 1 ? 'gold' : i % 3 === 0 ? 'rose' : 'moss', L + 12 + i, by - 3); }
+    // the striped awning over the window
+    rect(c, 'ink', L + 10, by - 16, 17, 1);
+    for (let x = L + 10; x < L + 27; x++) { const col = Math.floor((x - L - 10) / 2) % 2 ? 'white' : 'ember'; rect(c, col, x, by - 15, 1, 2); if ((x - L - 10) % 2 === 0) px(c, col, x, by - 13); }
+    // the teal roof
+    for (let r = 0; r < 8; r++) { const hw = 17 - r * 2, y = wt - 1 - r; rect(c, 'ink', cx - hw - 1, y, hw * 2 + 2, 1); rect(c, r % 3 === 2 ? 'teal2' : 'teal', cx - hw, y, hw * 2, 1); }
+    // the sign on the ridge: a white plate between a fork and a knife on red
+    rect(c, 'ink', cx - 8, sy, 17, 10); rect(c, 'ember', cx - 7, sy + 1, 15, 8); rect(c, 'ember2', cx - 7, sy + 8, 15, 1);
+    rect(c, 'white', cx - 1, sy + 2, 3, 1); rect(c, 'white', cx - 2, sy + 3, 5, 3); rect(c, 'white', cx - 1, sy + 6, 3, 1); px(c, 'fog2', cx, sy + 4);
+    rect(c, 'white', cx - 6, sy + 2, 1, 2); rect(c, 'white', cx - 4, sy + 2, 1, 2); rect(c, 'white', cx - 6, sy + 4, 3, 1); rect(c, 'white', cx - 5, sy + 5, 1, 3);
+    rect(c, 'white', cx + 4, sy + 2, 2, 3); px(c, 'ember', cx + 5, sy + 2); rect(c, 'white', cx + 4, sy + 5, 1, 3);
+    if (st >= 1) glow(lights, cx, sy + 4, 14);
+    if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, sy - 8, 1, 8); rect(c, 'ink', cx + 1, sy - 8 + w, 6, 4); rect(c, 'gold', cx + 1, sy - 7 + w, 5, 2); }
+    // the terrace: two chairs and a table with a red-and-white checked cloth
+    rect(c, 'ink', x0 + 31, by - 11, 3, 11); rect(c, 'wood2', x0 + 32, by - 10, 1, 10);
+    rect(c, 'ink', x0 + 33, by - 6, 3, 6); rect(c, 'wood3', x0 + 33, by - 5, 2, 1); rect(c, 'wood2', x0 + 34, by - 4, 1, 4);
+    rect(c, 'ink', x0 + 44, by - 11, 3, 11); rect(c, 'wood2', x0 + 45, by - 10, 1, 10);
+    rect(c, 'ink', x0 + 42, by - 6, 3, 6); rect(c, 'wood3', x0 + 43, by - 5, 2, 1); rect(c, 'wood2', x0 + 43, by - 4, 1, 4);
+    rect(c, 'ink', tx - 1, by - 9, 8, 4);
+    for (let i = 0; i < 6; i++) { px(c, i % 2 ? 'white' : 'ember', tx + i, by - 8); px(c, i % 2 ? 'ember' : 'white', tx + i, by - 7); }
+    rect(c, 'ink', tx, by - 5, 3, 5); rect(c, 'ink', tx + 3, by - 5, 3, 5); rect(c, 'wood2', tx + 1, by - 5, 1, 5); rect(c, 'wood2', tx + 4, by - 5, 1, 5);
+    if (st >= 1) {
+      // a steaming bowl on the table
+      rect(c, 'ink', tx + 1, by - 11, 4, 2); rect(c, 'white', tx + 2, by - 11, 2, 1);
+      for (let i = 0; i < 3; i++) { const ph = (t * 0.8 + i / 3) % 1; px(c, 'fog2', tx + 3 + Math.round(Math.sin(ph * 6 + i)), by - 13 - Math.round(ph * 6)); }
+      // a string of lights from the roof corner to a post
+      rect(c, 'ink', x0 + 47, by - 19, 1, 19);
+      for (let k = 0; k <= 17; k++) {
+        const x = x0 + 30 + k, y = by - 16 - Math.round(k * 3 / 17) + Math.round(Math.sin(k / 17 * Math.PI) * 2);
+        if (k % 4 === 2) { px(c, 'lanternhi', x, y); glow(lights, x, y, 6); } else px(c, 'ink', x, y);
+      }
+    }
+    if (st >= 2) { // the chef steps out of the door with a fish on a plate
+      const gx = L + 4;
+      rect(c, 'ink', gx - 1, by - 21, 5, 21); rect(c, 'ink', gx - 2, by - 24, 7, 4);
+      rect(c, 'white', gx - 1, by - 23, 5, 2); rect(c, 'white', gx, by - 21, 3, 3);
+      rect(c, 'skin2', gx, by - 18, 3, 2); px(c, 'ink', gx + 2, by - 18);
+      rect(c, 'white', gx, by - 16, 3, 7); px(c, 'stone3', gx + 1, by - 15); px(c, 'stone3', gx + 1, by - 12);
+      rect(c, 'stone2', gx, by - 9, 1, 8); rect(c, 'stone2', gx + 2, by - 9, 1, 8);
+      rect(c, 'ink', gx + 3, by - 15, 6, 4); px(c, 'white', gx + 3, by - 13); rect(c, 'white', gx + 4, by - 13, 4, 1);
+      rect(c, 'sea2', gx + 4, by - 14, 3, 1); px(c, 'sea2', gx + 7, by - 15);
+    }
+  };
   function drawLandmark(c, l, t, lights) {
     const fn = LANDMARK_DRAW[l.type];
     if (fn) fn(c, l.tileX * T, l.tileY * T, l, t, lights);

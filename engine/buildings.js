@@ -664,6 +664,70 @@
   }
   const SHAPES = { wizard: [drawWizardTower, 3], mushroom: [drawMushroom, 3], castle: [drawCastle, 5], round: [drawRoundHouse, 5], boat: [drawBoatHome, 5], aframe: [drawAFrame, 5] };
   SHAPES.bunker = [drawBunker, 5]; // added 2026-11-19 (idea build)
+  // ---- added 2026-11-28 (idea build, a viewer's idea: "Make a castle") ----
+  // A castle home anyone can have (not the patron-only 'castle'): a grey stone keep with battlements, two arched
+  // windows and a pennant, behind a pale stone front wall with battlements and an arched gate (doorFam), between
+  // two round towers with cone roofs (blue; the roof colour when painted) and red pennants. Home stage 1+
+  // (P.lantern): two torches burn by the gate; stage 4 (P.bunting): red banners on the towers, a gold crown over
+  // the gate and gold pennants.
+  function drawFortress(c, cx, by, P, t, Lights) {
+    c.globalAlpha = 0.25; rect(c, 'ink', cx - 24, by, 48, 2); c.globalAlpha = 1;
+    const wv = Math.floor(t * 3) % 2, fl = P.bunting ? ['gold', 'gold2'] : ['ember', 'ember2'];
+    const rf = P.paint ? P.roofFam : ['sea2', 'sea'];
+    const bricks = (x, y, w, h, line) => { for (let r = 2, n = 0; r < h - 1; r += 3, n++) { rect(c, line, x, y + r, w, 1); for (let k = n % 2 ? 2 : 0; k < w; k += 5) px(c, line, x + k, y + r + 1); } };
+    const win = (x, y, w, h, k) => { if (Lights) Lights.push({ x: x + w / 2, y: y + h / 2, r: 9, kind: 'window', win: [x, y, w, h], seed: P.seed + k }); };
+    // the keep, behind the wall
+    const kx = cx - 9, kw = 18, kt = by - 30;
+    rect(c, 'ink', kx - 1, kt - 1, kw + 2, by - kt + 1); rect(c, 'stone', kx, kt, kw, by - kt); bricks(kx, kt, kw, by - kt, 'stone2');
+    for (let i = 0; i < kw; i += 4) { rect(c, 'ink', kx + i - 1, kt - 4, 4, 4); rect(c, 'stone', kx + i, kt - 3, 2, 3); }
+    for (const wx of [cx - 6, cx + 3]) {
+      rect(c, 'ink', wx - 1, kt + 4, 5, 7); rect(c, 'night', wx, kt + 5, 3, 5); px(c, 'ink', wx, kt + 5); px(c, 'ink', wx + 2, kt + 5); px(c, 'foam', wx + 1, kt + 6);
+      win(wx, kt + 6, 3, 4, wx - cx);
+    }
+    rect(c, 'ink', cx, kt - 14, 1, 11); rect(c, 'ink', cx + 1, kt - 14 + wv, 7, 5); rect(c, fl[0], cx + 1, kt - 13 + wv, 6, 2); rect(c, fl[1], cx + 1, kt - 11 + wv, 6, 1);
+    // the front wall with battlements
+    const wl = cx - 18, wr = cx + 18, ct = by - 15;
+    rect(c, 'ink', wl, ct - 1, wr - wl, by - ct + 1); rect(c, 'stone3', wl, ct, wr - wl, by - ct); bricks(wl, ct, wr - wl, by - ct, 'stone');
+    for (let i = 0; i + 2 <= wr - wl; i += 4) { rect(c, 'ink', wl + i, ct - 4, 4, 4); rect(c, 'stone3', wl + i + 1, ct - 3, 2, 3); }
+    rect(c, 'stone2', wl, by - 1, wr - wl, 1);
+    // the arched gate (the door) and its doorstep, where the path starts
+    rect(c, 'ink', cx - 6, by - 11, 12, 11); rect(c, 'ink', cx - 5, by - 12, 10, 1);
+    rect(c, P.doorFam[0], cx - 5, by - 10, 10, 10); rect(c, P.doorFam[0], cx - 4, by - 11, 8, 1);
+    for (const vx of [cx - 3, cx, cx + 2]) rect(c, P.doorFam[1], vx, by - 10, 1, 10);
+    rect(c, 'stone2', cx - 5, by - 8, 10, 1); rect(c, 'stone2', cx - 5, by - 4, 10, 1); px(c, 'gold', cx + 1, by - 6);
+    rect(c, 'ink', cx - 4, by + 1, 8, 2); rect(c, 'stone', cx - 3, by + 1, 6, 1);
+    if (P.lantern) for (const tx of [cx - 8, cx + 7]) { // two torches by the gate
+      rect(c, 'ink', tx - 1, by - 10, 3, 4); px(c, 'wood2', tx, by - 9); px(c, 'wood2', tx, by - 8);
+      const f = Math.floor(t * 6 + tx) % 2;
+      rect(c, 'lantern', tx - 1, by - 12 - f, 3, 2 + f); px(c, 'lanternhi', tx, by - 11);
+      if (Lights) Lights.push({ x: tx, y: by - 12, r: 10, kind: 'lamp' });
+    }
+    if (P.bunting) { // a gold crown over the gate
+      rect(c, 'ink', cx - 3, by - 15, 7, 4); rect(c, 'gold', cx - 2, by - 14, 5, 2); rect(c, 'gold2', cx - 2, by - 13, 5, 1);
+      px(c, 'gold', cx - 2, by - 15); px(c, 'gold', cx, by - 15); px(c, 'gold', cx + 2, by - 15);
+    }
+    // the two round towers with cone roofs and pennants
+    for (const tx of [cx - 23, cx + 14]) {
+      const tw = 9, th = 30;
+      rect(c, 'ink', tx - 1, by - th, tw + 2, th + 1); rect(c, 'stone3', tx, by - th, tw, th); bricks(tx, by - th, tw, th, 'stone');
+      rect(c, 'stone', tx + tw - 2, by - th + 1, 2, th - 1);
+      rect(c, 'ink', tx + 3, by - 23, 3, 7); rect(c, 'night', tx + 4, by - 22, 1, 5);
+      win(tx + 4, by - 22, 1, 5, tx - cx);
+      for (let k = 0; k <= 10; k++) {
+        const hw = Math.round(6 * (k / 10)), y = by - th - 11 + k;
+        rect(c, 'ink', tx + 4 - hw - 1, y, hw * 2 + 3, 1);
+        if (k) { rect(c, rf[0], tx + 4 - hw, y, hw * 2 + 1, 1); rect(c, rf[1], tx + 5, y, hw, 1); }
+      }
+      rect(c, 'ink', tx + 4, by - th - 18, 1, 8); rect(c, fl[0], tx + 5, by - th - 18 + wv, 4, 2); rect(c, fl[1], tx + 5, by - th - 16 + wv, 3, 1);
+      if (P.bunting) { // a red banner with a gold stripe on the tower
+        const bx = tx + 3;
+        rect(c, 'ink', bx - 1, by - 15, 5, 8); rect(c, 'ember', bx, by - 14, 3, 6); rect(c, 'gold', bx + 1, by - 13, 1, 4);
+        px(c, 'ember2', bx, by - 9); px(c, 'ember2', bx + 2, by - 9); px(c, 'ink', bx + 1, by - 8);
+      }
+    }
+  }
+  SHAPES.fortress = [drawFortress, 9]; // the founder plaque sits on the wall right of the gate
+  TRADE.fortress = { shape: 'fortress' };
 
   // Everything about how a home looks: district style, kind, layout, stage, floors, founder, paint.
   function homeSpec(v, districts, lay = LH.map.homeLayout(v.home)) {

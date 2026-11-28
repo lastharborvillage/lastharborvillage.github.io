@@ -147,6 +147,7 @@
     // patron-only (only for villagers with "patron": true; not live yet)
     'manor', 'castle'];
   HOME_KINDS.push('bunker'); // added 2026-11-19 (idea build): a grassy bunker home with a concrete front
+  HOME_KINDS.push('fortress'); // added 2026-11-28 (idea build): a castle home anyone can have (keep, gate, two towers)
   const PATRON_HOME_KINDS = ['manor', 'castle'];
   // Plain homes (2026-11-16, user: the plain houses repeat; colour alone makes them feel different).
   // A new home whose kind is 'house' (or none) gets a model that fits its district and a paint (wall,
@@ -174,6 +175,7 @@
   // Small fixed offsets per plot so houses do not line up perfectly; door -1 left, 0 centre, 1 right.
   const CENTRE_DOOR = ['watchtower', 'wizardtower', 'mushroom', 'castle', 'roundhouse', 'boathome', 'aframe'];
   CENTRE_DOOR.push('bunker'); // added 2026-11-19 (idea build)
+  CENTRE_DOOR.push('fortress'); // added 2026-11-28 (idea build)
   function homeLayout(h) {
     const r = LH.core.rng(LH.core.hashStr('plot|' + h.tileX + ',' + h.tileY));
     // dy -8..+1 (2026-11-10, was -2..2): homes sit at different depths in their plot, so a row of

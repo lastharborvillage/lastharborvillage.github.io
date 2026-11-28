@@ -1408,6 +1408,44 @@
         for (let x = x0 + 16; x < x0 + 34; x += 5) rect(c, 'wood2', x, by - 6, 1, 6);
       }
       if (st >= 3) for (const tx of [x0 + 2, x0 + 37]) { rect(c, 'ink', tx - 1, by - 6, 11, 3); rect(c, 'wood3', tx, by - 5, 9, 1); rect(c, 'wood2', tx, by - 3, 1, 3); rect(c, 'wood2', tx + 8, by - 3, 1, 3); px(c, 'cream', tx + 3, by - 6); px(c, 'ember', tx + 5, by - 6); }
+      // added 2026-11-28 (expansion run, ideas 18119983766043727 + 18441511273199644): stages 4-6 make it a tournament
+      // ground. 4 two knights in armour (red and blue) duel with swords on the stage, steel clashing; 5 tournament banners
+      // on the outer poles and painted shields on the stage front; 6 a gold trophy cup on the east table, the red knight
+      // raises the sword in victory and the blue knight kneels.
+      if (st >= 4) {
+        const won = st >= 6, sy = by - 9;
+        const knight = (x, dir, col, col2, k) => {
+          const kneel = won && k === 1, top = sy - (kneel ? 8 : 11), hx = x + dir * 3, hy = top + 5;
+          rect(c, 'ink', x - 2, top, 5, sy - top);
+          rect(c, 'stone3', x - 1, top + 1, 3, 2); px(c, 'ink', x + dir, top + 2);
+          px(c, 'ink', x, top - 1); px(c, col, x, top - 2); px(c, col, x - dir, top - 2);
+          rect(c, col, x - 1, top + 3, 3, kneel ? 3 : 4); px(c, col2, x, top + 4);
+          if (kneel) rect(c, 'stone', x - 1, sy - 2, 3, 1); else { rect(c, 'stone', x - 1, sy - 3, 1, 3); rect(c, 'stone', x + 1, sy - 3, 1, 3); }
+          rect(c, 'ink', x - dir * 3 - 1, top + 3, 3, 5); rect(c, col, x - dir * 3, top + 4, 1, 3);
+          px(c, 'ink', x + dir * 2, hy);
+          const f = Math.floor(t * 3 + k * 1.5) % 2;
+          if (won && k === 0) { for (let i = 1; i <= 6; i++) px(c, i === 6 ? 'lanternhi' : 'stone3', hx, hy - i); px(c, 'gold', hx - 1, hy - 1); px(c, 'gold', hx + 1, hy - 1); }
+          else if (kneel) { for (let i = 1; i <= 4; i++) px(c, 'stone3', hx, hy + i); px(c, 'gold', hx - 1, hy); px(c, 'gold', hx + 1, hy); }
+          else if (f) { for (let i = 1; i <= 5; i++) px(c, 'stone3', hx + dir * i, hy - 1); px(c, 'gold', hx, hy - 2); px(c, 'gold', hx, hy); }
+          else { for (let i = 1; i <= 5; i++) px(c, 'stone3', hx + dir * Math.ceil(i / 2), hy - i); px(c, 'gold', hx - 1, hy); px(c, 'gold', hx + 1, hy); }
+        };
+        knight(x0 + 18, 1, 'ember', 'gold', 0); knight(x0 + 29, -1, 'sea2', 'white', 1);
+        if (!won && Math.floor(t * 3) % 2 !== Math.floor(t * 3 + 1.5) % 2) { px(c, 'lanternhi', x0 + 24, sy - 9); px(c, 'gold', x0 + 23, sy - 8); px(c, 'gold', x0 + 25, sy - 8); }
+        if (st >= 5) {
+          [[x0 + 3, 'ember'], [x0 + 40, 'sea2']].forEach(([bx, col], i) => {
+            const w = Math.round(Math.sin(t * 2.5 + i) * 1);
+            rect(c, 'ink', bx - 1, by - 21, 7, 9); rect(c, col, bx, by - 20, 5, 7); rect(c, 'gold', bx, by - 20, 5, 1);
+            px(c, 'gold', bx + 2, by - 17 + w); px(c, 'ink', bx + 2, by - 12); px(c, col, bx + 1, by - 12); px(c, col, bx + 3, by - 12);
+          });
+          [[x0 + 18, 'ember'], [x0 + 23, 'teal'], [x0 + 28, 'sea2']].forEach(([sx, col]) => { rect(c, 'ink', sx - 1, by - 7, 4, 5); rect(c, col, sx, by - 6, 2, 3); px(c, 'gold', sx, by - 6); });
+        }
+        if (won) {
+          rect(c, 'gold2', x0 + 43, by - 7, 3, 1); px(c, 'gold', x0 + 44, by - 8);
+          rect(c, 'ink', x0 + 42, by - 12, 5, 4); rect(c, 'gold', x0 + 43, by - 11, 3, 2); px(c, 'lanternhi', x0 + 43, by - 11); px(c, 'gold2', x0 + 45, by - 10);
+          px(c, 'ink', x0 + 41, by - 11); px(c, 'ink', x0 + 47, by - 11);
+          glow(lights, x0 + 44, by - 10, 10);
+        }
+      }
     },
     greenhouse(c, x0, y0, l, t, lights) { // glass house with plants; stage 1 fuller and a lamp; 2 pots outside
       const by = y0 + 30, st = l.stage || 0, x = x0 + 3, w = 42;
@@ -1801,6 +1839,26 @@
         px(c, 'skin2', gx + 3, by - 9); rect(c, 'white', gx + 3, by - 11, 2, 2);
       }
       if (st >= 3) { const w = Math.round(Math.sin(t * 3) * 1); rect(c, 'ink', cx, wt - 21, 1, 9); rect(c, 'plum', cx + 1, wt - 20, 6, 2); rect(c, 'gold', cx + 1, wt - 18 + w, 6, 1); }
+      // added 2026-11-28 (expansion run, idea UgxUcclA0_ZP-biP6jp4AaABAg): stages 4-6 make it a craft guild that keeps
+      // the makers' prices, quality and standards. 4 the guild's mark (a dark anvil) on the gold shield and a red wax
+      // quality seal hanging under the sign; 5 an anvil with a red-hot bar under the request board, and every request
+      // note carries the guild's gold stamp; 6 plum and gold guild bunting from the gable to the board.
+      if (st >= 4) {
+        rect(c, 'ink', cx - 2, wt - 9, 5, 1); px(c, 'ink', cx, wt - 8); rect(c, 'ink', cx - 1, wt - 7, 3, 1);
+        rect(c, 'ink', cx - 2, wt - 3, 5, 4); rect(c, 'ember', cx - 1, wt - 2, 3, 2); px(c, 'ember2', cx + 1, wt - 1); px(c, 'gold', cx - 1, wt - 2);
+        px(c, 'ember', cx - 2, wt + 1); px(c, 'ember', cx + 2, wt + 1);
+      }
+      if (st >= 5) {
+        rect(c, 'ink', bx + 2, by - 6, 6, 3); rect(c, 'stone3', bx + 3, by - 5, 4, 1); px(c, 'ember', bx + 4, by - 6); px(c, 'lantern', bx + 5, by - 6);
+        rect(c, 'ink', bx + 3, by - 3, 4, 3); rect(c, 'stone2', bx + 4, by - 2, 2, 1);
+        glow(lights, bx + 5, by - 6, 6);
+        for (const [dx, dy] of slots) px(c, 'gold', bx + dx + 1, by - dy + 1);
+      }
+      if (st >= 6) for (let i = 0; i <= 12; i++) {
+        const x = cx + 2 + i * 2, y = Math.round(wt - 13 + i * 0.75 + Math.sin((i / 12) * Math.PI) * 3);
+        px(c, 'stone2', x, y); px(c, 'stone2', x + 1, y);
+        if (i % 2 === 1) { px(c, i % 4 === 1 ? 'plum' : 'gold', x, y + 1); px(c, i % 4 === 1 ? 'plum' : 'gold', x + 1, y + 1); px(c, i % 4 === 1 ? 'plum' : 'gold', x, y + 2); }
+      }
     },
     // ---- added 2026-11-14 (expansion run, viewers' ideas) ----
     // A town hall for the middle of the village: a pale stone hall with tall windows, two white columns by an

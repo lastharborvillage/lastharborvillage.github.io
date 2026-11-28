@@ -472,6 +472,18 @@
       '.kaaaaaaaaaaaak.',
       '..kkkkkkkkkkkk..',
     ] },
+    // added 2026-11-28 (expansion run, for the tournament ground): a closed knight's helm with a visor slit and a plume
+    knighthelm: { y: 1, accent: 'red', rows: [
+      '.......kAk......',
+      '......kAAk......',
+      '.....kkkkkk.....',
+      '....kGGGGGGk....',
+      '....kGGGGGgk....',
+      '....kGGGGGgk....',
+      '....kkkkkkkk....',
+      '....kGjGGjgk....',
+      '....kggggggk....',
+    ] },
   };
 
   // Accessories: layer 'face' is drawn after hair, 'neck' before the beard.
@@ -573,6 +585,15 @@
       '..kAk......kAk..',
       '..kUk......kUk..',
       '..kk........kk..',
+    ] },
+    // added 2026-11-28 (expansion run, for the tournament ground): a round shield on the free arm, gold boss
+    shield: { y: 11, layer: 'face', accent: 'blue', rows: [
+      '.kkkk...........',
+      'kAAAAk..........',
+      'kAUUAk..........',
+      'kAUUAk..........',
+      '.kAAk...........',
+      '..kk............',
     ] },
   };
 
@@ -811,6 +832,16 @@
     goldenrod: { rate: 0.8, bob: false, patron: true, frames: [
       { ax: 0, ay: 5, rows: ['.....Y', '....U.', '...U..', '..U...', '.u....', 'u.....'] },
       { ax: 0, ay: 2, rows: ['....UY', '..UU..', 'uu....'] },
+    ] },
+    // added 2026-11-28 (expansion run, for the tournament ground): a straight sword, raised then thrust
+    sword: { rate: 2.5, bob: true, frames: [
+      { ax: 1, ay: 6, rows: ['.W.', '.G.', '.G.', '.G.', '.G.', 'UUU', '.d.', '.U.'] },
+      { ax: 0, ay: 1, rows: ['.U.....', 'dUGGGGW', '.U.....'] },
+    ] },
+    // added 2026-11-28 (expansion run, Velvette loves chess): a small chessboard with a gold piece that moves
+    chessboard: { rate: 0.6, bob: false, frames: [
+      { ax: 2, ay: 1, rows: ['.U....', 'kkkkkk', 'kWDWDk', 'kDWDWk', 'kkkkkk'] },
+      { ax: 2, ay: 1, rows: ['....U.', 'kkkkkk', 'kWDWDk', 'kDWDWk', 'kkkkkk'] },
     ] },
   };
 
